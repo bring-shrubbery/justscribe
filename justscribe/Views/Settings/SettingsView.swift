@@ -60,8 +60,10 @@ struct SettingsView: View {
             settings = AppSettings.getOrCreate(in: modelContext)
         }
         .sheet(isPresented: $showingModelDownloadModal) {
-            ModelDownloadModal()
-                .frame(minWidth: 500, minHeight: 400)
+            if let settings = settings {
+                ModelDownloadModal(settings: settings)
+                    .frame(minWidth: 500, minHeight: 400)
+            }
         }
     }
 
@@ -136,6 +138,6 @@ struct SettingsRow<Content: View>: View {
 
 #Preview {
     SettingsView()
-        .modelContainer(for: [AppSettings.self, TranscriptionModel.self], inMemory: true)
+        .modelContainer(for: AppSettings.self, inMemory: true)
         .frame(width: 550, height: 800)
 }

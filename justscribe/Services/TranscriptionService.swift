@@ -6,11 +6,9 @@
 //
 
 import Foundation
-import Combine
+import WhisperKit
 
-// Note: This service will use WhisperKit once added via SPM.
-// For now, this is a placeholder implementation.
-
+@MainActor
 @Observable
 final class TranscriptionService {
     static let shared = TranscriptionService()
@@ -19,6 +17,8 @@ final class TranscriptionService {
     private(set) var currentTranscription: String = ""
     private(set) var isModelLoaded = false
     private(set) var loadedModelID: String?
+
+    private var whisperKit: WhisperKit?
 
     var onTranscriptionUpdate: ((String) -> Void)?
     var onTranscriptionComplete: ((String) -> Void)?
@@ -54,18 +54,34 @@ final class TranscriptionService {
     func loadModel(id: String, from path: URL) async throws {
         state = .loadingModel
 
-        // Will be implemented with WhisperKit
-        // let whisper = try await WhisperKit(modelFolder: path.path)
+        do {
+            whisperKit = try await WhisperKit(modelFolder: path.path)
+            loadedModelID = id
+            isModelLoaded = true
+            state = .idle
+        } catch {
+            state = .error("Failed to load model: \(error.localizedDescription)")
+            throw TranscriptionError.modelLoadFailed(underlying: error)
+        }
+    }
 
-        // Simulate model loading
-        try await Task.sleep(for: .seconds(1))
+    func loadModel(variant: String) async throws {
+        state = .loadingModel
 
-        loadedModelID = id
-        isModelLoaded = true
-        state = .idle
+        do {
+            // WhisperKit can download and load models automatically
+            whisperKit = try await WhisperKit(model: variant)
+            loadedModelID = variant
+            isModelLoaded = true
+            state = .idle
+        } catch {
+            state = .error("Failed to load model: \(error.localizedDescription)")
+            throw TranscriptionError.modelLoadFailed(underlying: error)
+        }
     }
 
     func unloadModel() {
+        whisperKit = nil
         isModelLoaded = false
         loadedModelID = nil
         state = .idle
@@ -88,15 +104,14 @@ final class TranscriptionService {
 
         state = .processing
 
-        // Will be implemented with WhisperKit
-        // Process the audio buffer from AudioCaptureService
-        _ = AudioCaptureService.shared.getAudioBuffer()
+        let audioBuffer = AudioCaptureService.shared.getAudioBuffer()
 
-        // Simulate processing
-        try? await Task.sleep(for: .seconds(1))
-
-        // Mock transcription result
-        currentTranscription = "This is a test transcription."
+        do {
+            currentTranscription = try await processAudioBuffer(audioBuffer)
+        } catch {
+            state = .error(error.localizedDescription)
+            return ""
+        }
 
         state = .completed
         onTranscriptionComplete?(currentTranscription)
@@ -110,33 +125,52 @@ final class TranscriptionService {
     }
 
     func processAudioBuffer(_ buffer: [Float]) async throws -> String {
-        guard isModelLoaded else {
+        guard let whisperKit = whisperKit else {
             throw TranscriptionError.modelNotLoaded
         }
 
         state = .processing
 
-        // Will be implemented with WhisperKit
-        // let result = try await whisper.transcribe(audioArray: buffer)
+        do {
+            let results = try await whisperKit.transcribe(audioArray: buffer)
+            let transcription = results.map { $0.text }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Simulate transcription
-        try await Task.sleep(for: .milliseconds(500))
+            currentTranscription = transcription
+            state = .completed
 
-        let result = "Transcribed text would appear here."
-        currentTranscription = result
+            return transcription
+        } catch {
+            state = .error("Transcription failed: \(error.localizedDescription)")
+            throw TranscriptionError.transcriptionFailed(underlying: error)
+        }
+    }
 
-        state = .completed
-        return result
+    // MARK: - Model Info
+
+    static func availableModels() -> [String] {
+        WhisperKit.recommendedModels().supported
+    }
+
+    static func modelDirectory() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let modelsDir = appSupport.appendingPathComponent("JustScribe/Models", isDirectory: true)
+
+        try? FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true)
+
+        return modelsDir
     }
 
     enum TranscriptionError: LocalizedError {
         case modelNotLoaded
+        case modelLoadFailed(underlying: Error)
         case transcriptionFailed(underlying: Error?)
 
         var errorDescription: String? {
             switch self {
             case .modelNotLoaded:
                 return "No transcription model is loaded. Please download and select a model."
+            case .modelLoadFailed(let error):
+                return "Failed to load model: \(error.localizedDescription)"
             case .transcriptionFailed(let error):
                 return "Transcription failed: \(error?.localizedDescription ?? "Unknown error")"
             }

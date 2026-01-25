@@ -6,74 +6,95 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ModelSettingsSection: View {
     @Bindable var settings: AppSettings
     @Binding var showingModelDownloadModal: Bool
 
-    @Query private var downloadedModels: [TranscriptionModel]
+    private var downloadService: ModelDownloadService { ModelDownloadService.shared }
+    private var transcriptionService: TranscriptionService { TranscriptionService.shared }
 
-    private var availableModels: [TranscriptionModel] {
-        downloadedModels.filter { $0.isDownloaded }
+    private var hasDownloadedModels: Bool {
+        !downloadService.downloadedModels.isEmpty
     }
 
-    private var selectedModel: TranscriptionModel? {
-        downloadedModels.first { $0.id == settings.selectedModelID }
+    private var isSelectedModelDownloaded: Bool {
+        downloadService.isModelDownloaded(settings.selectedModelID)
     }
 
     var body: some View {
         SettingsSectionContainer(title: "Transcription Model") {
-            HStack(spacing: 12) {
-                Picker("Model", selection: $settings.selectedModelID) {
-                    if availableModels.isEmpty {
-                        Text("No models downloaded").tag("")
-                    } else {
-                        ForEach(availableModels) { model in
-                            HStack {
-                                Text(model.name)
-                                if model.isRecommended {
-                                    Text("Recommended")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    if hasDownloadedModels {
+                        Picker("Model", selection: $settings.selectedModelID) {
+                            ForEach(downloadService.downloadedModels, id: \.self) { variant in
+                                Text(displayName(for: variant))
+                                    .tag(variant)
                             }
-                            .tag(model.id)
                         }
+                        .labelsHidden()
+                        .onChange(of: settings.selectedModelID) { _, newValue in
+                            loadSelectedModel(newValue)
+                        }
+                    } else {
+                        Text("No models downloaded")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        showingModelDownloadModal = true
+                    } label: {
+                        Label("More Models", systemImage: "arrow.down.circle")
                     }
                 }
-                .labelsHidden()
 
-                Button {
-                    showingModelDownloadModal = true
-                } label: {
-                    Label("More Models", systemImage: "arrow.down.circle")
+                // Model status
+                if transcriptionService.isModelLoaded {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Model loaded and ready")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if transcriptionService.state == .loadingModel {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                        Text("Loading model...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if !settings.selectedModelID.isEmpty && isSelectedModelDownloaded {
+                    Button {
+                        loadSelectedModel(settings.selectedModelID)
+                    } label: {
+                        Label("Load Model", systemImage: "arrow.clockwise")
+                            .font(.caption)
+                    }
                 }
-            }
-
-            if let model = selectedModel {
-                HStack(spacing: 16) {
-                    modelInfoBadge(title: "Accuracy", value: model.accuracy.displayName)
-                    modelInfoBadge(title: "Speed", value: model.speed.displayName)
-                    modelInfoBadge(title: "Size", value: model.formattedSize)
-                }
-                .padding(.top, 4)
             }
         }
     }
 
-    private func modelInfoBadge(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.caption)
-                .fontWeight(.medium)
+    private func displayName(for variant: String) -> String {
+        variant
+            .replacingOccurrences(of: "openai_whisper-", with: "")
+            .replacingOccurrences(of: "whisper-", with: "")
+            .replacingOccurrences(of: "-en", with: " (English)")
+            .capitalized
+    }
+
+    private func loadSelectedModel(_ variant: String) {
+        guard !variant.isEmpty else { return }
+
+        Task {
+            do {
+                try await transcriptionService.loadModel(variant: variant)
+            } catch {
+                print("Failed to load model: \(error.localizedDescription)")
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }

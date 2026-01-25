@@ -7,7 +7,7 @@
 
 import Foundation
 import AVFoundation
-import Combine
+import Accelerate
 
 @Observable
 final class AudioCaptureService: NSObject {
@@ -17,10 +17,16 @@ final class AudioCaptureService: NSObject {
     private(set) var currentAudioLevel: Float = 0
     private(set) var availableDevices: [MicrophoneDevice] = []
     private(set) var selectedDevice: MicrophoneDevice?
+    private(set) var recordingDuration: TimeInterval = 0
 
     private var captureSession: AVCaptureSession?
     private var audioOutput: AVCaptureAudioDataOutput?
     private var audioBuffer: [Float] = []
+    private var inputSampleRate: Double = 44100
+    private var recordingStartTime: Date?
+
+    // WhisperKit expects 16kHz audio
+    private let targetSampleRate: Double = 16000
 
     var onAudioBuffer: (([Float]) -> Void)?
 
@@ -107,6 +113,8 @@ final class AudioCaptureService: NSObject {
             captureSession?.commitConfiguration()
             captureSession?.startRunning()
 
+            audioBuffer.removeAll()
+            recordingStartTime = Date()
             isRecording = true
         } catch {
             print("Failed to start recording: \(error)")
@@ -122,25 +130,67 @@ final class AudioCaptureService: NSObject {
         audioOutput = nil
         isRecording = false
         currentAudioLevel = 0
-        audioBuffer.removeAll()
+        recordingDuration = Date().timeIntervalSince(recordingStartTime ?? Date())
+        recordingStartTime = nil
     }
 
     func getAudioBuffer() -> [Float] {
+        // Resample to 16kHz if needed
+        if inputSampleRate != targetSampleRate {
+            return resample(audioBuffer, from: inputSampleRate, to: targetSampleRate)
+        }
         return audioBuffer
     }
 
     func clearBuffer() {
         audioBuffer.removeAll()
+        recordingDuration = 0
+    }
+
+    // MARK: - Resampling
+
+    private func resample(_ samples: [Float], from inputRate: Double, to outputRate: Double) -> [Float] {
+        let ratio = outputRate / inputRate
+        let outputLength = Int(Double(samples.count) * ratio)
+
+        guard outputLength > 0 else { return [] }
+
+        var output = [Float](repeating: 0, count: outputLength)
+
+        // Simple linear interpolation resampling
+        for i in 0..<outputLength {
+            let srcIndex = Double(i) / ratio
+            let srcIndexInt = Int(srcIndex)
+            let fraction = Float(srcIndex - Double(srcIndexInt))
+
+            if srcIndexInt + 1 < samples.count {
+                output[i] = samples[srcIndexInt] * (1 - fraction) + samples[srcIndexInt + 1] * fraction
+            } else if srcIndexInt < samples.count {
+                output[i] = samples[srcIndexInt]
+            }
+        }
+
+        return output
     }
 }
 
 #if os(macOS)
 extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
-    func captureOutput(
+    nonisolated func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
+        // Get the format description to determine sample rate
+        if let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer) {
+            let audioStreamBasicDesc = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)
+            if let sampleRate = audioStreamBasicDesc?.pointee.mSampleRate {
+                DispatchQueue.main.async {
+                    self.inputSampleRate = sampleRate
+                }
+            }
+        }
+
         guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return }
 
         var length = 0
@@ -160,17 +210,22 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
         }
 
         // Calculate audio level
-        let rms = sqrt(floatSamples.map { $0 * $0 }.reduce(0, +) / Float(sampleCount))
+        let rms = sqrt(floatSamples.map { $0 * $0 }.reduce(0, +) / Float(max(sampleCount, 1)))
         let level = 20 * log10(max(rms, 0.0001))
         let normalizedLevel = max(0, min(1, (level + 60) / 60))
 
         DispatchQueue.main.async {
             self.currentAudioLevel = normalizedLevel
-        }
 
-        // Append to buffer
-        audioBuffer.append(contentsOf: floatSamples)
-        onAudioBuffer?(floatSamples)
+            // Update recording duration
+            if let startTime = self.recordingStartTime {
+                self.recordingDuration = Date().timeIntervalSince(startTime)
+            }
+
+            // Append to buffer
+            self.audioBuffer.append(contentsOf: floatSamples)
+            self.onAudioBuffer?(floatSamples)
+        }
     }
 }
 #endif

@@ -6,15 +6,15 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ModelDownloadModal: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query private var models: [TranscriptionModel]
+    @Bindable var settings: AppSettings
 
-    @State private var downloadingModelID: String?
-    @State private var downloadProgress: Double = 0
+    @State private var availableModels: [ModelDownloadService.WhisperModelInfo] = []
+    @State private var isLoading = true
+
+    private var downloadService: ModelDownloadService { ModelDownloadService.shared }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -46,19 +46,33 @@ struct ModelDownloadModal: View {
             Divider()
 
             // Model List
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(sortedModels) { model in
-                        ModelDownloadRow(
-                            model: model,
-                            isDownloading: downloadingModelID == model.id,
-                            downloadProgress: downloadingModelID == model.id ? downloadProgress : 0,
-                            onDownload: { startDownload(model) },
-                            onDelete: { deleteModel(model) }
-                        )
-                    }
+            if isLoading {
+                VStack {
+                    ProgressView()
+                    Text("Loading available models...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
                 }
-                .padding(20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(sortedModels) { model in
+                            WhisperModelRow(
+                                model: model,
+                                isDownloaded: downloadService.isModelDownloaded(model.variant),
+                                isDownloading: downloadService.activeDownloads[model.variant] != nil,
+                                downloadProgress: downloadService.progress(for: model.variant),
+                                onDownload: { startDownload(model) },
+                                onDelete: { deleteModel(model) },
+                                onSelect: { selectModel(model) },
+                                isSelected: settings.selectedModelID == model.variant
+                            )
+                        }
+                    }
+                    .padding(20)
+                }
             }
 
             Divider()
@@ -78,93 +92,70 @@ struct ModelDownloadModal: View {
             }
             .padding(20)
         }
-        .onAppear {
-            ensureModelsExist()
+        .task {
+            await loadModels()
         }
     }
 
-    private var sortedModels: [TranscriptionModel] {
-        models.sorted { model1, model2 in
-            // Sort by: downloaded first, then recommended, then by size
-            if model1.isDownloaded != model2.isDownloaded {
-                return model1.isDownloaded
+    private var sortedModels: [ModelDownloadService.WhisperModelInfo] {
+        availableModels.sorted { model1, model2 in
+            let downloaded1 = downloadService.isModelDownloaded(model1.variant)
+            let downloaded2 = downloadService.isModelDownloaded(model2.variant)
+
+            if downloaded1 != downloaded2 {
+                return downloaded1
             }
             if model1.isRecommended != model2.isRecommended {
                 return model1.isRecommended
             }
-            return model1.size < model2.size
+            return model1.variant < model2.variant
         }
     }
 
-    private func ensureModelsExist() {
-        // Create model entries if they don't exist
-        for modelInfo in TranscriptionModel.availableModels {
-            let existingModels = models.filter { $0.id == modelInfo.id }
-            if existingModels.isEmpty {
-                let model = TranscriptionModel(
-                    id: modelInfo.id,
-                    name: modelInfo.name,
-                    description: modelInfo.description,
-                    size: modelInfo.size,
-                    downloadURL: URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(modelInfo.id).bin")!,
-                    accuracy: modelInfo.accuracy,
-                    speed: modelInfo.speed,
-                    isRecommended: modelInfo.recommended
-                )
-                modelContext.insert(model)
-            }
-        }
+    private func loadModels() async {
+        isLoading = true
+        availableModels = await downloadService.fetchAvailableModels()
+        isLoading = false
     }
 
-    private func startDownload(_ model: TranscriptionModel) {
-        downloadingModelID = model.id
-        downloadProgress = 0
-
-        // Simulate download progress for now
-        // Will be replaced with actual ModelDownloadService
+    private func startDownload(_ model: ModelDownloadService.WhisperModelInfo) {
         Task {
-            for i in 1...100 {
-                try? await Task.sleep(for: .milliseconds(50))
-                await MainActor.run {
-                    downloadProgress = Double(i) / 100.0
-                }
-            }
-
-            await MainActor.run {
-                model.isDownloaded = true
-                model.downloadProgress = 1.0
-                model.localPath = Constants.Storage.modelsDirectory.appendingPathComponent("\(model.id).bin")
-                downloadingModelID = nil
+            do {
+                _ = try await downloadService.downloadModel(variant: model.variant)
+            } catch {
+                print("Download failed: \(error.localizedDescription)")
             }
         }
     }
 
-    private func deleteModel(_ model: TranscriptionModel) {
-        // Delete the model file
-        if let path = model.localPath {
-            try? FileManager.default.removeItem(at: path)
+    private func deleteModel(_ model: ModelDownloadService.WhisperModelInfo) {
+        Task {
+            try? await downloadService.deleteModel(variant: model.variant)
         }
+    }
 
-        model.isDownloaded = false
-        model.downloadProgress = 0
-        model.localPath = nil
+    private func selectModel(_ model: ModelDownloadService.WhisperModelInfo) {
+        settings.selectedModelID = model.variant
     }
 }
 
-struct ModelDownloadRow: View {
-    let model: TranscriptionModel
+struct WhisperModelRow: View {
+    let model: ModelDownloadService.WhisperModelInfo
+    let isDownloaded: Bool
     let isDownloading: Bool
     let downloadProgress: Double
     let onDownload: () -> Void
     let onDelete: () -> Void
+    let onSelect: () -> Void
+    let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 16) {
             // Status icon
             ZStack {
-                if model.isDownloaded {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                if isDownloaded {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "checkmark.circle")
+                        .foregroundStyle(isSelected ? Color.accentColor : .green)
                 } else if isDownloading {
                     ProgressView()
                         .scaleEffect(0.8)
@@ -179,7 +170,7 @@ struct ModelDownloadRow: View {
             // Model info
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(model.name)
+                    Text(model.displayName)
                         .font(.headline)
 
                     if model.isRecommended {
@@ -194,15 +185,12 @@ struct ModelDownloadRow: View {
                     }
                 }
 
-                Text(model.modelDescription)
+                Text(model.variant)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
 
                 HStack(spacing: 12) {
-                    Label(model.formattedSize, systemImage: "internaldrive")
-                    Label(model.accuracy.displayName, systemImage: "target")
-                    Label(model.speed.displayName, systemImage: "speedometer")
+                    Label(model.sizeDescription, systemImage: "internaldrive")
                 }
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
@@ -211,19 +199,34 @@ struct ModelDownloadRow: View {
             Spacer()
 
             // Action button
-            if model.isDownloaded {
-                Menu {
-                    Button(role: .destructive) {
-                        onDelete()
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+            if isDownloaded {
+                HStack(spacing: 8) {
+                    if !isSelected {
+                        Button {
+                            onSelect()
+                        } label: {
+                            Text("Select")
+                                .font(.subheadline)
+                        }
+                    } else {
+                        Text("Active")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.title3)
+
+                    Menu {
+                        Button(role: .destructive) {
+                            onDelete()
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .frame(width: 32)
                 }
-                .menuStyle(.borderlessButton)
-                .frame(width: 32)
             } else if isDownloading {
                 VStack(spacing: 4) {
                     Text("\(Int(downloadProgress * 100))%")
@@ -245,11 +248,16 @@ struct ModelDownloadRow: View {
         .padding(16)
         .background(Color(nsColor: .controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+        )
     }
 }
 
 #Preview {
-    ModelDownloadModal()
-        .modelContainer(for: TranscriptionModel.self, inMemory: true)
+    @Previewable @State var settings = AppSettings()
+
+    ModelDownloadModal(settings: settings)
         .frame(width: 550, height: 500)
 }
