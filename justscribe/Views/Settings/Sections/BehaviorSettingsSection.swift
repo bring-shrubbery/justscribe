@@ -6,22 +6,35 @@
 //
 
 import SwiftUI
+import LaunchAtLogin
 
 struct BehaviorSettingsSection: View {
     @Bindable var settings: AppSettings
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         SettingsSectionContainer(title: "Behavior") {
             VStack(spacing: 12) {
-                ToggleSettingsRow(
-                    title: "Launch at Login",
-                    subtitle: "Start JustScribe when you log in",
-                    systemImage: "power",
-                    isOn: $settings.launchAtLogin
-                )
-                .onChange(of: settings.launchAtLogin) { _, newValue in
-                    updateLaunchAtLogin(newValue)
+                // Launch at Login using LaunchAtLogin library
+                HStack(spacing: 12) {
+                    Image(systemName: "power")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Launch at Login")
+                            .font(.body)
+                        Text("Start JustScribe when you log in")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    LaunchAtLogin.Toggle {
+                        EmptyView()
+                    }
+                    .toggleStyle(.switch)
                 }
 
                 Divider()
@@ -70,11 +83,6 @@ struct BehaviorSettingsSection: View {
             .background(Color(nsColor: .controlBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-    }
-
-    private func updateLaunchAtLogin(_ enabled: Bool) {
-        // Will be implemented with LaunchAtLogin library
-        // LaunchAtLogin.isEnabled = enabled
     }
 
     private func updateDockVisibility(_ show: Bool) {

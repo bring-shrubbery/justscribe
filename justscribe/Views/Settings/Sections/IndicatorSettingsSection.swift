@@ -25,11 +25,24 @@ struct IndicatorSettingsSection: View {
                             onSelect: {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     settings.indicatorStyle = style
+                                    // Sync with OverlayManager
+                                    updateOverlayStyle(style)
                                 }
                             }
                         )
                     }
                 }
+            }
+        }
+    }
+
+    private func updateOverlayStyle(_ style: IndicatorStyle) {
+        Task { @MainActor in
+            switch style {
+            case .bubble:
+                OverlayManager.shared.setStyle(.bubble)
+            case .notch:
+                OverlayManager.shared.setStyle(.notch)
             }
         }
     }

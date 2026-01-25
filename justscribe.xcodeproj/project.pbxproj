@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2ADCF7422F268C98008F5AA4 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002012F25000000000001 /* KeyboardShortcuts */; };
+		2ADCF7432F268C98008F5AA4 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002022F25000000000002 /* LaunchAtLogin */; };
+		2ADCF7442F268C98008F5AA4 /* DynamicNotchKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002032F25000000000003 /* DynamicNotchKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		2A2572262F24277A0015D8A4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +58,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2ADCF7442F268C98008F5AA4 /* DynamicNotchKit in Frameworks */,
+				2ADCF7432F268C98008F5AA4 /* LaunchAtLogin in Frameworks */,
+				2ADCF7422F268C98008F5AA4 /* KeyboardShortcuts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +121,9 @@
 			);
 			name = justscribe;
 			packageProductDependencies = (
+				AA0002012F25000000000001 /* KeyboardShortcuts */,
+				AA0002022F25000000000002 /* LaunchAtLogin */,
+				AA0002032F25000000000003 /* DynamicNotchKit */,
 			);
 			productName = justscribe;
 			productReference = 2A2572162F2427780015D8A4 /* justscribe.app */;
@@ -195,6 +207,11 @@
 			);
 			mainGroup = 2A25720D2F2427780015D8A4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA0001012F25000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				AA0001022F25000000000002 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
+				AA0001032F25000000000003 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2A2572172F2427780015D8A4 /* Products */;
 			projectDirPath = "";
@@ -615,6 +632,51 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA0001012F25000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+		AA0001022F25000000000002 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/LaunchAtLogin-Modern";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		AA0001032F25000000000003 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MrKai77/DynamicNotchKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA0002012F25000000000001 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0001012F25000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+		AA0002022F25000000000002 /* LaunchAtLogin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0001022F25000000000002 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */;
+			productName = LaunchAtLogin;
+		};
+		AA0002032F25000000000003 /* DynamicNotchKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0001032F25000000000003 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */;
+			productName = DynamicNotchKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2A25720E2F2427780015D8A4 /* Project object */;
 }
