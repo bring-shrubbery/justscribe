@@ -59,6 +59,8 @@ final class ModelDownloadService {
             throw DownloadError.alreadyDownloading
         }
 
+        print("Starting download for model: \(variant)")
+
         activeDownloads[variant] = DownloadTask(
             modelVariant: variant,
             progress: 0,
@@ -68,25 +70,45 @@ final class ModelDownloadService {
 
         do {
             // Use WhisperKit's built-in download mechanism
+            print("Calling WhisperKit.download for \(variant) from argmaxinc/whisperkit-coreml")
             let modelPath = try await WhisperKit.download(
                 variant: variant,
                 from: "argmaxinc/whisperkit-coreml",
                 progressCallback: { progress in
                     Task { @MainActor in
                         self.activeDownloads[variant]?.progress = progress.fractionCompleted
+                        if Int(progress.fractionCompleted * 100) % 10 == 0 {
+                            print("Download progress for \(variant): \(Int(progress.fractionCompleted * 100))%")
+                        }
                     }
                 }
             )
 
+            print("Download completed for \(variant) at path: \(modelPath)")
+
             activeDownloads[variant]?.progress = 1.0
             activeDownloads[variant]?.isCompleted = true
+
+            // Remove from active downloads after a delay
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                activeDownloads.removeValue(forKey: variant)
+            }
 
             await refreshDownloadedModels()
 
             return modelPath
         } catch {
+            print("Download failed for \(variant): \(error)")
             activeDownloads[variant]?.error = error
             activeDownloads[variant]?.isCompleted = true
+
+            // Remove from active downloads after showing error
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                activeDownloads.removeValue(forKey: variant)
+            }
+
             throw DownloadError.downloadFailed(underlying: error)
         }
     }
@@ -106,12 +128,41 @@ final class ModelDownloadService {
     // MARK: - Model Management
 
     func refreshDownloadedModels() async {
-        do {
-            let localModels = try await WhisperKit.fetchAvailableModels()
-            downloadedModels = localModels
-        } catch {
-            downloadedModels = []
+        // Check the local HuggingFace cache for downloaded models
+        // WhisperKit stores models in ~/Library/Caches/huggingface/hub/
+        let fileManager = FileManager.default
+        var foundModels: [String] = []
+
+        // Check HuggingFace cache directory
+        if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            let hubDir = cacheDir.appendingPathComponent("huggingface/hub")
+
+            // Look for whisperkit-coreml models
+            let repoDir = hubDir.appendingPathComponent("models--argmaxinc--whisperkit-coreml")
+            let snapshotsDir = repoDir.appendingPathComponent("snapshots")
+
+            if let snapshots = try? fileManager.contentsOfDirectory(at: snapshotsDir, includingPropertiesForKeys: nil) {
+                for snapshot in snapshots {
+                    if let contents = try? fileManager.contentsOfDirectory(at: snapshot, includingPropertiesForKeys: nil) {
+                        for item in contents {
+                            let name = item.lastPathComponent
+                            // Model folders contain the model files
+                            if name.contains("whisper") || name.contains("openai") {
+                                // Verify it's a complete model (has required files)
+                                let hasConfig = fileManager.fileExists(atPath: item.appendingPathComponent("config.json").path)
+                                if hasConfig && !foundModels.contains(name) {
+                                    foundModels.append(name)
+                                    print("Found downloaded model: \(name)")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
+
+        downloadedModels = foundModels
+        print("Downloaded models: \(downloadedModels)")
     }
 
     func deleteModel(variant: String) async throws {
