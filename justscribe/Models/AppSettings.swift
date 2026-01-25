@@ -36,8 +36,15 @@ enum AppearanceMode: String, Codable, CaseIterable {
 
 @Model
 final class AppSettings {
-    // Model selection
-    var selectedModelID: String = "whisper-base"
+    // UserDefaults key for cross-component access
+    static let selectedModelIDKey = "selectedModelID"
+
+    // Model selection (synced to UserDefaults for AppDelegate access)
+    var selectedModelID: String = "" {
+        didSet {
+            UserDefaults.standard.set(selectedModelID, forKey: Self.selectedModelIDKey)
+        }
+    }
 
     // Microphone priority (ordered array of device UIDs)
     var microphonePriority: [String] = []
@@ -81,11 +88,17 @@ final class AppSettings {
         let existing = try? context.fetch(descriptor)
 
         if let settings = existing?.first {
+            // Sync to UserDefaults (didSet may not fire on SwiftData load)
+            settings.syncToUserDefaults()
             return settings
         }
 
         let settings = AppSettings()
         context.insert(settings)
         return settings
+    }
+
+    func syncToUserDefaults() {
+        UserDefaults.standard.set(selectedModelID, forKey: Self.selectedModelIDKey)
     }
 }

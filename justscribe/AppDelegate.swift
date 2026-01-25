@@ -15,6 +15,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
         setupHotkey()
+        loadSelectedModel()
+    }
+
+    // MARK: - Model Loading
+
+    private func loadSelectedModel() {
+        guard let modelID = UserDefaults.standard.string(forKey: AppSettings.selectedModelIDKey),
+              !modelID.isEmpty else {
+            print("No model selected, skipping auto-load")
+            return
+        }
+
+        // Check if model is downloaded
+        let downloadService = ModelDownloadService.shared
+        guard downloadService.isModelDownloaded(modelID) else {
+            print("Selected model '\(modelID)' is not downloaded, skipping auto-load")
+            return
+        }
+
+        // Load the model asynchronously
+        Task { @MainActor in
+            do {
+                print("Auto-loading model: \(modelID)")
+                try await TranscriptionService.shared.loadModel(variant: modelID)
+                print("Model loaded successfully")
+            } catch {
+                print("Failed to auto-load model: \(error.localizedDescription)")
+            }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -46,6 +75,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func startRecording() {
+        // Check if model is loaded
+        guard TranscriptionService.shared.isModelLoaded else {
+            OverlayManager.shared.showError(message: "No model loaded. Please download and select a model in Settings.")
+            return
+        }
+
         // Show overlay in listening state
         OverlayManager.shared.showListening()
 
