@@ -11,7 +11,7 @@ struct ModelDownloadModal: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var settings: AppSettings
 
-    @State private var availableModels: [ModelDownloadService.WhisperModelInfo] = []
+    @State private var availableModels: [UnifiedModelInfo] = []
     @State private var isLoading = true
     @State private var downloadError: String?
 
@@ -60,15 +60,15 @@ struct ModelDownloadModal: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(sortedModels) { model in
-                            WhisperModelRow(
+                            UnifiedModelRow(
                                 model: model,
-                                isDownloaded: downloadService.isModelDownloaded(model.variant),
-                                isDownloading: downloadService.activeDownloads[model.variant] != nil,
-                                downloadProgress: downloadService.progress(for: model.variant),
+                                isDownloaded: downloadService.isModelDownloaded(model.id),
+                                isDownloading: downloadService.activeDownloads[model.id] != nil,
+                                downloadProgress: downloadService.progress(for: model.id),
                                 onDownload: { startDownload(model) },
                                 onDelete: { deleteModel(model) },
                                 onSelect: { selectModel(model) },
-                                isSelected: settings.selectedModelID == model.variant
+                                isSelected: settings.selectedModelID == model.id
                             )
                         }
                     }
@@ -120,41 +120,47 @@ struct ModelDownloadModal: View {
         }
     }
 
-    private var sortedModels: [ModelDownloadService.WhisperModelInfo] {
+    private var sortedModels: [UnifiedModelInfo] {
         availableModels.sorted { model1, model2 in
-            let downloaded1 = downloadService.isModelDownloaded(model1.variant)
-            let downloaded2 = downloadService.isModelDownloaded(model2.variant)
+            let downloaded1 = downloadService.isModelDownloaded(model1.id)
+            let downloaded2 = downloadService.isModelDownloaded(model2.id)
 
+            // Downloaded models first
             if downloaded1 != downloaded2 {
                 return downloaded1
             }
+            // Recommended models next
             if model1.isRecommended != model2.isRecommended {
                 return model1.isRecommended
             }
-            return model1.variant < model2.variant
+            // Then by provider (Parakeet first)
+            if model1.provider != model2.provider {
+                return model1.provider == .fluidAudio
+            }
+            return model1.displayName < model2.displayName
         }
     }
 
     private func loadModels() async {
         isLoading = true
         availableModels = await downloadService.fetchAvailableModels()
+        await downloadService.refreshDownloadedModels()
         isLoading = false
     }
 
-    private func startDownload(_ model: ModelDownloadService.WhisperModelInfo) {
+    private func startDownload(_ model: UnifiedModelInfo) {
         downloadError = nil
         Task {
             do {
-                _ = try await downloadService.downloadModel(variant: model.variant)
+                try await downloadService.downloadModel(modelID: model.id)
             } catch {
                 let errorMessage = error.localizedDescription
                 print("Download failed: \(errorMessage)")
 
-                // Provide more helpful error messages for common issues
                 if errorMessage.contains("hostname could not be found") ||
                    errorMessage.contains("network connection was lost") ||
                    errorMessage.contains("Internet connection appears to be offline") {
-                    downloadError = "Network error: Unable to reach HuggingFace servers. Please check your internet connection and VPN settings."
+                    downloadError = "Network error: Unable to reach servers. Please check your internet connection and VPN settings."
                 } else {
                     downloadError = "Download failed: \(errorMessage)"
                 }
@@ -162,19 +168,19 @@ struct ModelDownloadModal: View {
         }
     }
 
-    private func deleteModel(_ model: ModelDownloadService.WhisperModelInfo) {
+    private func deleteModel(_ model: UnifiedModelInfo) {
         Task {
-            try? await downloadService.deleteModel(variant: model.variant)
+            try? await downloadService.deleteModel(modelID: model.id)
         }
     }
 
-    private func selectModel(_ model: ModelDownloadService.WhisperModelInfo) {
-        settings.selectedModelID = model.variant
+    private func selectModel(_ model: UnifiedModelInfo) {
+        settings.selectedModelID = model.id
     }
 }
 
-struct WhisperModelRow: View {
-    let model: ModelDownloadService.WhisperModelInfo
+struct UnifiedModelRow: View {
+    let model: UnifiedModelInfo
     let isDownloaded: Bool
     let isDownloading: Bool
     let downloadProgress: Double
@@ -217,14 +223,25 @@ struct WhisperModelRow: View {
                             .foregroundStyle(Color.accentColor)
                             .clipShape(Capsule())
                     }
-                }
 
-                Text(model.variant)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    // Provider badge
+                    Text(model.provider.displayName)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.15))
+                        .foregroundStyle(.secondary)
+                        .clipShape(Capsule())
+                }
 
                 HStack(spacing: 12) {
                     Label(model.sizeDescription, systemImage: "internaldrive")
+
+                    if case .englishOnly = model.languageSupport {
+                        Label("English", systemImage: "globe")
+                    } else {
+                        Label("Multilingual", systemImage: "globe")
+                    }
                 }
                 .font(.caption2)
                 .foregroundStyle(.tertiary)

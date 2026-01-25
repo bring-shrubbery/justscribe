@@ -15,7 +15,7 @@ struct OnboardingView: View {
     @State private var isDownloading = false
     @State private var downloadProgress: Double = 0
     @State private var downloadError: String?
-    @State private var selectedModel: ModelDownloadService.WhisperModelInfo?
+    @State private var selectedModel: UnifiedModelInfo?
 
     private var downloadService: ModelDownloadService { ModelDownloadService.shared }
 
@@ -111,7 +111,7 @@ struct OnboardingView: View {
                     ForEach(recommendedModels) { model in
                         ModelSelectionRow(
                             model: model,
-                            isSelected: selectedModel?.variant == model.variant,
+                            isSelected: selectedModel?.id == model.id,
                             onSelect: { selectedModel = model }
                         )
                     }
@@ -156,11 +156,35 @@ struct OnboardingView: View {
         }
     }
 
-    private var recommendedModels: [ModelDownloadService.WhisperModelInfo] {
+    private var recommendedModels: [UnifiedModelInfo] {
         [
-            .init(variant: "openai_whisper-tiny", displayName: "Tiny", sizeDescription: "~75 MB", isRecommended: false),
-            .init(variant: "openai_whisper-base", displayName: "Base", sizeDescription: "~142 MB", isRecommended: true),
-            .init(variant: "openai_whisper-small", displayName: "Small", sizeDescription: "~466 MB", isRecommended: false),
+            // Parakeet English is recommended for best quality and speed
+            UnifiedModelInfo(
+                provider: .fluidAudio,
+                variant: "v2",
+                displayName: "Parakeet English",
+                sizeDescription: "~200 MB",
+                isRecommended: true,
+                languageSupport: .englishOnly
+            ),
+            // Parakeet Multilingual for non-English
+            UnifiedModelInfo(
+                provider: .fluidAudio,
+                variant: "v3",
+                displayName: "Parakeet Multilingual",
+                sizeDescription: "~250 MB",
+                isRecommended: false,
+                languageSupport: .multilingual
+            ),
+            // Whisper Base as fallback option
+            UnifiedModelInfo(
+                provider: .whisperKit,
+                variant: "openai_whisper-base",
+                displayName: "Whisper Base",
+                sizeDescription: "~142 MB",
+                isRecommended: false,
+                languageSupport: .multilingual
+            ),
         ]
     }
 
@@ -248,19 +272,19 @@ struct OnboardingView: View {
 
         Task {
             do {
-                _ = try await downloadService.downloadModel(variant: model.variant)
+                try await downloadService.downloadModel(modelID: model.id)
 
                 // Update progress periodically
-                while downloadService.activeDownloads[model.variant] != nil {
-                    downloadProgress = downloadService.progress(for: model.variant)
+                while downloadService.activeDownloads[model.id] != nil {
+                    downloadProgress = downloadService.progress(for: model.id)
                     try? await Task.sleep(for: .milliseconds(100))
                 }
 
                 // Set as selected model
-                settings.selectedModelID = model.variant
+                settings.selectedModelID = model.id
 
                 // Load the model
-                try? await TranscriptionService.shared.loadModel(variant: model.variant)
+                try? await TranscriptionService.shared.loadModel(unifiedID: model.id)
 
                 withAnimation {
                     currentStep = .complete
@@ -278,7 +302,7 @@ struct OnboardingView: View {
 }
 
 struct ModelSelectionRow: View {
-    let model: ModelDownloadService.WhisperModelInfo
+    let model: UnifiedModelInfo
     let isSelected: Bool
     let onSelect: () -> Void
 
@@ -306,11 +330,28 @@ struct ModelSelectionRow: View {
                                 .foregroundStyle(Color.accentColor)
                                 .clipShape(Capsule())
                         }
+
+                        // Provider badge
+                        Text(model.provider.displayName)
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.15))
+                            .foregroundStyle(.secondary)
+                            .clipShape(Capsule())
                     }
 
-                    Text(model.sizeDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Text(model.sizeDescription)
+                        Text("•")
+                        if case .englishOnly = model.languageSupport {
+                            Text("English only")
+                        } else {
+                            Text("Multilingual")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
 
                 Spacer()

@@ -7,6 +7,7 @@
 
 import Foundation
 import WhisperKit
+import FluidAudio
 
 @MainActor
 @Observable
@@ -14,10 +15,10 @@ final class ModelDownloadService {
     static let shared = ModelDownloadService()
 
     private(set) var activeDownloads: [String: DownloadTask] = [:]
-    private(set) var downloadedModels: [String] = []
+    private(set) var downloadedModels: Set<String> = []
 
     struct DownloadTask: Sendable {
-        let modelVariant: String
+        let modelID: String
         var progress: Double
         var error: Error?
         var isCompleted: Bool
@@ -31,109 +32,119 @@ final class ModelDownloadService {
 
     // MARK: - Model Discovery
 
-    func fetchAvailableModels() async -> [WhisperModelInfo] {
-        // Try to get recommended models from WhisperKit
-        let recommended = WhisperKit.recommendedModels()
-
-        // If we got models from the API, use them
-        if !recommended.supported.isEmpty {
-            return recommended.supported.map { variant in
-                WhisperModelInfo(
-                    variant: variant,
-                    displayName: displayName(for: variant),
-                    sizeDescription: sizeDescription(for: variant),
-                    isRecommended: recommended.default == variant
-                )
-            }
-        }
-
-        // Fallback to default models if network is unavailable
-        print("Using fallback model list (network unavailable)")
-        return defaultModels()
+    func fetchAvailableModels() async -> [UnifiedModelInfo] {
+        // Return all available models from both providers
+        return UnifiedModelInfo.allModels
     }
 
     // MARK: - Model Download
 
-    func downloadModel(variant: String) async throws -> URL {
-        guard activeDownloads[variant] == nil else {
+    func downloadModel(modelID: String) async throws {
+        guard activeDownloads[modelID] == nil else {
             throw DownloadError.alreadyDownloading
         }
 
-        print("Starting download for model: \(variant)")
+        guard let modelInfo = UnifiedModelInfo.model(forID: modelID) else {
+            throw DownloadError.modelNotFound
+        }
 
-        activeDownloads[variant] = DownloadTask(
-            modelVariant: variant,
+        print("Starting download for model: \(modelID)")
+
+        activeDownloads[modelID] = DownloadTask(
+            modelID: modelID,
             progress: 0,
             error: nil,
             isCompleted: false
         )
 
         do {
-            // Use WhisperKit's built-in download mechanism
-            print("Calling WhisperKit.download for \(variant) from argmaxinc/whisperkit-coreml")
-            let modelPath = try await WhisperKit.download(
-                variant: variant,
-                from: "argmaxinc/whisperkit-coreml",
-                progressCallback: { progress in
-                    Task { @MainActor in
-                        self.activeDownloads[variant]?.progress = progress.fractionCompleted
-                        if Int(progress.fractionCompleted * 100) % 10 == 0 {
-                            print("Download progress for \(variant): \(Int(progress.fractionCompleted * 100))%")
-                        }
-                    }
-                }
-            )
+            switch modelInfo.provider {
+            case .whisperKit:
+                try await downloadWhisperModel(variant: modelInfo.variant, modelID: modelID)
+            case .fluidAudio:
+                try await downloadFluidAudioModel(variant: modelInfo.variant, modelID: modelID)
+            }
 
-            print("Download completed for \(variant) at path: \(modelPath)")
+            print("Download completed for \(modelID)")
 
-            activeDownloads[variant]?.progress = 1.0
-            activeDownloads[variant]?.isCompleted = true
+            activeDownloads[modelID]?.progress = 1.0
+            activeDownloads[modelID]?.isCompleted = true
+
+            // Add to downloaded models
+            downloadedModels.insert(modelID)
 
             // Remove from active downloads after a delay
             Task {
                 try? await Task.sleep(for: .seconds(2))
-                activeDownloads.removeValue(forKey: variant)
+                activeDownloads.removeValue(forKey: modelID)
             }
 
-            await refreshDownloadedModels()
-
-            return modelPath
         } catch {
-            print("Download failed for \(variant): \(error)")
-            activeDownloads[variant]?.error = error
-            activeDownloads[variant]?.isCompleted = true
+            print("Download failed for \(modelID): \(error)")
+            activeDownloads[modelID]?.error = error
+            activeDownloads[modelID]?.isCompleted = true
 
             // Remove from active downloads after showing error
             Task {
                 try? await Task.sleep(for: .seconds(3))
-                activeDownloads.removeValue(forKey: variant)
+                activeDownloads.removeValue(forKey: modelID)
             }
 
             throw DownloadError.downloadFailed(underlying: error)
         }
     }
 
-    func cancelDownload(variant: String) {
-        activeDownloads.removeValue(forKey: variant)
+    private func downloadWhisperModel(variant: String, modelID: String) async throws {
+        print("Calling WhisperKit.download for \(variant) from argmaxinc/whisperkit-coreml")
+        _ = try await WhisperKit.download(
+            variant: variant,
+            from: "argmaxinc/whisperkit-coreml",
+            progressCallback: { progress in
+                Task { @MainActor in
+                    self.activeDownloads[modelID]?.progress = progress.fractionCompleted
+                    if Int(progress.fractionCompleted * 100) % 10 == 0 {
+                        print("Download progress for \(variant): \(Int(progress.fractionCompleted * 100))%")
+                    }
+                }
+            }
+        )
     }
 
-    func isModelDownloaded(_ variant: String) -> Bool {
-        downloadedModels.contains(variant)
+    private func downloadFluidAudioModel(variant: String, modelID: String) async throws {
+        print("Downloading FluidAudio model: \(variant)")
+
+        // FluidAudio downloads automatically when loading
+        // We'll do a "pre-download" by loading and then discarding
+        let version: AsrModelVersion = variant == "v2" ? .v2 : .v3
+
+        // Update progress manually since FluidAudio doesn't provide progress callbacks
+        activeDownloads[modelID]?.progress = 0.1
+
+        _ = try await AsrModels.downloadAndLoad(version: version)
+
+        activeDownloads[modelID]?.progress = 1.0
+        print("FluidAudio model downloaded: \(variant)")
     }
 
-    func progress(for variant: String) -> Double {
-        activeDownloads[variant]?.progress ?? 0
+    func cancelDownload(modelID: String) {
+        activeDownloads.removeValue(forKey: modelID)
+    }
+
+    func isModelDownloaded(_ modelID: String) -> Bool {
+        downloadedModels.contains(modelID)
+    }
+
+    func progress(for modelID: String) -> Double {
+        activeDownloads[modelID]?.progress ?? 0
     }
 
     // MARK: - Model Management
 
     func refreshDownloadedModels() async {
-        // Check the local HuggingFace cache for downloaded models
-        // WhisperKit stores models in ~/Library/Caches/huggingface/hub/
         let fileManager = FileManager.default
-        var foundModels: [String] = []
+        var foundModels: Set<String> = []
 
-        // Check HuggingFace cache directory
+        // Check WhisperKit models in HuggingFace cache
         if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
             let hubDir = cacheDir.appendingPathComponent("huggingface/hub")
 
@@ -146,18 +157,31 @@ final class ModelDownloadService {
                     if let contents = try? fileManager.contentsOfDirectory(at: snapshot, includingPropertiesForKeys: nil) {
                         for item in contents {
                             let name = item.lastPathComponent
-                            // Model folders contain the model files
                             if name.contains("whisper") || name.contains("openai") {
-                                // Verify it's a complete model (has required files)
                                 let hasConfig = fileManager.fileExists(atPath: item.appendingPathComponent("config.json").path)
-                                if hasConfig && !foundModels.contains(name) {
-                                    foundModels.append(name)
-                                    print("Found downloaded model: \(name)")
+                                if hasConfig {
+                                    let modelID = "whisperkit:\(name)"
+                                    foundModels.insert(modelID)
+                                    print("Found WhisperKit model: \(modelID)")
                                 }
                             }
                         }
                     }
                 }
+            }
+
+            // Look for FluidAudio/Parakeet models
+            let fluidRepoV2 = hubDir.appendingPathComponent("models--FluidInference--parakeet-tdt-0.6b-v2")
+            let fluidRepoV3 = hubDir.appendingPathComponent("models--FluidInference--parakeet-tdt-0.6b-v3")
+
+            if fileManager.fileExists(atPath: fluidRepoV2.appendingPathComponent("snapshots").path) {
+                foundModels.insert("fluidaudio:v2")
+                print("Found FluidAudio model: fluidaudio:v2")
+            }
+
+            if fileManager.fileExists(atPath: fluidRepoV3.appendingPathComponent("snapshots").path) {
+                foundModels.insert("fluidaudio:v3")
+                print("Found FluidAudio model: fluidaudio:v3")
             }
         }
 
@@ -165,58 +189,39 @@ final class ModelDownloadService {
         print("Downloaded models: \(downloadedModels)")
     }
 
-    func deleteModel(variant: String) async throws {
-        let modelsDir = TranscriptionService.modelDirectory()
-        let modelPath = modelsDir.appendingPathComponent(variant)
-
-        if FileManager.default.fileExists(atPath: modelPath.path) {
-            try FileManager.default.removeItem(at: modelPath)
+    func deleteModel(modelID: String) async throws {
+        guard let modelInfo = UnifiedModelInfo.model(forID: modelID) else {
+            throw DownloadError.modelNotFound
         }
 
+        let fileManager = FileManager.default
+
+        if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            let hubDir = cacheDir.appendingPathComponent("huggingface/hub")
+
+            switch modelInfo.provider {
+            case .whisperKit:
+                // WhisperKit models are in a shared repo, so we can't easily delete individual models
+                // For now, we'll just remove from our tracked list
+                break
+
+            case .fluidAudio:
+                let repoName = modelInfo.variant == "v2"
+                    ? "models--FluidInference--parakeet-tdt-0.6b-v2"
+                    : "models--FluidInference--parakeet-tdt-0.6b-v3"
+                let repoDir = hubDir.appendingPathComponent(repoName)
+
+                if fileManager.fileExists(atPath: repoDir.path) {
+                    try fileManager.removeItem(at: repoDir)
+                }
+            }
+        }
+
+        downloadedModels.remove(modelID)
         await refreshDownloadedModels()
     }
 
-    // MARK: - Helpers
-
-    private func displayName(for variant: String) -> String {
-        // Convert variant like "openai_whisper-base" to "Base"
-        let name = variant
-            .replacingOccurrences(of: "openai_whisper-", with: "")
-            .replacingOccurrences(of: "whisper-", with: "")
-            .replacingOccurrences(of: "-en", with: " (English)")
-            .capitalized
-
-        return name
-    }
-
-    private func sizeDescription(for variant: String) -> String {
-        if variant.contains("tiny") { return "~75 MB" }
-        if variant.contains("base") { return "~142 MB" }
-        if variant.contains("small") { return "~466 MB" }
-        if variant.contains("medium") { return "~1.5 GB" }
-        if variant.contains("large") { return "~3 GB" }
-        return "Unknown size"
-    }
-
-    private func defaultModels() -> [WhisperModelInfo] {
-        [
-            WhisperModelInfo(variant: "openai_whisper-tiny", displayName: "Tiny", sizeDescription: "~75 MB", isRecommended: false),
-            WhisperModelInfo(variant: "openai_whisper-base", displayName: "Base", sizeDescription: "~142 MB", isRecommended: true),
-            WhisperModelInfo(variant: "openai_whisper-small", displayName: "Small", sizeDescription: "~466 MB", isRecommended: false),
-            WhisperModelInfo(variant: "openai_whisper-medium", displayName: "Medium", sizeDescription: "~1.5 GB", isRecommended: false),
-            WhisperModelInfo(variant: "openai_whisper-large-v3", displayName: "Large v3", sizeDescription: "~3 GB", isRecommended: false),
-        ]
-    }
-
     // MARK: - Types
-
-    struct WhisperModelInfo: Identifiable, Sendable {
-        var id: String { variant }
-        let variant: String
-        let displayName: String
-        let sizeDescription: String
-        let isRecommended: Bool
-    }
 
     enum DownloadError: LocalizedError {
         case alreadyDownloading

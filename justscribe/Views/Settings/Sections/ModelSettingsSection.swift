@@ -22,15 +22,21 @@ struct ModelSettingsSection: View {
         downloadService.isModelDownloaded(settings.selectedModelID)
     }
 
+    private var downloadedModelsList: [UnifiedModelInfo] {
+        downloadService.downloadedModels.compactMap { modelID in
+            UnifiedModelInfo.model(forID: modelID)
+        }
+    }
+
     var body: some View {
         SettingsSectionContainer(title: "Transcription Model") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
                     if hasDownloadedModels {
                         Picker("Model", selection: $settings.selectedModelID) {
-                            ForEach(downloadService.downloadedModels, id: \.self) { variant in
-                                Text(displayName(for: variant))
-                                    .tag(variant)
+                            ForEach(downloadedModelsList) { model in
+                                Text("\(model.displayName) (\(model.provider.displayName))")
+                                    .tag(model.id)
                             }
                         }
                         .labelsHidden()
@@ -54,9 +60,15 @@ struct ModelSettingsSection: View {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
-                        Text("Model loaded and ready")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        if let provider = transcriptionService.loadedProvider {
+                            Text("\(provider.displayName) model loaded and ready")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("Model loaded and ready")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 } else if transcriptionService.state == .loadingModel {
                     HStack(spacing: 8) {
@@ -78,20 +90,12 @@ struct ModelSettingsSection: View {
         }
     }
 
-    private func displayName(for variant: String) -> String {
-        variant
-            .replacingOccurrences(of: "openai_whisper-", with: "")
-            .replacingOccurrences(of: "whisper-", with: "")
-            .replacingOccurrences(of: "-en", with: " (English)")
-            .capitalized
-    }
-
-    private func loadSelectedModel(_ variant: String) {
-        guard !variant.isEmpty else { return }
+    private func loadSelectedModel(_ modelID: String) {
+        guard !modelID.isEmpty else { return }
 
         Task {
             do {
-                try await transcriptionService.loadModel(variant: variant)
+                try await transcriptionService.loadModel(unifiedID: modelID)
             } catch {
                 print("Failed to load model: \(error.localizedDescription)")
             }

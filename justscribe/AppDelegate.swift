@@ -48,7 +48,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             do {
                 print("Auto-loading model: \(modelID)")
-                try await TranscriptionService.shared.loadModel(variant: modelID)
+                try await TranscriptionService.shared.loadModel(unifiedID: modelID)
                 print("Model loaded successfully")
             } catch {
                 print("Failed to auto-load model: \(error.localizedDescription)")

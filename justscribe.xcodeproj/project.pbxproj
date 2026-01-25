@@ -11,6 +11,7 @@
 		2ADCF7432F268C98008F5AA4 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002022F25000000000002 /* LaunchAtLogin */; };
 		2ADCF7442F268C98008F5AA4 /* DynamicNotchKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002032F25000000000003 /* DynamicNotchKit */; };
 		2ADCF7452F268C98008F5AA4 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002042F25000000000004 /* WhisperKit */; };
+		2ADCFA232F26A5D5008F5AA4 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002052F25000000000005 /* FluidAudio */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2ADCFA232F26A5D5008F5AA4 /* FluidAudio in Frameworks */,
 				2ADCF7442F268C98008F5AA4 /* DynamicNotchKit in Frameworks */,
 				2ADCF7432F268C98008F5AA4 /* LaunchAtLogin in Frameworks */,
 				2ADCF7422F268C98008F5AA4 /* KeyboardShortcuts in Frameworks */,
@@ -127,6 +129,7 @@
 				AA0002022F25000000000002 /* LaunchAtLogin */,
 				AA0002032F25000000000003 /* DynamicNotchKit */,
 				AA0002042F25000000000004 /* WhisperKit */,
+				AA0002052F25000000000005 /* FluidAudio */,
 			);
 			productName = justscribe;
 			productReference = 2A2572162F2427780015D8A4 /* justscribe.app */;
@@ -215,6 +218,7 @@
 				AA0001022F25000000000002 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
 				AA0001032F25000000000003 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */,
 				AA0001042F25000000000004 /* XCRemoteSwiftPackageReference "WhisperKit" */,
+				AA0001052F25000000000005 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2A2572172F2427780015D8A4 /* Products */;
@@ -670,6 +674,14 @@
 				minimumVersion = 0.9.0;
 			};
 		};
+		AA0001052F25000000000005 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/FluidInference/FluidAudio";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.10.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -692,6 +704,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA0001042F25000000000004 /* XCRemoteSwiftPackageReference "WhisperKit" */;
 			productName = WhisperKit;
+		};
+		AA0002052F25000000000005 /* FluidAudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0001052F25000000000005 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
