@@ -10,9 +10,12 @@ import SwiftData
 
 @main
 struct justscribeApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            AppSettings.self,
+            TranscriptionModel.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -24,9 +27,13 @@ struct justscribeApp: App {
     }()
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        WindowGroup(id: "settings") {
+            SettingsView()
+                .frame(minWidth: 500, minHeight: 600)
         }
         .modelContainer(sharedModelContainer)
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }
