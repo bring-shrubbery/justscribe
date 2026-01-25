@@ -124,7 +124,7 @@ final class TranscriptionService {
         currentTranscription = ""
     }
 
-    func processAudioBuffer(_ buffer: [Float]) async throws -> String {
+    func processAudioBuffer(_ buffer: [Float], language: String? = nil) async throws -> String {
         guard let whisperKit = whisperKit else {
             throw TranscriptionError.modelNotLoaded
         }
@@ -132,7 +132,13 @@ final class TranscriptionService {
         state = .processing
 
         do {
-            let results = try await whisperKit.transcribe(audioArray: buffer)
+            // Configure decoding options with language if specified
+            var options = DecodingOptions()
+            if let language = language, !language.isEmpty {
+                options.language = language
+            }
+
+            let results = try await whisperKit.transcribe(audioArray: buffer, decodeOptions: options)
             let transcription = results.map { $0.text }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
             currentTranscription = transcription

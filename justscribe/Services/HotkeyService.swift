@@ -24,6 +24,11 @@ final class HotkeyService {
     private init() {}
 
     func setup() {
+        // Set default shortcut if none configured
+        if KeyboardShortcuts.getShortcut(for: .activateTranscription) == nil {
+            setDefaultShortcut()
+        }
+
         KeyboardShortcuts.onKeyUp(for: .activateTranscription) { [weak self] in
             self?.onActivate?()
         }

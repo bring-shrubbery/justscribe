@@ -40,6 +40,8 @@ final class AppSettings {
     static let selectedModelIDKey = "selectedModelID"
     static let escapeToCancelKey = "escapeToCancel"
     static let copyToClipboardKey = "copyToClipboard"
+    static let selectedLanguageKey = "selectedLanguage"
+    static let microphonePriorityKey = "microphonePriority"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -49,7 +51,11 @@ final class AppSettings {
     }
 
     // Microphone priority (ordered array of device UIDs)
-    var microphonePriority: [String] = []
+    var microphonePriority: [String] = [] {
+        didSet {
+            UserDefaults.standard.set(microphonePriority, forKey: Self.microphonePriorityKey)
+        }
+    }
 
     // Shortcut (stored as raw key + modifiers)
     var shortcutKeyCode: UInt16 = 0
@@ -69,8 +75,12 @@ final class AppSettings {
         set { appearanceModeRaw = newValue.rawValue }
     }
 
-    // UI Language
-    var selectedLanguage: String = "en"
+    // UI Language (also used for transcription)
+    var selectedLanguage: String = "en" {
+        didSet {
+            UserDefaults.standard.set(selectedLanguage, forKey: Self.selectedLanguageKey)
+        }
+    }
 
     // Behavior toggles
     var launchAtLogin: Bool = false
@@ -112,5 +122,7 @@ final class AppSettings {
         UserDefaults.standard.set(selectedModelID, forKey: Self.selectedModelIDKey)
         UserDefaults.standard.set(escapeToCancel, forKey: Self.escapeToCancelKey)
         UserDefaults.standard.set(copyToClipboard, forKey: Self.copyToClipboardKey)
+        UserDefaults.standard.set(selectedLanguage, forKey: Self.selectedLanguageKey)
+        UserDefaults.standard.set(microphonePriority, forKey: Self.microphonePriorityKey)
     }
 }

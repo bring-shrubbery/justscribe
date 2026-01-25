@@ -82,6 +82,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Check microphone permission
+        PermissionsService.shared.checkMicrophonePermission()
+
+        switch PermissionsService.shared.microphoneStatus {
+        case .granted:
+            beginRecording()
+        case .notDetermined:
+            // Request permission
+            Task {
+                let granted = await PermissionsService.shared.requestMicrophonePermission()
+                if granted {
+                    beginRecording()
+                } else {
+                    OverlayManager.shared.showError(message: "Microphone access denied. Enable it in System Settings.")
+                }
+            }
+        case .denied:
+            OverlayManager.shared.showError(message: "Microphone access denied. Enable it in System Settings.")
+            PermissionsService.shared.openMicrophoneSettings()
+        case .unknown:
+            OverlayManager.shared.showError(message: "Unable to check microphone permission.")
+        }
+    }
+
+    @MainActor
+    private func beginRecording() {
+        // Select microphone based on saved priority
+        if let priority = UserDefaults.standard.stringArray(forKey: AppSettings.microphonePriorityKey) {
+            AudioCaptureService.shared.selectDeviceByPriority(priority)
+        }
+
         // Show overlay in listening state
         OverlayManager.shared.showListening()
 
@@ -154,8 +185,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Process transcription
         do {
+            // Get language setting (nil means auto-detect)
+            let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
+
             let transcription = try await TranscriptionService.shared.processAudioBuffer(
-                AudioCaptureService.shared.getAudioBuffer()
+                AudioCaptureService.shared.getAudioBuffer(),
+                language: language
             )
 
             // Copy to clipboard if enabled
