@@ -11,6 +11,7 @@ import SwiftUI
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
+    private var escapeKeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
@@ -86,25 +87,85 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Start audio capture
         AudioCaptureService.shared.startRecording()
+
+        // Start listening for Escape key
+        startEscapeKeyMonitor()
+    }
+
+    // MARK: - Escape to Cancel
+
+    private func startEscapeKeyMonitor() {
+        // Remove any existing monitor
+        stopEscapeKeyMonitor()
+
+        escapeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 53 { // 53 = Escape key
+                self?.handleEscapePressed()
+                return nil // Consume the event
+            }
+            return event
+        }
+    }
+
+    private func stopEscapeKeyMonitor() {
+        if let monitor = escapeKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            escapeKeyMonitor = nil
+        }
+    }
+
+    @MainActor
+    private func handleEscapePressed() {
+        // Check if escape-to-cancel is enabled
+        let escapeToCancel = UserDefaults.standard.bool(forKey: AppSettings.escapeToCancelKey)
+
+        // Default to true if not set
+        let shouldCancel = UserDefaults.standard.object(forKey: AppSettings.escapeToCancelKey) == nil ? true : escapeToCancel
+
+        guard shouldCancel else { return }
+        guard OverlayManager.shared.isVisible else { return }
+
+        cancelRecording()
+    }
+
+    @MainActor
+    private func cancelRecording() {
+        // Stop monitoring
+        stopEscapeKeyMonitor()
+
+        // Stop audio capture and clear buffer
+        AudioCaptureService.shared.stopRecording()
+        AudioCaptureService.shared.clearBuffer()
+
+        // Hide overlay
+        OverlayManager.shared.hide()
     }
 
     @MainActor
     private func stopRecordingAndTranscribe() async {
+        // Stop escape key monitor
+        stopEscapeKeyMonitor()
+
         // Stop audio capture
         AudioCaptureService.shared.stopRecording()
 
         // Show processing state
         OverlayManager.shared.showProcessing()
 
-        // Process transcription (placeholder - will be implemented with WhisperKit)
+        // Process transcription
         do {
             let transcription = try await TranscriptionService.shared.processAudioBuffer(
                 AudioCaptureService.shared.getAudioBuffer()
             )
 
             // Copy to clipboard if enabled
-            // TODO: Check settings for copyToClipboard
-            ClipboardService.shared.copyToClipboard(transcription)
+            let copyToClipboard = UserDefaults.standard.object(forKey: AppSettings.copyToClipboardKey) == nil
+                ? true
+                : UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey)
+
+            if copyToClipboard {
+                ClipboardService.shared.copyToClipboard(transcription)
+            }
 
             // Show completed state
             OverlayManager.shared.showCompleted(text: transcription)

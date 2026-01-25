@@ -36,8 +36,10 @@ enum AppearanceMode: String, Codable, CaseIterable {
 
 @Model
 final class AppSettings {
-    // UserDefaults key for cross-component access
+    // UserDefaults keys for cross-component access
     static let selectedModelIDKey = "selectedModelID"
+    static let escapeToCancelKey = "escapeToCancel"
+    static let copyToClipboardKey = "copyToClipboard"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -74,8 +76,16 @@ final class AppSettings {
     var launchAtLogin: Bool = false
     var showInDock: Bool = true
     var showInStatusBar: Bool = true
-    var escapeToCancel: Bool = true
-    var copyToClipboard: Bool = true
+    var escapeToCancel: Bool = true {
+        didSet {
+            UserDefaults.standard.set(escapeToCancel, forKey: Self.escapeToCancelKey)
+        }
+    }
+    var copyToClipboard: Bool = true {
+        didSet {
+            UserDefaults.standard.set(copyToClipboard, forKey: Self.copyToClipboardKey)
+        }
+    }
 
     // Timestamps
     var createdAt: Date = Date()
@@ -100,5 +110,7 @@ final class AppSettings {
 
     func syncToUserDefaults() {
         UserDefaults.standard.set(selectedModelID, forKey: Self.selectedModelIDKey)
+        UserDefaults.standard.set(escapeToCancel, forKey: Self.escapeToCancelKey)
+        UserDefaults.standard.set(copyToClipboard, forKey: Self.copyToClipboardKey)
     }
 }
