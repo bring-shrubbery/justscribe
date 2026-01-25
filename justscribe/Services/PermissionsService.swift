@@ -15,6 +15,7 @@ final class PermissionsService {
 
     private(set) var microphoneStatus: PermissionStatus = .unknown
     private(set) var inputMonitoringStatus: PermissionStatus = .unknown
+    private(set) var accessibilityStatus: PermissionStatus = .unknown
 
     enum PermissionStatus {
         case unknown
@@ -30,6 +31,7 @@ final class PermissionsService {
     func checkPermissions() {
         checkMicrophonePermission()
         checkInputMonitoringPermission()
+        checkAccessibilityPermission()
     }
 
     // MARK: - Microphone
@@ -83,6 +85,31 @@ final class PermissionsService {
 
     func openMicrophoneSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - Accessibility (for global keyboard shortcuts)
+
+    func checkAccessibilityPermission() {
+        // AXIsProcessTrusted checks if the app has Accessibility permission
+        let isTrusted = AXIsProcessTrusted()
+        accessibilityStatus = isTrusted ? .granted : .notDetermined
+    }
+
+    func requestAccessibilityPermission() {
+        // Show system prompt to request accessibility access
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        let isTrusted = AXIsProcessTrustedWithOptions(options)
+        accessibilityStatus = isTrusted ? .granted : .denied
+
+        if !isTrusted {
+            print("Accessibility permission not granted. Please enable it in System Settings > Privacy & Security > Accessibility")
+        }
+    }
+
+    func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
     }

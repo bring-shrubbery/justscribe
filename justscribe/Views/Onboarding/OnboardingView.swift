@@ -120,10 +120,18 @@ struct OnboardingView: View {
             }
 
             if let error = downloadError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .padding(.horizontal)
+                VStack(spacing: 4) {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+
+                    if error.contains("hostname") || error.contains("network") {
+                        Text("Check your internet connection and VPN settings")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal)
             }
 
             HStack(spacing: 12) {

@@ -12,11 +12,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
     private var escapeKeyMonitor: Any?
+    private var localEscapeKeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
-        setupHotkey()
+        checkInputMonitoringAndSetupHotkey()
         loadSelectedModel()
+    }
+
+    // MARK: - Permissions
+
+    private func checkInputMonitoringAndSetupHotkey() {
+        // Set up hotkey immediately - KeyboardShortcuts uses Carbon Events
+        // which work without special permissions in sandboxed apps
+        setupHotkey()
     }
 
     // MARK: - Model Loading
@@ -55,9 +64,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupHotkey() {
         HotkeyService.shared.onActivate = { [weak self] in
+            print("Hotkey activated!")
             self?.handleHotkeyActivation()
         }
         HotkeyService.shared.setup()
+        print("Hotkey service setup complete")
     }
 
     @MainActor
@@ -129,19 +140,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Remove any existing monitor
         stopEscapeKeyMonitor()
 
-        escapeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        // Use global monitor so escape works even when app isn't focused
+        // Note: This requires Input Monitoring permission
+        escapeKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 53 { // 53 = Escape key
+                Task { @MainActor in
+                    self?.handleEscapePressed()
+                }
+            }
+        }
+
+        // Also add local monitor for when app IS focused
+        let localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 { // 53 = Escape key
                 self?.handleEscapePressed()
                 return nil // Consume the event
             }
             return event
         }
+        // Store as secondary monitor - we'll manage both
+        localEscapeKeyMonitor = localMonitor
     }
 
     private func stopEscapeKeyMonitor() {
         if let monitor = escapeKeyMonitor {
             NSEvent.removeMonitor(monitor)
             escapeKeyMonitor = nil
+        }
+        if let monitor = localEscapeKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            localEscapeKeyMonitor = nil
         }
     }
 
@@ -240,8 +268,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
 
-        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "settings" }) {
-            window.makeKeyAndOrderFront(nil)
+        // Find and activate the settings window
+        for window in NSApp.windows {
+            if window.identifier?.rawValue.contains("settings") == true ||
+               window.title.contains("JustScribe") ||
+               window.contentView != nil {
+                window.makeKeyAndOrderFront(nil)
+                window.makeFirstResponder(window.contentView)
+                break
+            }
         }
     }
 

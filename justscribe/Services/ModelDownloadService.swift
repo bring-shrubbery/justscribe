@@ -32,17 +32,24 @@ final class ModelDownloadService {
     // MARK: - Model Discovery
 
     func fetchAvailableModels() async -> [WhisperModelInfo] {
+        // Try to get recommended models from WhisperKit
         let recommended = WhisperKit.recommendedModels()
 
-        // Convert to our model info format
-        return recommended.supported.map { variant in
-            WhisperModelInfo(
-                variant: variant,
-                displayName: displayName(for: variant),
-                sizeDescription: sizeDescription(for: variant),
-                isRecommended: recommended.default == variant
-            )
+        // If we got models from the API, use them
+        if !recommended.supported.isEmpty {
+            return recommended.supported.map { variant in
+                WhisperModelInfo(
+                    variant: variant,
+                    displayName: displayName(for: variant),
+                    sizeDescription: sizeDescription(for: variant),
+                    isRecommended: recommended.default == variant
+                )
+            }
         }
+
+        // Fallback to default models if network is unavailable
+        print("Using fallback model list (network unavailable)")
+        return defaultModels()
     }
 
     // MARK: - Model Download
@@ -63,6 +70,7 @@ final class ModelDownloadService {
             // Use WhisperKit's built-in download mechanism
             let modelPath = try await WhisperKit.download(
                 variant: variant,
+                from: "argmaxinc/whisperkit-coreml",
                 progressCallback: { progress in
                     Task { @MainActor in
                         self.activeDownloads[variant]?.progress = progress.fractionCompleted

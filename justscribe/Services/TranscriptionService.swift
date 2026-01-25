@@ -69,13 +69,20 @@ final class TranscriptionService {
         state = .loadingModel
 
         do {
-            // WhisperKit can download and load models automatically
-            whisperKit = try await WhisperKit(model: variant)
+            // WhisperKit downloads from argmaxinc/whisperkit-coreml on HuggingFace
+            let config = WhisperKitConfig(
+                model: variant,
+                modelRepo: "argmaxinc/whisperkit-coreml",
+                verbose: true,
+                logLevel: .debug
+            )
+            whisperKit = try await WhisperKit(config)
             loadedModelID = variant
             isModelLoaded = true
             state = .idle
         } catch {
             state = .error("Failed to load model: \(error.localizedDescription)")
+            print("WhisperKit load error: \(error)")
             throw TranscriptionError.modelLoadFailed(underlying: error)
         }
     }

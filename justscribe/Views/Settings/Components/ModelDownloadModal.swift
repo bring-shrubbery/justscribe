@@ -13,6 +13,7 @@ struct ModelDownloadModal: View {
 
     @State private var availableModels: [ModelDownloadService.WhisperModelInfo] = []
     @State private var isLoading = true
+    @State private var downloadError: String?
 
     private var downloadService: ModelDownloadService { ModelDownloadService.shared }
 
@@ -77,6 +78,28 @@ struct ModelDownloadModal: View {
 
             Divider()
 
+            // Error message
+            if let error = downloadError {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Dismiss") {
+                        downloadError = nil
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color.orange.opacity(0.1))
+
+                Divider()
+            }
+
             // Footer
             HStack {
                 Text("Models are stored locally and never leave your device.")
@@ -119,11 +142,22 @@ struct ModelDownloadModal: View {
     }
 
     private func startDownload(_ model: ModelDownloadService.WhisperModelInfo) {
+        downloadError = nil
         Task {
             do {
                 _ = try await downloadService.downloadModel(variant: model.variant)
             } catch {
-                print("Download failed: \(error.localizedDescription)")
+                let errorMessage = error.localizedDescription
+                print("Download failed: \(errorMessage)")
+
+                // Provide more helpful error messages for common issues
+                if errorMessage.contains("hostname could not be found") ||
+                   errorMessage.contains("network connection was lost") ||
+                   errorMessage.contains("Internet connection appears to be offline") {
+                    downloadError = "Network error: Unable to reach HuggingFace servers. Please check your internet connection and VPN settings."
+                } else {
+                    downloadError = "Download failed: \(errorMessage)"
+                }
             }
         }
     }

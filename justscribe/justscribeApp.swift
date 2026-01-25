@@ -29,9 +29,14 @@ struct justscribeApp: App {
         WindowGroup(id: "settings") {
             SettingsView()
                 .frame(minWidth: 500, minHeight: 600)
+                .onAppear {
+                    // Ensure the app is active and can receive keyboard input
+                    NSApp.activate(ignoringOtherApps: true)
+                }
         }
         .modelContainer(sharedModelContainer)
-        .windowStyle(.hiddenTitleBar)
+        // Temporarily using default title bar to debug keyboard shortcut issue
+        // .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultPosition(.center)
     }
