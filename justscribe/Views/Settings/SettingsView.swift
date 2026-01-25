@@ -12,6 +12,9 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var settings: AppSettings?
     @State private var showingModelDownloadModal = false
+    @State private var showingOnboarding = false
+
+    private var downloadService: ModelDownloadService { ModelDownloadService.shared }
 
     var body: some View {
         ScrollView {
@@ -58,11 +61,27 @@ struct SettingsView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             settings = AppSettings.getOrCreate(in: modelContext)
+            checkForOnboarding()
         }
         .sheet(isPresented: $showingModelDownloadModal) {
             if let settings = settings {
                 ModelDownloadModal(settings: settings)
                     .frame(minWidth: 500, minHeight: 400)
+            }
+        }
+        .sheet(isPresented: $showingOnboarding) {
+            if let settings = settings {
+                OnboardingView(isPresented: $showingOnboarding, settings: settings)
+            }
+        }
+    }
+
+    private func checkForOnboarding() {
+        // Show onboarding if no models are downloaded
+        Task {
+            await downloadService.refreshDownloadedModels()
+            if downloadService.downloadedModels.isEmpty {
+                showingOnboarding = true
             }
         }
     }

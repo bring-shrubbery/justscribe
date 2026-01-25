@@ -15,7 +15,6 @@ struct justscribeApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             AppSettings.self,
-            TranscriptionModel.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
