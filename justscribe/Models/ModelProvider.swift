@@ -49,19 +49,19 @@ extension UnifiedModelInfo {
     static let parakeetModels: [UnifiedModelInfo] = [
         UnifiedModelInfo(
             provider: .fluidAudio,
-            variant: "v2",
-            displayName: "Parakeet English",
-            sizeDescription: "~200 MB",
+            variant: "v3",
+            displayName: "Parakeet v3",
+            sizeDescription: "~250 MB",
             isRecommended: true,
-            languageSupport: .englishOnly
+            languageSupport: .multilingual
         ),
         UnifiedModelInfo(
             provider: .fluidAudio,
-            variant: "v3",
-            displayName: "Parakeet Multilingual",
-            sizeDescription: "~250 MB",
+            variant: "v2",
+            displayName: "Parakeet English",
+            sizeDescription: "~200 MB",
             isRecommended: false,
-            languageSupport: .multilingual
+            languageSupport: .englishOnly
         ),
     ]
 

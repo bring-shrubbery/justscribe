@@ -170,9 +170,9 @@ final class ModelDownloadService {
                 }
             }
 
-            // Look for FluidAudio/Parakeet models
-            let fluidRepoV2 = hubDir.appendingPathComponent("models--FluidInference--parakeet-tdt-0.6b-v2")
-            let fluidRepoV3 = hubDir.appendingPathComponent("models--FluidInference--parakeet-tdt-0.6b-v3")
+            // Look for FluidAudio/Parakeet CoreML models
+            let fluidRepoV2 = hubDir.appendingPathComponent("models--FluidInference--parakeet-tdt-0.6b-v2-coreml")
+            let fluidRepoV3 = hubDir.appendingPathComponent("models--FluidInference--parakeet-tdt-0.6b-v3-coreml")
 
             if fileManager.fileExists(atPath: fluidRepoV2.appendingPathComponent("snapshots").path) {
                 foundModels.insert("fluidaudio:v2")
@@ -207,8 +207,8 @@ final class ModelDownloadService {
 
             case .fluidAudio:
                 let repoName = modelInfo.variant == "v2"
-                    ? "models--FluidInference--parakeet-tdt-0.6b-v2"
-                    : "models--FluidInference--parakeet-tdt-0.6b-v3"
+                    ? "models--FluidInference--parakeet-tdt-0.6b-v2-coreml"
+                    : "models--FluidInference--parakeet-tdt-0.6b-v3-coreml"
                 let repoDir = hubDir.appendingPathComponent(repoName)
 
                 if fileManager.fileExists(atPath: repoDir.path) {

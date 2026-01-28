@@ -158,23 +158,23 @@ struct OnboardingView: View {
 
     private var recommendedModels: [UnifiedModelInfo] {
         [
-            // Parakeet English is recommended for best quality and speed
+            // Parakeet v3 Multilingual is recommended - latest and best
+            UnifiedModelInfo(
+                provider: .fluidAudio,
+                variant: "v3",
+                displayName: "Parakeet v3",
+                sizeDescription: "~250 MB",
+                isRecommended: true,
+                languageSupport: .multilingual
+            ),
+            // Parakeet v2 English-only for maximum English accuracy
             UnifiedModelInfo(
                 provider: .fluidAudio,
                 variant: "v2",
                 displayName: "Parakeet English",
                 sizeDescription: "~200 MB",
-                isRecommended: true,
-                languageSupport: .englishOnly
-            ),
-            // Parakeet Multilingual for non-English
-            UnifiedModelInfo(
-                provider: .fluidAudio,
-                variant: "v3",
-                displayName: "Parakeet Multilingual",
-                sizeDescription: "~250 MB",
                 isRecommended: false,
-                languageSupport: .multilingual
+                languageSupport: .englishOnly
             ),
             // Whisper Base as fallback option
             UnifiedModelInfo(
