@@ -43,6 +43,8 @@ final class AppSettings {
     static let selectedLanguageKey = "selectedLanguage"
     static let microphonePriorityKey = "microphonePriority"
     static let indicatorStyleKey = "indicatorStyle"
+    static let showInDockKey = "showInDock"
+    static let showInStatusBarKey = "showInStatusBar"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -88,8 +90,16 @@ final class AppSettings {
 
     // Behavior toggles
     var launchAtLogin: Bool = false
-    var showInDock: Bool = true
-    var showInStatusBar: Bool = true
+    var showInDock: Bool = true {
+        didSet {
+            UserDefaults.standard.set(showInDock, forKey: Self.showInDockKey)
+        }
+    }
+    var showInStatusBar: Bool = true {
+        didSet {
+            UserDefaults.standard.set(showInStatusBar, forKey: Self.showInStatusBarKey)
+        }
+    }
     var escapeToCancel: Bool = true {
         didSet {
             UserDefaults.standard.set(escapeToCancel, forKey: Self.escapeToCancelKey)
@@ -129,5 +139,7 @@ final class AppSettings {
         UserDefaults.standard.set(selectedLanguage, forKey: Self.selectedLanguageKey)
         UserDefaults.standard.set(microphonePriority, forKey: Self.microphonePriorityKey)
         UserDefaults.standard.set(indicatorStyleRaw, forKey: Self.indicatorStyleKey)
+        UserDefaults.standard.set(showInDock, forKey: Self.showInDockKey)
+        UserDefaults.standard.set(showInStatusBar, forKey: Self.showInStatusBarKey)
     }
 }

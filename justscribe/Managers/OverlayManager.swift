@@ -42,7 +42,7 @@ final class OverlayManager {
         case idle
         case listening
         case processing
-        case completed(text: String)
+        case completed(copiedToClipboard: Bool)
         case error(message: String)
     }
 
@@ -120,8 +120,8 @@ final class OverlayManager {
             return "Listening..."
         case .processing:
             return "Processing..."
-        case .completed(let text):
-            return text.isEmpty ? "Done" : text
+        case .completed:
+            return "Done"
         case .error(let message):
             return message
         }
@@ -135,8 +135,8 @@ final class OverlayManager {
             return "Speak now"
         case .processing:
             return "Transcribing audio"
-        case .completed:
-            return "Copied to clipboard"
+        case .completed(let copiedToClipboard):
+            return copiedToClipboard ? "Copied to clipboard" : nil
         case .error:
             return nil
         }
@@ -162,8 +162,8 @@ final class OverlayManager {
         updateState(.processing)
     }
 
-    func showCompleted(text: String) {
-        updateState(.completed(text: text))
+    func showCompleted(copiedToClipboard: Bool) {
+        updateState(.completed(copiedToClipboard: copiedToClipboard))
 
         // Auto-hide after delay
         Task {

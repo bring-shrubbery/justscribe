@@ -46,6 +46,7 @@ struct BehaviorSettingsSection: View {
                     isOn: $settings.showInDock
                 )
                 .onChange(of: settings.showInDock) { _, newValue in
+                    UserDefaults.standard.set(newValue, forKey: AppSettings.showInDockKey)
                     updateDockVisibility(newValue)
                 }
 
@@ -58,6 +59,7 @@ struct BehaviorSettingsSection: View {
                     isOn: $settings.showInStatusBar
                 )
                 .onChange(of: settings.showInStatusBar) { _, newValue in
+                    UserDefaults.standard.set(newValue, forKey: AppSettings.showInStatusBarKey)
                     updateStatusBarVisibility(newValue)
                 }
 
@@ -69,6 +71,9 @@ struct BehaviorSettingsSection: View {
                     systemImage: "escape",
                     isOn: $settings.escapeToCancel
                 )
+                .onChange(of: settings.escapeToCancel) { _, newValue in
+                    UserDefaults.standard.set(newValue, forKey: AppSettings.escapeToCancelKey)
+                }
 
                 Divider()
 
@@ -78,6 +83,11 @@ struct BehaviorSettingsSection: View {
                     systemImage: "doc.on.clipboard",
                     isOn: $settings.copyToClipboard
                 )
+                .onChange(of: settings.copyToClipboard) { _, newValue in
+                    print("Copy to Clipboard changed to: \(newValue)")
+                    UserDefaults.standard.set(newValue, forKey: AppSettings.copyToClipboardKey)
+                    print("UserDefaults now has: \(UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey))")
+                }
             }
             .padding(12)
             .background(Color(nsColor: .controlBackgroundColor))

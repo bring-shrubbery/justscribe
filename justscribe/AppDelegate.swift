@@ -15,9 +15,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var localEscapeKeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupStatusBar()
+        applySavedVisibilitySettings()
         checkInputMonitoringAndSetupHotkey()
         loadSelectedModel()
+    }
+
+    // MARK: - Visibility Settings
+
+    private func applySavedVisibilitySettings() {
+        // Apply dock visibility (default to true if not set)
+        let showInDock = UserDefaults.standard.object(forKey: AppSettings.showInDockKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: AppSettings.showInDockKey)
+        updateDockVisibility(showInDock: showInDock)
+
+        // Apply status bar visibility (default to true if not set)
+        let showInStatusBar = UserDefaults.standard.object(forKey: AppSettings.showInStatusBarKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: AppSettings.showInStatusBarKey)
+        if showInStatusBar {
+            setupStatusBar()
+        }
     }
 
     // MARK: - Permissions
@@ -322,18 +340,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Copy final transcription to clipboard if enabled
-        let copyToClipboard = UserDefaults.standard.object(forKey: AppSettings.copyToClipboardKey) == nil
+        let copyToClipboardObject = UserDefaults.standard.object(forKey: AppSettings.copyToClipboardKey)
+        let copyToClipboard = copyToClipboardObject == nil
             ? true
             : UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey)
+        print("Reading copyToClipboard - object: \(String(describing: copyToClipboardObject)), resolved: \(copyToClipboard)")
 
-        if copyToClipboard && !finalTranscription.isEmpty {
+        let didCopyToClipboard = copyToClipboard && !finalTranscription.isEmpty
+        if didCopyToClipboard {
             ClipboardService.shared.copyToClipboard(finalTranscription)
             print("Copied to clipboard: \(finalTranscription)")
         }
 
         // Show completed state
         if !finalTranscription.isEmpty {
-            OverlayManager.shared.showCompleted(text: finalTranscription)
+            OverlayManager.shared.showCompleted(copiedToClipboard: didCopyToClipboard)
         } else {
             OverlayManager.shared.showError(message: "No speech detected")
         }
@@ -397,7 +418,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             // Show completed state
-            OverlayManager.shared.showCompleted(text: transcription)
+            OverlayManager.shared.showCompleted(copiedToClipboard: copyToClipboard)
 
             // Clear audio buffer
             AudioCaptureService.shared.clearBuffer()
