@@ -31,15 +31,15 @@ struct AppearanceSettingsSection: View {
                     .frame(width: 200)
                 }
 
-                // Language
-                SettingsRow(title: "Language", subtitle: "UI display language") {
-                    Picker("Language", selection: $settings.selectedLanguage) {
-                        ForEach(Constants.SupportedLanguages.all, id: \.code) { language in
-                            Text(language.name).tag(language.code)
-                        }
-                    }
-                    .labelsHidden()
-                }
+                // Language - commented out until localization is implemented
+                // SettingsRow(title: "Language", subtitle: "UI display language") {
+                //     Picker("Language", selection: $settings.selectedLanguage) {
+                //         ForEach(Constants.SupportedLanguages.all, id: \.code) { language in
+                //             Text(language.name).tag(language.code)
+                //         }
+                //     }
+                //     .labelsHidden()
+                // }
             }
         }
     }
