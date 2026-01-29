@@ -53,6 +53,7 @@ struct SettingsView: View {
 
                         LinksSettingsSection()
                     }
+                    .frame(maxWidth: .infinity)
                     .padding(.horizontal, 32)
                     .padding(.bottom, 32)
                 }
@@ -117,7 +118,9 @@ struct SettingsSectionContainer<Content: View>: View {
                 .foregroundStyle(.primary)
 
             content
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -158,5 +161,5 @@ struct SettingsRow<Content: View>: View {
 #Preview {
     SettingsView()
         .modelContainer(for: AppSettings.self, inMemory: true)
-        .frame(width: 550, height: 800)
+        .frame(width: 480, height: 800)
 }

@@ -25,10 +25,12 @@ struct justscribeApp: App {
         }
     }()
 
+    private let windowWidth: CGFloat = 480
+
     var body: some Scene {
         WindowGroup(id: "settings") {
             SettingsView()
-                .frame(minWidth: 500, minHeight: 600)
+                .frame(minWidth: windowWidth, maxWidth: windowWidth, minHeight: 600)
                 .onAppear {
                     // Ensure the app is active and can receive keyboard input
                     NSApp.activate(ignoringOtherApps: true)
