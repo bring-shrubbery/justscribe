@@ -40,9 +40,13 @@ final class ModelDownloadService {
     // MARK: - Model Download
 
     func downloadModel(modelID: String) async throws {
-        guard activeDownloads[modelID] == nil else {
+        // Allow re-download if previous attempt completed (success or failure)
+        if let existingDownload = activeDownloads[modelID], !existingDownload.isCompleted {
             throw DownloadError.alreadyDownloading
         }
+
+        // Clear any completed download entry before starting fresh
+        activeDownloads.removeValue(forKey: modelID)
 
         guard let modelInfo = UnifiedModelInfo.model(forID: modelID) else {
             throw DownloadError.modelNotFound
@@ -120,10 +124,19 @@ final class ModelDownloadService {
         // Update progress manually since FluidAudio doesn't provide progress callbacks
         activeDownloads[modelID]?.progress = 0.1
 
-        _ = try await AsrModels.downloadAndLoad(version: version)
-
-        activeDownloads[modelID]?.progress = 1.0
-        print("FluidAudio model downloaded: \(variant)")
+        do {
+            _ = try await AsrModels.downloadAndLoad(version: version)
+            activeDownloads[modelID]?.progress = 1.0
+            print("FluidAudio model downloaded successfully: \(variant)")
+        } catch {
+            print("FluidAudio download error for \(variant): \(error)")
+            print("Error type: \(type(of: error))")
+            if let nsError = error as NSError? {
+                print("NSError domain: \(nsError.domain), code: \(nsError.code)")
+                print("NSError userInfo: \(nsError.userInfo)")
+            }
+            throw error
+        }
     }
 
     func cancelDownload(modelID: String) {
@@ -170,18 +183,27 @@ final class ModelDownloadService {
                 }
             }
 
-            // Look for FluidAudio/Parakeet CoreML models
-            let fluidRepoV2 = hubDir.appendingPathComponent("models--FluidInference--parakeet-tdt-0.6b-v2-coreml")
-            let fluidRepoV3 = hubDir.appendingPathComponent("models--FluidInference--parakeet-tdt-0.6b-v3-coreml")
+        }
 
-            if fileManager.fileExists(atPath: fluidRepoV2.appendingPathComponent("snapshots").path) {
+        // Look for FluidAudio/Parakeet CoreML models in Application Support
+        // FluidAudio stores models in ~/Library/Application Support/FluidAudio/Models/
+        if let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let fluidModelsDir = appSupportDir.appendingPathComponent("FluidAudio/Models")
+            let fluidModelV2 = fluidModelsDir.appendingPathComponent("parakeet-tdt-0.6b-v2-coreml")
+            let fluidModelV3 = fluidModelsDir.appendingPathComponent("parakeet-tdt-0.6b-v3-coreml")
+
+            // Check v2 model - verify directory exists and contains actual model files
+            if let contents = try? fileManager.contentsOfDirectory(at: fluidModelV2, includingPropertiesForKeys: nil),
+               !contents.isEmpty {
                 foundModels.insert("fluidaudio:v2")
-                print("Found FluidAudio model: fluidaudio:v2")
+                print("Found FluidAudio model: fluidaudio:v2 at \(fluidModelV2.path)")
             }
 
-            if fileManager.fileExists(atPath: fluidRepoV3.appendingPathComponent("snapshots").path) {
+            // Check v3 model - verify directory exists and contains actual model files
+            if let contents = try? fileManager.contentsOfDirectory(at: fluidModelV3, includingPropertiesForKeys: nil),
+               !contents.isEmpty {
                 foundModels.insert("fluidaudio:v3")
-                print("Found FluidAudio model: fluidaudio:v3")
+                print("Found FluidAudio model: fluidaudio:v3 at \(fluidModelV3.path)")
             }
         }
 
@@ -196,23 +218,22 @@ final class ModelDownloadService {
 
         let fileManager = FileManager.default
 
-        if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
-            let hubDir = cacheDir.appendingPathComponent("huggingface/hub")
+        switch modelInfo.provider {
+        case .whisperKit:
+            // WhisperKit models are in a shared repo, so we can't easily delete individual models
+            // For now, we'll just remove from our tracked list
+            break
 
-            switch modelInfo.provider {
-            case .whisperKit:
-                // WhisperKit models are in a shared repo, so we can't easily delete individual models
-                // For now, we'll just remove from our tracked list
-                break
+        case .fluidAudio:
+            // FluidAudio stores models in Application Support
+            if let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                let modelName = modelInfo.variant == "v2"
+                    ? "parakeet-tdt-0.6b-v2-coreml"
+                    : "parakeet-tdt-0.6b-v3-coreml"
+                let modelDir = appSupportDir.appendingPathComponent("FluidAudio/Models/\(modelName)")
 
-            case .fluidAudio:
-                let repoName = modelInfo.variant == "v2"
-                    ? "models--FluidInference--parakeet-tdt-0.6b-v2-coreml"
-                    : "models--FluidInference--parakeet-tdt-0.6b-v3-coreml"
-                let repoDir = hubDir.appendingPathComponent(repoName)
-
-                if fileManager.fileExists(atPath: repoDir.path) {
-                    try fileManager.removeItem(at: repoDir)
+                if fileManager.fileExists(atPath: modelDir.path) {
+                    try fileManager.removeItem(at: modelDir)
                 }
             }
         }

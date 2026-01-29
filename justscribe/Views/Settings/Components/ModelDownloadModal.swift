@@ -160,7 +160,7 @@ struct ModelDownloadModal: View {
                 if errorMessage.contains("hostname could not be found") ||
                    errorMessage.contains("network connection was lost") ||
                    errorMessage.contains("Internet connection appears to be offline") {
-                    downloadError = "Network error: Unable to reach servers. Please check your internet connection and VPN settings."
+                    downloadError = "Network blocked: VPN software (e.g. NordVPN Threat Protection) may be blocking app downloads. Try disabling it or download via Terminal with git clone."
                 } else {
                     downloadError = "Download failed: \(errorMessage)"
                 }

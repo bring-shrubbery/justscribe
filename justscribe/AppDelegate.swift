@@ -95,25 +95,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Check microphone permission
         PermissionsService.shared.checkMicrophonePermission()
+        print("startRecording - microphoneStatus: \(PermissionsService.shared.microphoneStatus)")
 
         switch PermissionsService.shared.microphoneStatus {
         case .granted:
             beginRecording()
-        case .notDetermined:
-            // Request permission
-            Task {
+        case .notDetermined, .denied, .unknown:
+            // For any non-granted status, request permission first
+            // This ensures the app appears in System Settings and shows the dialog if needed
+            Task { @MainActor in
+                // Bring app to foreground - permission dialogs require this
+                NSApp.activate(ignoringOtherApps: true)
+
+                print("About to request microphone permission...")
                 let granted = await PermissionsService.shared.requestMicrophonePermission()
+                print("Permission request completed, granted: \(granted)")
+
                 if granted {
                     beginRecording()
                 } else {
-                    OverlayManager.shared.showError(message: "Microphone access denied. Enable it in System Settings.")
+                    // Permission denied - show error and open settings
+                    OverlayManager.shared.showError(message: "Microphone access required. Please enable it in System Settings.")
+                    // Small delay to let the error show before opening settings
+                    try? await Task.sleep(for: .milliseconds(500))
+                    PermissionsService.shared.openMicrophoneSettings()
                 }
             }
-        case .denied:
-            OverlayManager.shared.showError(message: "Microphone access denied. Enable it in System Settings.")
-            PermissionsService.shared.openMicrophoneSettings()
-        case .unknown:
-            OverlayManager.shared.showError(message: "Unable to check microphone permission.")
         }
     }
 

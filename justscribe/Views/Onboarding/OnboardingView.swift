@@ -16,13 +16,16 @@ struct OnboardingView: View {
     @State private var downloadProgress: Double = 0
     @State private var downloadError: String?
     @State private var selectedModel: UnifiedModelInfo?
+    @State private var microphoneGranted = false
 
     private var downloadService: ModelDownloadService { ModelDownloadService.shared }
+    private var permissionsService: PermissionsService { PermissionsService.shared }
 
     enum OnboardingStep {
         case welcome
         case selectModel
         case downloading
+        case permissions
         case complete
     }
 
@@ -37,6 +40,8 @@ struct OnboardingView: View {
                     selectModelStep
                 case .downloading:
                     downloadingStep
+                case .permissions:
+                    permissionsStep
                 case .complete:
                     completeStep
                 }
@@ -219,6 +224,90 @@ struct OnboardingView: View {
         }
     }
 
+    // MARK: - Permissions Step
+
+    private var permissionsStep: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            Image(systemName: microphoneGranted ? "mic.circle.fill" : "mic.slash.circle.fill")
+                .font(.system(size: 72))
+                .foregroundStyle(microphoneGranted ? .green : Color.accentColor)
+
+            VStack(spacing: 8) {
+                Text(microphoneGranted ? "Microphone Access Granted" : "Microphone Access Required")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text(microphoneGranted
+                    ? "You're ready to start transcribing."
+                    : "JustScribe needs access to your microphone to transcribe your speech.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
+
+            Spacer()
+
+            if microphoneGranted {
+                Button {
+                    withAnimation {
+                        currentStep = .complete
+                    }
+                } label: {
+                    Text("Continue")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .padding(.horizontal, 60)
+                .padding(.bottom, 32)
+            } else {
+                VStack(spacing: 12) {
+                    Button {
+                        requestMicrophonePermission()
+                    } label: {
+                        Text("Grant Microphone Access")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+
+                    Button {
+                        withAnimation {
+                            currentStep = .complete
+                        }
+                    } label: {
+                        Text("Skip for Now")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 60)
+                .padding(.bottom, 32)
+            }
+        }
+    }
+
+    private func requestMicrophonePermission() {
+        Task {
+            let granted = await permissionsService.requestMicrophonePermission()
+            await MainActor.run {
+                microphoneGranted = granted
+                if granted {
+                    // Auto-advance after a brief delay
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(500))
+                        withAnimation {
+                            currentStep = .complete
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Complete Step
 
     private var completeStep: some View {
@@ -286,8 +375,12 @@ struct OnboardingView: View {
                 // Load the model
                 try? await TranscriptionService.shared.loadModel(unifiedID: model.id)
 
+                // Check if microphone permission is already granted
+                permissionsService.checkMicrophonePermission()
+                microphoneGranted = permissionsService.microphoneStatus == .granted
+
                 withAnimation {
-                    currentStep = .complete
+                    currentStep = .permissions
                 }
             } catch {
                 downloadError = error.localizedDescription
