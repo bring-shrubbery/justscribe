@@ -28,31 +28,80 @@ struct ModelSettingsSection: View {
         }
     }
 
+    private var selectedModelDisplayName: String {
+        if let model = UnifiedModelInfo.model(forID: settings.selectedModelID) {
+            return "\(model.displayName) (\(model.provider.displayName))"
+        }
+        return "Select a model"
+    }
+
     var body: some View {
         SettingsSectionContainer(title: "Transcription Model") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
-                    if hasDownloadedModels {
-                        Picker("Model", selection: $settings.selectedModelID) {
-                            ForEach(downloadedModelsList) { model in
-                                Text("\(model.displayName) (\(model.provider.displayName))")
-                                    .tag(model.id)
+                    ZStack(alignment: .leading) {
+                        if hasDownloadedModels {
+                            // Background that expands to fill space
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color(nsColor: .controlBackgroundColor))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                                )
+
+                            // Menu overlay
+                            Menu {
+                                ForEach(downloadedModelsList) { model in
+                                    Button {
+                                        settings.selectedModelID = model.id
+                                        loadSelectedModel(model.id)
+                                    } label: {
+                                        if settings.selectedModelID == model.id {
+                                            Label("\(model.displayName) (\(model.provider.displayName))", systemImage: "checkmark")
+                                        } else {
+                                            Text("\(model.displayName) (\(model.provider.displayName))")
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(selectedModelDisplayName)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text("No models downloaded")
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
                         }
-                        .labelsHidden()
-                        .onChange(of: settings.selectedModelID) { _, newValue in
-                            loadSelectedModel(newValue)
-                        }
-                    } else {
-                        Text("No models downloaded")
-                            .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity, minHeight: 28)
 
                     Button {
                         showingModelDownloadModal = true
                     } label: {
                         Label("More Models", systemImage: "arrow.down.circle")
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color(nsColor: .controlBackgroundColor))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                                    )
+                            )
                     }
+                    .buttonStyle(.plain)
                 }
 
                 // Model status

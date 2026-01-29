@@ -26,6 +26,7 @@ struct AppearanceSettingsSection: View {
                             Text(mode.displayName).tag(mode)
                         }
                     }
+                    .labelsHidden()
                     .pickerStyle(.segmented)
                     .frame(width: 200)
                 }
@@ -37,7 +38,7 @@ struct AppearanceSettingsSection: View {
                             Text(language.name).tag(language.code)
                         }
                     }
-                    .frame(width: 150)
+                    .labelsHidden()
                 }
             }
         }
