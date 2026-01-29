@@ -237,7 +237,17 @@ final class TranscriptionService {
             throw TranscriptionError.modelNotLoaded
         }
 
+        print("FluidAudio transcribe - buffer size: \(buffer.count), duration: \(Double(buffer.count) / 16000.0)s")
+
+        // Check audio levels
+        let maxLevel = buffer.max() ?? 0
+        let minLevel = buffer.min() ?? 0
+        let rms = sqrt(buffer.map { $0 * $0 }.reduce(0, +) / Float(max(buffer.count, 1)))
+        print("FluidAudio audio levels - max: \(maxLevel), min: \(minLevel), RMS: \(rms)")
+
         let result = try await asrManager.transcribe(buffer)
+        print("FluidAudio raw result text: '\(result.text)'")
+
         return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

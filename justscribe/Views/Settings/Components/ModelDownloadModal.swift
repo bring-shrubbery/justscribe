@@ -102,7 +102,7 @@ struct ModelDownloadModal: View {
 
             // Footer
             HStack {
-                Text("Models are stored locally and never leave your device.")
+                Text("Models are stored locally and audio never leaves your device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

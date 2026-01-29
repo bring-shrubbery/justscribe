@@ -181,12 +181,15 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        // Get the format description to determine sample rate
+        // Get the format description to determine sample rate and format
         if let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer) {
             let audioStreamBasicDesc = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)
-            if let sampleRate = audioStreamBasicDesc?.pointee.mSampleRate {
+            if let asbd = audioStreamBasicDesc?.pointee {
                 DispatchQueue.main.async {
-                    self.inputSampleRate = sampleRate
+                    if self.inputSampleRate != asbd.mSampleRate {
+                        self.inputSampleRate = asbd.mSampleRate
+                        print("Audio format - Sample rate: \(asbd.mSampleRate), Channels: \(asbd.mChannelsPerFrame), Bits: \(asbd.mBitsPerChannel), Format: \(asbd.mFormatID)")
+                    }
                 }
             }
         }
@@ -199,18 +202,66 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
 
         guard let data = dataPointer else { return }
 
-        // Convert to float samples (assuming 16-bit PCM)
-        let sampleCount = length / 2
-        var floatSamples = [Float](repeating: 0, count: sampleCount)
+        // Get format info to determine how to interpret the data
+        var floatSamples: [Float] = []
 
-        data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
-            for i in 0..<sampleCount {
-                floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
+        if let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer),
+           let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee {
+
+            let formatFlags = asbd.mFormatFlags
+            let isFloat = (formatFlags & kAudioFormatFlagIsFloat) != 0
+            let bitsPerChannel = asbd.mBitsPerChannel
+
+            if isFloat && bitsPerChannel == 32 {
+                // 32-bit float format
+                let sampleCount = length / 4
+                floatSamples = [Float](repeating: 0, count: sampleCount)
+                data.withMemoryRebound(to: Float.self, capacity: sampleCount) { floatPtr in
+                    for i in 0..<sampleCount {
+                        floatSamples[i] = floatPtr[i]
+                    }
+                }
+            } else if bitsPerChannel == 16 {
+                // 16-bit integer format
+                let sampleCount = length / 2
+                floatSamples = [Float](repeating: 0, count: sampleCount)
+                data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
+                    for i in 0..<sampleCount {
+                        floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
+                    }
+                }
+            } else if bitsPerChannel == 32 {
+                // 32-bit integer format
+                let sampleCount = length / 4
+                floatSamples = [Float](repeating: 0, count: sampleCount)
+                data.withMemoryRebound(to: Int32.self, capacity: sampleCount) { int32Ptr in
+                    for i in 0..<sampleCount {
+                        floatSamples[i] = Float(int32Ptr[i]) / Float(Int32.max)
+                    }
+                }
+            } else {
+                // Fallback: assume 16-bit PCM
+                let sampleCount = length / 2
+                floatSamples = [Float](repeating: 0, count: sampleCount)
+                data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
+                    for i in 0..<sampleCount {
+                        floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
+                    }
+                }
+            }
+        } else {
+            // Fallback: assume 16-bit PCM
+            let sampleCount = length / 2
+            floatSamples = [Float](repeating: 0, count: sampleCount)
+            data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
+                for i in 0..<sampleCount {
+                    floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
+                }
             }
         }
 
         // Calculate audio level
-        let rms = sqrt(floatSamples.map { $0 * $0 }.reduce(0, +) / Float(max(sampleCount, 1)))
+        let rms = sqrt(floatSamples.map { $0 * $0 }.reduce(0, +) / Float(max(floatSamples.count, 1)))
         let level = 20 * log10(max(rms, 0.0001))
         let normalizedLevel = max(0, min(1, (level + 60) / 60))
 

@@ -209,11 +209,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func stopRecordingAndTranscribe() async {
+        print("stopRecordingAndTranscribe called")
+
         // Stop escape key monitor
         stopEscapeKeyMonitor()
 
         // Stop audio capture
         AudioCaptureService.shared.stopRecording()
+
+        // Get audio buffer
+        let audioBuffer = AudioCaptureService.shared.getAudioBuffer()
+        print("Audio buffer size: \(audioBuffer.count) samples (\(Double(audioBuffer.count) / 16000.0) seconds at 16kHz)")
+
+        guard !audioBuffer.isEmpty else {
+            print("Audio buffer is empty!")
+            OverlayManager.shared.showError(message: "No audio recorded. Please try again.")
+            return
+        }
 
         // Show processing state
         OverlayManager.shared.showProcessing()
@@ -222,19 +234,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             // Get language setting (nil means auto-detect)
             let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
+            print("Starting transcription with language: \(language ?? "auto")")
 
             let transcription = try await TranscriptionService.shared.processAudioBuffer(
-                AudioCaptureService.shared.getAudioBuffer(),
+                audioBuffer,
                 language: language
             )
+            print("Transcription result: \(transcription)")
 
-            // Copy to clipboard if enabled
+            // Copy to clipboard and paste into focused input
             let copyToClipboard = UserDefaults.standard.object(forKey: AppSettings.copyToClipboardKey) == nil
                 ? true
                 : UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey)
 
             if copyToClipboard {
-                ClipboardService.shared.copyToClipboard(transcription)
+                ClipboardService.shared.copyAndPaste(transcription)
             }
 
             // Show completed state
@@ -243,6 +257,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Clear audio buffer
             AudioCaptureService.shared.clearBuffer()
         } catch {
+            print("Transcription error: \(error)")
             OverlayManager.shared.showError(message: error.localizedDescription)
         }
     }
