@@ -157,32 +157,41 @@ final class ModelDownloadService {
         let fileManager = FileManager.default
         var foundModels: Set<String> = []
 
-        // Check WhisperKit models in HuggingFace cache
-        if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
-            let hubDir = cacheDir.appendingPathComponent("huggingface/hub")
+        // Check WhisperKit models in multiple possible locations
+        // Location varies based on WhisperKit version and sandbox configuration
+        var whisperKitSearchPaths: [URL] = []
 
-            // Look for whisperkit-coreml models
-            let repoDir = hubDir.appendingPathComponent("models--argmaxinc--whisperkit-coreml")
-            let snapshotsDir = repoDir.appendingPathComponent("snapshots")
+        // Location 1: Documents/huggingface (current sandboxed location)
+        if let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+            whisperKitSearchPaths.append(documentsDir.appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml"))
+        }
 
-            if let snapshots = try? fileManager.contentsOfDirectory(at: snapshotsDir, includingPropertiesForKeys: nil) {
-                for snapshot in snapshots {
-                    if let contents = try? fileManager.contentsOfDirectory(at: snapshot, includingPropertiesForKeys: nil) {
-                        for item in contents {
-                            let name = item.lastPathComponent
-                            if name.contains("whisper") || name.contains("openai") {
-                                let hasConfig = fileManager.fileExists(atPath: item.appendingPathComponent("config.json").path)
-                                if hasConfig {
-                                    let modelID = "whisperkit:\(name)"
-                                    foundModels.insert(modelID)
-                                    print("Found WhisperKit model: \(modelID)")
-                                }
-                            }
-                        }
+        // Location 2: Caches/huggingface/hub (alternative HuggingFace cache location)
+        if let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            // Standard HuggingFace hub cache structure
+            let hubDir = cachesDir.appendingPathComponent("huggingface/hub/models--argmaxinc--whisperkit-coreml/snapshots")
+            if let snapshots = try? fileManager.contentsOfDirectory(at: hubDir, includingPropertiesForKeys: nil) {
+                whisperKitSearchPaths.append(contentsOf: snapshots)
+            }
+        }
+
+        // Search all paths for WhisperKit models
+        for searchPath in whisperKitSearchPaths {
+            if let contents = try? fileManager.contentsOfDirectory(at: searchPath, includingPropertiesForKeys: nil) {
+                for item in contents {
+                    let name = item.lastPathComponent
+                    // Skip hidden directories like .cache
+                    guard !name.hasPrefix(".") else { continue }
+
+                    // Check if it's a valid model directory with config.json
+                    let hasConfig = fileManager.fileExists(atPath: item.appendingPathComponent("config.json").path)
+                    if hasConfig {
+                        let modelID = "whisperkit:\(name)"
+                        foundModels.insert(modelID)
+                        print("Found WhisperKit model: \(modelID) at \(item.path)")
                     }
                 }
             }
-
         }
 
         // Look for FluidAudio/Parakeet CoreML models in Application Support
@@ -220,9 +229,15 @@ final class ModelDownloadService {
 
         switch modelInfo.provider {
         case .whisperKit:
-            // WhisperKit models are in a shared repo, so we can't easily delete individual models
-            // For now, we'll just remove from our tracked list
-            break
+            // WhisperKit models are in Documents/huggingface/models/argmaxinc/whisperkit-coreml/{variant}/
+            if let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let modelDir = documentsDir.appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml/\(modelInfo.variant)")
+
+                if fileManager.fileExists(atPath: modelDir.path) {
+                    try fileManager.removeItem(at: modelDir)
+                    print("Deleted WhisperKit model at: \(modelDir.path)")
+                }
+            }
 
         case .fluidAudio:
             // FluidAudio stores models in Application Support
@@ -234,6 +249,7 @@ final class ModelDownloadService {
 
                 if fileManager.fileExists(atPath: modelDir.path) {
                     try fileManager.removeItem(at: modelDir)
+                    print("Deleted FluidAudio model at: \(modelDir.path)")
                 }
             }
         }
