@@ -30,6 +30,11 @@ final class TranscriptionService {
     var onTranscriptionUpdate: ((String) -> Void)?
     var onTranscriptionComplete: ((String) -> Void)?
 
+    // For streaming transcription
+    private var streamingTask: Task<Void, Never>?
+    private var isStreamingActive = false
+    private(set) var currentStreamingText: String = ""
+
     enum TranscriptionState: Equatable {
         case idle
         case loadingModel
@@ -187,6 +192,108 @@ final class TranscriptionService {
     func cancelTranscription() {
         state = .idle
         currentTranscription = ""
+        stopStreamingTranscription()
+    }
+
+    // MARK: - Streaming Transcription
+
+    /// Start streaming transcription - transcribes audio chunks periodically
+    /// Call onTranscriptionUpdate with new text as it's transcribed
+    func startStreamingTranscription(language: String? = nil, chunkInterval: TimeInterval = 2.0) {
+        guard isModelLoaded else {
+            state = .error(TranscriptionError.modelNotLoaded.localizedDescription)
+            return
+        }
+
+        // Cancel any existing streaming
+        stopStreamingTranscription()
+
+        isStreamingActive = true
+        currentStreamingText = ""
+        state = .listening
+
+        print("Starting streaming transcription with \(chunkInterval)s intervals")
+
+        streamingTask = Task { [weak self] in
+            var lastProcessedSampleCount = 0
+            print("Streaming task started")
+
+            while await self?.isStreamingActive == true {
+                print("Streaming loop iteration, waiting \(chunkInterval)s...")
+                // Wait for the chunk interval
+                try? await Task.sleep(for: .seconds(chunkInterval))
+
+                guard await self?.isStreamingActive == true else {
+                    print("Streaming no longer active, breaking loop")
+                    break
+                }
+
+                // Get current audio buffer
+                let audioBuffer = await MainActor.run {
+                    AudioCaptureService.shared.getAudioBuffer()
+                }
+
+                // Only process if we have new audio (at least 0.5 seconds worth)
+                let minNewSamples = Int(16000 * 0.5) // 0.5 seconds at 16kHz
+                guard audioBuffer.count > lastProcessedSampleCount + minNewSamples else {
+                    continue
+                }
+
+                print("Streaming: processing \(audioBuffer.count) samples (was \(lastProcessedSampleCount))")
+
+                do {
+                    // Transcribe the full buffer for better context
+                    let transcription = try await self?.processAudioBufferForStreaming(audioBuffer, language: language) ?? ""
+
+                    await MainActor.run {
+                        if self?.isStreamingActive == true {
+                            let trimmedText = transcription.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !trimmedText.isEmpty {
+                                self?.currentStreamingText = trimmedText
+                                self?.currentTranscription = trimmedText
+                                self?.onTranscriptionUpdate?(trimmedText)
+                                print("Streaming update: '\(trimmedText)'")
+                            }
+                        }
+                    }
+
+                    lastProcessedSampleCount = audioBuffer.count
+                } catch {
+                    print("Streaming transcription error: \(error)")
+                }
+            }
+
+            print("Streaming transcription loop ended")
+        }
+    }
+
+    /// Stop streaming transcription and return the final result
+    @discardableResult
+    func stopStreamingTranscription() -> String {
+        isStreamingActive = false
+        streamingTask?.cancel()
+        streamingTask = nil
+        state = .idle
+
+        let finalText = currentStreamingText
+        print("Streaming stopped, final text: '\(finalText)'")
+        return finalText
+    }
+
+    /// Process audio buffer for streaming (doesn't update state)
+    private func processAudioBufferForStreaming(_ buffer: [Float], language: String? = nil) async throws -> String {
+        guard isModelLoaded else {
+            throw TranscriptionError.modelNotLoaded
+        }
+
+        switch loadedProvider {
+        case .whisperKit:
+            return try await transcribeWithWhisperKit(buffer: buffer, language: language)
+        case .fluidAudio:
+            return try await transcribeWithFluidAudio(buffer: buffer)
+        case nil:
+            throw TranscriptionError.modelNotLoaded
+        }
     }
 
     func processAudioBuffer(_ buffer: [Float], language: String? = nil) async throws -> String {

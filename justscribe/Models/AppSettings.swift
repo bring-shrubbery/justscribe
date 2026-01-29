@@ -42,6 +42,7 @@ final class AppSettings {
     static let copyToClipboardKey = "copyToClipboard"
     static let selectedLanguageKey = "selectedLanguage"
     static let microphonePriorityKey = "microphonePriority"
+    static let indicatorStyleKey = "indicatorStyle"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -65,7 +66,10 @@ final class AppSettings {
     @Attribute var indicatorStyleRaw: String = IndicatorStyle.bubble.rawValue
     var indicatorStyle: IndicatorStyle {
         get { IndicatorStyle(rawValue: indicatorStyleRaw) ?? .bubble }
-        set { indicatorStyleRaw = newValue.rawValue }
+        set {
+            indicatorStyleRaw = newValue.rawValue
+            UserDefaults.standard.set(newValue.rawValue, forKey: Self.indicatorStyleKey)
+        }
     }
 
     // Appearance
@@ -124,5 +128,6 @@ final class AppSettings {
         UserDefaults.standard.set(copyToClipboard, forKey: Self.copyToClipboardKey)
         UserDefaults.standard.set(selectedLanguage, forKey: Self.selectedLanguageKey)
         UserDefaults.standard.set(microphonePriority, forKey: Self.microphonePriorityKey)
+        UserDefaults.standard.set(indicatorStyleRaw, forKey: Self.indicatorStyleKey)
     }
 }

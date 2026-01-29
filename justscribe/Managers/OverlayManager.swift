@@ -146,6 +146,15 @@ final class OverlayManager {
 
     func showListening() {
         state = .listening
+        // Read the user's preferred style from UserDefaults
+        // Key matches AppSettings.indicatorStyleKey
+        if let styleRaw = UserDefaults.standard.string(forKey: "indicatorStyle"),
+           let style = OverlayStyle(rawValue: styleRaw) {
+            currentStyle = style
+            print("Using indicator style: \(style.rawValue)")
+        } else {
+            print("No indicator style in UserDefaults, using default: \(currentStyle.rawValue)")
+        }
         show()
     }
 

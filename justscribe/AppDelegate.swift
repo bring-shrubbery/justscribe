@@ -62,26 +62,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Hotkey Setup
 
+    /// Tracks how much text has been typed during streaming (for incremental typing)
+    private var typedTextLength = 0
+
     private func setupHotkey() {
-        HotkeyService.shared.onActivate = { [weak self] in
-            print("Hotkey activated!")
-            self?.handleHotkeyActivation()
+        // Key down: start recording and streaming transcription
+        HotkeyService.shared.onKeyDown = { [weak self] in
+            print("Hotkey pressed - starting recording")
+            self?.handleHotkeyDown()
         }
+
+        // Key up: stop recording and finalize
+        HotkeyService.shared.onKeyUp = { [weak self] in
+            print("Hotkey released - stopping recording")
+            self?.handleHotkeyUp()
+        }
+
         HotkeyService.shared.setup()
-        print("Hotkey service setup complete")
+        print("Hotkey service setup complete (hold-to-record mode)")
     }
 
     @MainActor
-    private func handleHotkeyActivation() {
-        // Check if already recording
-        if OverlayManager.shared.isVisible {
-            // Stop recording and process
-            Task {
-                await stopRecordingAndTranscribe()
-            }
-        } else {
-            // Start recording
-            startRecording()
+    private func handleHotkeyDown() {
+        // Only start if not already recording
+        guard !OverlayManager.shared.isVisible else {
+            print("Already recording, ignoring key down")
+            return
+        }
+
+        startRecording()
+    }
+
+    @MainActor
+    private func handleHotkeyUp() {
+        // Only stop if currently recording
+        guard OverlayManager.shared.isVisible else {
+            print("Not recording, ignoring key up")
+            return
+        }
+
+        Task {
+            await stopRecordingAndFinalize()
         }
     }
 
@@ -136,6 +157,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Start audio capture
         AudioCaptureService.shared.startRecording()
+
+        // Reset typed text tracking
+        typedTextLength = 0
+
+        // Get language setting
+        let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
+
+        // Set up streaming transcription callback to type text as it's recognized
+        TranscriptionService.shared.onTranscriptionUpdate = { [weak self] text in
+            guard let self = self else { return }
+            print("onTranscriptionUpdate called with: '\(text)'")
+            print("Previously typed length: \(self.typedTextLength)")
+            // Type only the new text (delta)
+            let newLength = ClipboardService.shared.typeNewText(
+                fullText: text,
+                previouslyTypedLength: self.typedTextLength
+            )
+            print("New typed length: \(newLength)")
+            self.typedTextLength = newLength
+        }
+
+        // Start streaming transcription
+        print("Starting streaming transcription...")
+        TranscriptionService.shared.startStreamingTranscription(language: language, chunkInterval: 2.0)
+
+        // Start listening for Escape key to cancel
+        startEscapeKeyMonitor()
 
         // Start listening for Escape key
         startEscapeKeyMonitor()
@@ -199,16 +247,102 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Stop monitoring
         stopEscapeKeyMonitor()
 
+        // Stop streaming transcription
+        TranscriptionService.shared.stopStreamingTranscription()
+        TranscriptionService.shared.onTranscriptionUpdate = nil
+
         // Stop audio capture and clear buffer
         AudioCaptureService.shared.stopRecording()
         AudioCaptureService.shared.clearBuffer()
+
+        // Reset typed text tracking
+        typedTextLength = 0
 
         // Hide overlay
         OverlayManager.shared.hide()
     }
 
     @MainActor
+    private func stopRecordingAndFinalize() async {
+        print("stopRecordingAndFinalize called")
+
+        // Stop escape key monitor
+        stopEscapeKeyMonitor()
+
+        // Stop streaming transcription and get final text
+        let streamedText = TranscriptionService.shared.stopStreamingTranscription()
+        TranscriptionService.shared.onTranscriptionUpdate = nil
+
+        // Stop audio capture
+        AudioCaptureService.shared.stopRecording()
+
+        // Get audio buffer for final transcription
+        let audioBuffer = AudioCaptureService.shared.getAudioBuffer()
+        print("Audio buffer size: \(audioBuffer.count) samples (\(Double(audioBuffer.count) / 16000.0) seconds at 16kHz)")
+
+        var finalTranscription = streamedText
+
+        // If we have audio, do a final transcription for accuracy
+        if !audioBuffer.isEmpty {
+            // Show processing state briefly
+            OverlayManager.shared.showProcessing()
+
+            do {
+                let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
+                let fullTranscription = try await TranscriptionService.shared.processAudioBuffer(
+                    audioBuffer,
+                    language: language
+                )
+
+                // If final transcription is different/longer, type the difference
+                if fullTranscription.count > typedTextLength {
+                    let newText = String(fullTranscription.dropFirst(typedTextLength))
+                    if !newText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        ClipboardService.shared.typeText(newText)
+                    }
+                }
+
+                finalTranscription = fullTranscription
+                print("Final transcription: \(finalTranscription)")
+            } catch {
+                print("Final transcription error: \(error)")
+                // Use the streamed text if final transcription fails
+            }
+        }
+
+        // Copy final transcription to clipboard if enabled
+        let copyToClipboard = UserDefaults.standard.object(forKey: AppSettings.copyToClipboardKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey)
+
+        if copyToClipboard && !finalTranscription.isEmpty {
+            ClipboardService.shared.copyToClipboard(finalTranscription)
+            print("Copied to clipboard: \(finalTranscription)")
+        }
+
+        // Show completed state
+        if !finalTranscription.isEmpty {
+            OverlayManager.shared.showCompleted(text: finalTranscription)
+        } else {
+            OverlayManager.shared.showError(message: "No speech detected")
+        }
+
+        // Clear audio buffer
+        AudioCaptureService.shared.clearBuffer()
+
+        // Reset typed text tracking
+        typedTextLength = 0
+    }
+
+    // Legacy function for backwards compatibility (if needed)
+    @MainActor
     private func stopRecordingAndTranscribe() async {
+        await stopRecordingAndFinalize()
+    }
+
+    // Unused - keeping for reference
+    @MainActor
+    private func oldStopRecordingAndTranscribe() async {
         print("stopRecordingAndTranscribe called")
 
         // Stop escape key monitor
@@ -283,7 +417,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func startTranscriptionFromMenu() {
         Task { @MainActor in
-            handleHotkeyActivation()
+            // Menu click toggles recording (unlike hold-to-record with shortcut)
+            if OverlayManager.shared.isVisible {
+                await stopRecordingAndFinalize()
+            } else {
+                handleHotkeyDown()
+            }
         }
     }
 
