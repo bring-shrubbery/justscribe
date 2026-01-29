@@ -210,10 +210,12 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
 
             let formatFlags = asbd.mFormatFlags
             let isFloat = (formatFlags & kAudioFormatFlagIsFloat) != 0
+            let isSignedInt = (formatFlags & kAudioFormatFlagIsSignedInteger) != 0
             let bitsPerChannel = asbd.mBitsPerChannel
+            let bytesPerSample = Int(asbd.mBytesPerFrame / asbd.mChannelsPerFrame)
 
             if isFloat && bitsPerChannel == 32 {
-                // 32-bit float format
+                // 32-bit float format (common on macOS)
                 let sampleCount = length / 4
                 floatSamples = [Float](repeating: 0, count: sampleCount)
                 data.withMemoryRebound(to: Float.self, capacity: sampleCount) { floatPtr in
@@ -221,26 +223,68 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
                         floatSamples[i] = floatPtr[i]
                     }
                 }
-            } else if bitsPerChannel == 16 {
-                // 16-bit integer format
-                let sampleCount = length / 2
+            } else if isFloat && bitsPerChannel == 64 {
+                // 64-bit float (rare, but handle it)
+                let sampleCount = length / 8
                 floatSamples = [Float](repeating: 0, count: sampleCount)
-                data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
+                data.withMemoryRebound(to: Double.self, capacity: sampleCount) { doublePtr in
                     for i in 0..<sampleCount {
-                        floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
+                        floatSamples[i] = Float(doublePtr[i])
                     }
                 }
-            } else if bitsPerChannel == 32 {
+            } else if bitsPerChannel == 16 {
+                // 16-bit integer format (most common)
+                let sampleCount = length / 2
+                floatSamples = [Float](repeating: 0, count: sampleCount)
+                if isSignedInt {
+                    data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
+                        for i in 0..<sampleCount {
+                            floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
+                        }
+                    }
+                } else {
+                    data.withMemoryRebound(to: UInt16.self, capacity: sampleCount) { uint16Ptr in
+                        for i in 0..<sampleCount {
+                            floatSamples[i] = (Float(uint16Ptr[i]) / Float(UInt16.max)) * 2.0 - 1.0
+                        }
+                    }
+                }
+            } else if bitsPerChannel == 24 {
+                // 24-bit integer (professional audio)
+                let sampleCount = length / 3
+                floatSamples = [Float](repeating: 0, count: sampleCount)
+                for i in 0..<sampleCount {
+                    let offset = i * 3
+                    // Little-endian 24-bit
+                    let b0 = Int32(data[offset]) & 0xFF
+                    let b1 = Int32(data[offset + 1]) & 0xFF
+                    let b2 = Int32(data[offset + 2])
+                    var value = (b2 << 16) | (b1 << 8) | b0
+                    // Sign extend if needed
+                    if isSignedInt && (value & 0x800000) != 0 {
+                        value |= Int32(bitPattern: 0xFF000000)
+                    }
+                    floatSamples[i] = Float(value) / Float(0x7FFFFF)
+                }
+            } else if bitsPerChannel == 32 && !isFloat {
                 // 32-bit integer format
                 let sampleCount = length / 4
                 floatSamples = [Float](repeating: 0, count: sampleCount)
-                data.withMemoryRebound(to: Int32.self, capacity: sampleCount) { int32Ptr in
-                    for i in 0..<sampleCount {
-                        floatSamples[i] = Float(int32Ptr[i]) / Float(Int32.max)
+                if isSignedInt {
+                    data.withMemoryRebound(to: Int32.self, capacity: sampleCount) { int32Ptr in
+                        for i in 0..<sampleCount {
+                            floatSamples[i] = Float(int32Ptr[i]) / Float(Int32.max)
+                        }
+                    }
+                } else {
+                    data.withMemoryRebound(to: UInt32.self, capacity: sampleCount) { uint32Ptr in
+                        for i in 0..<sampleCount {
+                            floatSamples[i] = (Float(uint32Ptr[i]) / Float(UInt32.max)) * 2.0 - 1.0
+                        }
                     }
                 }
             } else {
-                // Fallback: assume 16-bit PCM
+                // Fallback: assume 16-bit signed PCM
                 let sampleCount = length / 2
                 floatSamples = [Float](repeating: 0, count: sampleCount)
                 data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
@@ -250,7 +294,7 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
                 }
             }
         } else {
-            // Fallback: assume 16-bit PCM
+            // Fallback: assume 16-bit signed PCM
             let sampleCount = length / 2
             floatSamples = [Float](repeating: 0, count: sampleCount)
             data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
