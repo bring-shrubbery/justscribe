@@ -38,7 +38,6 @@ enum AppearanceMode: String, Codable, CaseIterable {
 final class AppSettings {
     // UserDefaults keys for cross-component access
     static let selectedModelIDKey = "selectedModelID"
-    static let escapeToCancelKey = "escapeToCancel"
     static let copyToClipboardKey = "copyToClipboard"
     static let selectedLanguageKey = "selectedLanguage"
     static let microphonePriorityKey = "microphonePriority"
@@ -100,11 +99,6 @@ final class AppSettings {
             UserDefaults.standard.set(showInStatusBar, forKey: Self.showInStatusBarKey)
         }
     }
-    var escapeToCancel: Bool = true {
-        didSet {
-            UserDefaults.standard.set(escapeToCancel, forKey: Self.escapeToCancelKey)
-        }
-    }
     var copyToClipboard: Bool = true {
         didSet {
             UserDefaults.standard.set(copyToClipboard, forKey: Self.copyToClipboardKey)
@@ -134,7 +128,6 @@ final class AppSettings {
 
     func syncToUserDefaults() {
         UserDefaults.standard.set(selectedModelID, forKey: Self.selectedModelIDKey)
-        UserDefaults.standard.set(escapeToCancel, forKey: Self.escapeToCancelKey)
         UserDefaults.standard.set(copyToClipboard, forKey: Self.copyToClipboardKey)
         UserDefaults.standard.set(selectedLanguage, forKey: Self.selectedLanguageKey)
         UserDefaults.standard.set(microphonePriority, forKey: Self.microphonePriorityKey)

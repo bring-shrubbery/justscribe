@@ -11,13 +11,26 @@ import SwiftUI
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
-    private var escapeKeyMonitor: Any?
-    private var localEscapeKeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         applySavedVisibilitySettings()
         checkInputMonitoringAndSetupHotkey()
         loadSelectedModel()
+        setupNotificationObservers()
+    }
+
+    private func setupNotificationObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleStatusBarVisibilityChange),
+            name: Notification.Name("updateStatusBarVisibility"),
+            object: nil
+        )
+    }
+
+    @objc private func handleStatusBarVisibilityChange(_ notification: Notification) {
+        guard let show = notification.userInfo?["show"] as? Bool else { return }
+        updateStatusBarVisibility(showInStatusBar: show)
     }
 
     // MARK: - Visibility Settings
@@ -210,93 +223,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start streaming transcription
         print("Starting streaming transcription...")
         TranscriptionService.shared.startStreamingTranscription(language: language, chunkInterval: 2.0)
-
-        // Start listening for Escape key to cancel
-        startEscapeKeyMonitor()
-
-        // Start listening for Escape key
-        startEscapeKeyMonitor()
-    }
-
-    // MARK: - Escape to Cancel
-
-    private func startEscapeKeyMonitor() {
-        // Remove any existing monitor
-        stopEscapeKeyMonitor()
-
-        // Use global monitor so escape works even when app isn't focused
-        // Note: This requires Input Monitoring permission
-        escapeKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 53 { // 53 = Escape key
-                Task { @MainActor in
-                    self?.handleEscapePressed()
-                }
-            }
-        }
-
-        // Also add local monitor for when app IS focused
-        let localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 53 { // 53 = Escape key
-                self?.handleEscapePressed()
-                return nil // Consume the event
-            }
-            return event
-        }
-        // Store as secondary monitor - we'll manage both
-        localEscapeKeyMonitor = localMonitor
-    }
-
-    private func stopEscapeKeyMonitor() {
-        if let monitor = escapeKeyMonitor {
-            NSEvent.removeMonitor(monitor)
-            escapeKeyMonitor = nil
-        }
-        if let monitor = localEscapeKeyMonitor {
-            NSEvent.removeMonitor(monitor)
-            localEscapeKeyMonitor = nil
-        }
-    }
-
-    @MainActor
-    private func handleEscapePressed() {
-        // Check if escape-to-cancel is enabled
-        let escapeToCancel = UserDefaults.standard.bool(forKey: AppSettings.escapeToCancelKey)
-
-        // Default to true if not set
-        let shouldCancel = UserDefaults.standard.object(forKey: AppSettings.escapeToCancelKey) == nil ? true : escapeToCancel
-
-        guard shouldCancel else { return }
-        guard OverlayManager.shared.isVisible else { return }
-
-        cancelRecording()
-    }
-
-    @MainActor
-    private func cancelRecording() {
-        // Stop monitoring
-        stopEscapeKeyMonitor()
-
-        // Stop streaming transcription
-        TranscriptionService.shared.stopStreamingTranscription()
-        TranscriptionService.shared.onTranscriptionUpdate = nil
-
-        // Stop audio capture and clear buffer
-        AudioCaptureService.shared.stopRecording()
-        AudioCaptureService.shared.clearBuffer()
-
-        // Reset typed text tracking
-        typedTextLength = 0
-
-        // Hide overlay
-        OverlayManager.shared.hide()
     }
 
     @MainActor
     private func stopRecordingAndFinalize() async {
         print("stopRecordingAndFinalize called")
-
-        // Stop escape key monitor
-        stopEscapeKeyMonitor()
 
         // Stop streaming transcription and get final text
         let streamedText = TranscriptionService.shared.stopStreamingTranscription()
@@ -340,11 +271,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Copy final transcription to clipboard if enabled
-        let copyToClipboardObject = UserDefaults.standard.object(forKey: AppSettings.copyToClipboardKey)
-        let copyToClipboard = copyToClipboardObject == nil
+        let copyToClipboard = UserDefaults.standard.object(forKey: AppSettings.copyToClipboardKey) == nil
             ? true
             : UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey)
-        print("Reading copyToClipboard - object: \(String(describing: copyToClipboardObject)), resolved: \(copyToClipboard)")
 
         let didCopyToClipboard = copyToClipboard && !finalTranscription.isEmpty
         if didCopyToClipboard {
@@ -364,68 +293,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Reset typed text tracking
         typedTextLength = 0
-    }
-
-    // Legacy function for backwards compatibility (if needed)
-    @MainActor
-    private func stopRecordingAndTranscribe() async {
-        await stopRecordingAndFinalize()
-    }
-
-    // Unused - keeping for reference
-    @MainActor
-    private func oldStopRecordingAndTranscribe() async {
-        print("stopRecordingAndTranscribe called")
-
-        // Stop escape key monitor
-        stopEscapeKeyMonitor()
-
-        // Stop audio capture
-        AudioCaptureService.shared.stopRecording()
-
-        // Get audio buffer
-        let audioBuffer = AudioCaptureService.shared.getAudioBuffer()
-        print("Audio buffer size: \(audioBuffer.count) samples (\(Double(audioBuffer.count) / 16000.0) seconds at 16kHz)")
-
-        guard !audioBuffer.isEmpty else {
-            print("Audio buffer is empty!")
-            OverlayManager.shared.showError(message: "No audio recorded. Please try again.")
-            return
-        }
-
-        // Show processing state
-        OverlayManager.shared.showProcessing()
-
-        // Process transcription
-        do {
-            // Get language setting (nil means auto-detect)
-            let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
-            print("Starting transcription with language: \(language ?? "auto")")
-
-            let transcription = try await TranscriptionService.shared.processAudioBuffer(
-                audioBuffer,
-                language: language
-            )
-            print("Transcription result: \(transcription)")
-
-            // Copy to clipboard and paste into focused input
-            let copyToClipboard = UserDefaults.standard.object(forKey: AppSettings.copyToClipboardKey) == nil
-                ? true
-                : UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey)
-
-            if copyToClipboard {
-                ClipboardService.shared.copyAndPaste(transcription)
-            }
-
-            // Show completed state
-            OverlayManager.shared.showCompleted(copiedToClipboard: copyToClipboard)
-
-            // Clear audio buffer
-            AudioCaptureService.shared.clearBuffer()
-        } catch {
-            print("Transcription error: \(error)")
-            OverlayManager.shared.showError(message: error.localizedDescription)
-        }
     }
 
     // MARK: - Status Bar
