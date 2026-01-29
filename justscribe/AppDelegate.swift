@@ -8,6 +8,8 @@
 import AppKit
 import SwiftUI
 
+private struct TranscriptionTimeoutError: Error {}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
@@ -249,10 +251,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             do {
                 let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
-                let fullTranscription = try await TranscriptionService.shared.processAudioBuffer(
-                    audioBuffer,
-                    language: language
-                )
+
+                // Add timeout to prevent getting stuck
+                let fullTranscription = try await withThrowingTaskGroup(of: String.self) { group in
+                    group.addTask {
+                        try await TranscriptionService.shared.processAudioBuffer(
+                            audioBuffer,
+                            language: language
+                        )
+                    }
+
+                    group.addTask {
+                        try await Task.sleep(for: .seconds(30))
+                        throw TranscriptionTimeoutError()
+                    }
+
+                    let result = try await group.next()!
+                    group.cancelAll()
+                    return result
+                }
 
                 // If final transcription is different/longer, type the difference
                 if fullTranscription.count > typedTextLength {
@@ -264,10 +281,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 finalTranscription = fullTranscription
                 print("Final transcription: \(finalTranscription)")
+            } catch is TranscriptionTimeoutError {
+                print("Final transcription timed out")
+                if finalTranscription.isEmpty {
+                    OverlayManager.shared.showError(message: "Processing took too long")
+                    AudioCaptureService.shared.clearBuffer()
+                    typedTextLength = 0
+                    return
+                }
             } catch {
                 print("Final transcription error: \(error)")
-                // Use the streamed text if final transcription fails
+                // Show error and return early if transcription failed and we have no streamed text
+                if finalTranscription.isEmpty {
+                    OverlayManager.shared.showError(message: "Transcription failed")
+                    AudioCaptureService.shared.clearBuffer()
+                    typedTextLength = 0
+                    return
+                }
+                // Otherwise continue with streamed text
             }
+        } else if finalTranscription.isEmpty {
+            // No audio recorded at all
+            OverlayManager.shared.showError(message: "No audio recorded")
+            typedTextLength = 0
+            return
         }
 
         // Copy final transcription to clipboard if enabled
