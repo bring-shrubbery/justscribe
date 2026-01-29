@@ -37,15 +37,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Check if model is downloaded
-        let downloadService = ModelDownloadService.shared
-        guard downloadService.isModelDownloaded(modelID) else {
-            print("Selected model '\(modelID)' is not downloaded, skipping auto-load")
-            return
-        }
-
-        // Load the model asynchronously
+        // Load the model asynchronously after refreshing downloaded models list
         Task { @MainActor in
+            // Refresh downloaded models first to ensure accurate check
+            let downloadService = ModelDownloadService.shared
+            await downloadService.refreshDownloadedModels()
+
+            guard downloadService.isModelDownloaded(modelID) else {
+                print("Selected model '\(modelID)' is not downloaded, skipping auto-load")
+                return
+            }
+
             do {
                 print("Auto-loading model: \(modelID)")
                 try await TranscriptionService.shared.loadModel(unifiedID: modelID)
@@ -58,6 +60,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Unload the model to free memory
+        // This is called on the main thread by AppKit, so we can safely access MainActor-isolated code
+        MainActor.assumeIsolated {
+            TranscriptionService.shared.unloadModel()
+            print("Model unloaded on app termination")
+        }
     }
 
     // MARK: - Hotkey Setup
