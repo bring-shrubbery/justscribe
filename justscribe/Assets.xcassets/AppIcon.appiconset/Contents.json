@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "justscribe-icon.jpg",
+      "filename" : "Icon-iOS-Default-1024x1024@1x.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -13,7 +13,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "justscribe-icon 1.jpg",
+      "filename" : "Icon-iOS-Dark-1024x1024@1x.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -25,67 +25,67 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "appstore.png",
+      "filename" : "Icon-iOS-TintedDark-1024x1024@1x.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
     },
     {
-      "filename" : "16.png",
+      "filename" : "Icon-iOS-Dark-16x16@1x.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "16x16"
     },
     {
-      "filename" : "32.png",
+      "filename" : "Icon-iOS-Dark-32x32@1x 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "16x16"
     },
     {
-      "filename" : "32 1.png",
+      "filename" : "Icon-iOS-Dark-32x32@1x.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "32x32"
     },
     {
-      "filename" : "64.png",
+      "filename" : "Icon-iOS-Dark-64x64@1x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "32x32"
     },
     {
-      "filename" : "128.png",
+      "filename" : "Icon-iOS-Dark-128x128@1x.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "128x128"
     },
     {
-      "filename" : "256.png",
+      "filename" : "Icon-iOS-Dark-256x256@1x 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "128x128"
     },
     {
-      "filename" : "256 1.png",
+      "filename" : "Icon-iOS-Dark-256x256@1x.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "256x256"
     },
     {
-      "filename" : "512.png",
+      "filename" : "Icon-iOS-Dark-512x512@1x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "256x256"
     },
     {
-      "filename" : "512 1.png",
+      "filename" : "Icon-iOS-Dark-512x512@1x 1.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "512x512"
     },
     {
-      "filename" : "justscribe-icon 2.jpg",
+      "filename" : "Icon-iOS-Dark-1024x1024@1x 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "512x512"

@@ -89,9 +89,12 @@ struct SettingsView: View {
 
     private var headerView: some View {
         VStack(spacing: 8) {
-            Image(systemName: "waveform.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.accentColor)
+            if let appIcon = NSApp.applicationIconImage {
+                Image(nsImage: appIcon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 96, height: 96)
+            }
 
             Text("JustScribe")
                 .font(.title)
