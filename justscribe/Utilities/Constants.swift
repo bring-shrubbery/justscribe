@@ -12,11 +12,11 @@ enum Constants {
     static let bundleIdentifier = "com.quassum.justscribe"
 
     enum URLs {
-        static let website = URL(string: "https://justscribe.app")!
-        static let privacyPolicy = URL(string: "https://justscribe.app/privacy")!
-        static let termsOfService = URL(string: "https://justscribe.app/terms")!
-        static let credits = URL(string: "https://justscribe.app/credits")!
-        static let support = URL(string: "https://justscribe.app/support")!
+        static let website = URL(string: "https://quassum.com/apps/justscribe")!
+        static let privacyPolicy = URL(string: "https://quassum.com/apps/justscribe/privacy")!
+        static let termsOfService = URL(string: "https://quassum.com/terms")!
+        static let credits = URL(string: "https://quassum.com/apps/justscribe#credits")!
+        static let support = URL(string: "https://quassum.com/apps/justscribe#support")!
     }
 
     enum Storage {
