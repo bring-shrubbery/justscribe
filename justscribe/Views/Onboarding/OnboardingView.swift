@@ -344,7 +344,10 @@ struct OnboardingView: View {
     }
 
     private var shortcutDescription: String {
-        "Ctrl + Shift + Space"
+        if let config = ShortcutConfig.load() {
+            return config.readableDescription
+        }
+        return "Ctrl + Shift + Space"
     }
 
     // MARK: - Actions
