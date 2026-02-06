@@ -196,11 +196,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             AudioCaptureService.shared.selectDeviceByPriority(priority)
         }
 
-        // Show overlay in listening state
-        OverlayManager.shared.showListening()
-
-        // Start audio capture
+        // Start audio capture BEFORE showing UI so no audio is lost
         AudioCaptureService.shared.startRecording()
+
+        // Show overlay only once we're actually recording
+        OverlayManager.shared.showListening()
 
         // Reset typed text tracking
         typedTextLength = 0
