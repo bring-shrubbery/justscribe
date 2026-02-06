@@ -52,6 +52,17 @@ struct SettingsView: View {
                         Divider()
 
                         LinksSettingsSection()
+
+                        #if DEBUG
+                        Divider()
+
+                        SettingsSectionContainer(title: "Developer") {
+                            Button("Reset Onboarding") {
+                                showingOnboarding = true
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        #endif
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 32)
