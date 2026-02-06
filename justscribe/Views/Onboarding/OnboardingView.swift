@@ -268,7 +268,7 @@ struct OnboardingView: View {
                     Button {
                         requestMicrophonePermission()
                     } label: {
-                        Text("Grant Microphone Access")
+                        Text("Continue")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
