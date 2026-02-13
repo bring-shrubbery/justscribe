@@ -17,6 +17,8 @@ struct OnboardingView: View {
     @State private var downloadError: String?
     @State private var selectedModel: UnifiedModelInfo?
     @State private var microphoneGranted = false
+    @State private var accessibilityGranted = false
+    @State private var isRequestingPermissions = false
 
     private var downloadService: ModelDownloadService { ModelDownloadService.shared }
     private var permissionsService: PermissionsService { PermissionsService.shared }
@@ -226,31 +228,41 @@ struct OnboardingView: View {
 
     // MARK: - Permissions Step
 
+    private var allRequiredPermissionsGranted: Bool {
+        microphoneGranted && accessibilityGranted
+    }
+
     private var permissionsStep: some View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: microphoneGranted ? "mic.circle.fill" : "mic.slash.circle.fill")
+            Image(systemName: allRequiredPermissionsGranted ? "checkmark.shield.fill" : "lock.shield.fill")
                 .font(.system(size: 72))
-                .foregroundStyle(microphoneGranted ? .green : Color.accentColor)
+                .foregroundStyle(allRequiredPermissionsGranted ? .green : Color.accentColor)
 
             VStack(spacing: 8) {
-                Text(microphoneGranted ? "Microphone Access Granted" : "Microphone Access Required")
+                Text(allRequiredPermissionsGranted ? "Permissions Ready" : "Permissions Required")
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text(microphoneGranted
+                Text(allRequiredPermissionsGranted
                     ? "You're ready to start transcribing."
-                    : "JustScribe needs access to your microphone to transcribe your speech.")
+                    : "JustScribe needs Microphone and Accessibility access to transcribe and type into other apps.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
 
+            VStack(spacing: 10) {
+                permissionStatusRow(title: "Microphone", granted: microphoneGranted)
+                permissionStatusRow(title: "Accessibility", granted: accessibilityGranted)
+            }
+            .padding(.horizontal, 60)
+
             Spacer()
 
-            if microphoneGranted {
+            if allRequiredPermissionsGranted {
                 Button {
                     withAnimation {
                         currentStep = .complete
@@ -266,13 +278,34 @@ struct OnboardingView: View {
             } else {
                 VStack(spacing: 12) {
                     Button {
-                        requestMicrophonePermission()
+                        requestRequiredPermissions()
                     } label: {
-                        Text("Continue")
+                        Text(isRequestingPermissions ? "Requesting..." : "Continue")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+                    .disabled(isRequestingPermissions)
+
+                    if !microphoneGranted {
+                        Button {
+                            permissionsService.openMicrophoneSettings()
+                        } label: {
+                            Text("Open Microphone Settings")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    if !accessibilityGranted {
+                        Button {
+                            permissionsService.openAccessibilitySettings()
+                        } label: {
+                            Text("Open Accessibility Settings")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
 
                     Button {
                         withAnimation {
@@ -288,21 +321,61 @@ struct OnboardingView: View {
                 .padding(.bottom, 32)
             }
         }
+        .onAppear {
+            refreshPermissionStatus()
+        }
     }
 
-    private func requestMicrophonePermission() {
-        Task {
-            let granted = await permissionsService.requestMicrophonePermission()
-            await MainActor.run {
-                microphoneGranted = granted
-                if granted {
-                    // Auto-advance after a brief delay
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(500))
-                        withAnimation {
-                            currentStep = .complete
-                        }
-                    }
+    private func permissionStatusRow(title: String, granted: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: granted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundStyle(granted ? .green : .secondary)
+
+            Text(title)
+                .font(.subheadline)
+
+            Spacer()
+
+            Text(granted ? "Granted" : "Required")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func refreshPermissionStatus() {
+        permissionsService.checkMicrophonePermission()
+        microphoneGranted = permissionsService.microphoneStatus == .granted
+
+        permissionsService.checkAccessibilityPermission()
+        accessibilityGranted = permissionsService.accessibilityStatus == .granted
+    }
+
+    private func requestRequiredPermissions() {
+        Task { @MainActor in
+            guard !isRequestingPermissions else { return }
+            isRequestingPermissions = true
+            defer { isRequestingPermissions = false }
+
+            NSApp.activate(ignoringOtherApps: true)
+
+            if !microphoneGranted {
+                microphoneGranted = await permissionsService.requestMicrophonePermission()
+            }
+
+            if !accessibilityGranted {
+                permissionsService.requestAccessibilityPermission()
+                permissionsService.checkAccessibilityPermission()
+                accessibilityGranted = permissionsService.accessibilityStatus == .granted
+            }
+
+            if allRequiredPermissionsGranted {
+                try? await Task.sleep(for: .milliseconds(500))
+                withAnimation {
+                    currentStep = .complete
                 }
             }
         }
@@ -378,9 +451,7 @@ struct OnboardingView: View {
                 // Load the model
                 try? await TranscriptionService.shared.loadModel(unifiedID: model.id)
 
-                // Check if microphone permission is already granted
-                permissionsService.checkMicrophonePermission()
-                microphoneGranted = permissionsService.microphoneStatus == .granted
+                refreshPermissionStatus()
 
                 withAnimation {
                     currentStep = .permissions
