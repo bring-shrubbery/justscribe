@@ -44,6 +44,7 @@ final class AppSettings {
     static let indicatorStyleKey = "indicatorStyle"
     static let showInDockKey = "showInDock"
     static let showInStatusBarKey = "showInStatusBar"
+    static let grammarCorrectionEnabledKey = "grammarCorrectionEnabled"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -104,6 +105,11 @@ final class AppSettings {
             UserDefaults.standard.set(copyToClipboard, forKey: Self.copyToClipboardKey)
         }
     }
+    var grammarCorrectionEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(grammarCorrectionEnabled, forKey: Self.grammarCorrectionEnabledKey)
+        }
+    }
 
     // Timestamps
     var createdAt: Date = Date()
@@ -134,5 +140,6 @@ final class AppSettings {
         UserDefaults.standard.set(indicatorStyleRaw, forKey: Self.indicatorStyleKey)
         UserDefaults.standard.set(showInDock, forKey: Self.showInDockKey)
         UserDefaults.standard.set(showInStatusBar, forKey: Self.showInStatusBarKey)
+        UserDefaults.standard.set(grammarCorrectionEnabled, forKey: Self.grammarCorrectionEnabledKey)
     }
 }

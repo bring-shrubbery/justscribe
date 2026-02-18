@@ -12,6 +12,8 @@
 		2ADCF7442F268C98008F5AA4 /* DynamicNotchKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002032F25000000000003 /* DynamicNotchKit */; };
 		2ADCF7452F268C98008F5AA4 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002042F25000000000004 /* WhisperKit */; };
 		2ADCFA232F26A5D5008F5AA4 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002052F25000000000005 /* FluidAudio */; };
+		AA0003062F25000000000006 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002062F25000000000006 /* MLXLLM */; };
+		AA0003072F25000000000007 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002072F25000000000007 /* MLXLMCommon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +67,8 @@
 				2ADCF7432F268C98008F5AA4 /* LaunchAtLogin in Frameworks */,
 				2ADCF7422F268C98008F5AA4 /* KeyboardShortcuts in Frameworks */,
 				2ADCF7452F268C98008F5AA4 /* WhisperKit in Frameworks */,
+				AA0003062F25000000000006 /* MLXLLM in Frameworks */,
+				AA0003072F25000000000007 /* MLXLMCommon in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,6 +134,8 @@
 				AA0002032F25000000000003 /* DynamicNotchKit */,
 				AA0002042F25000000000004 /* WhisperKit */,
 				AA0002052F25000000000005 /* FluidAudio */,
+				AA0002062F25000000000006 /* MLXLLM */,
+				AA0002072F25000000000007 /* MLXLMCommon */,
 			);
 			productName = justscribe;
 			productReference = 2A2572162F2427780015D8A4 /* justscribe.app */;
@@ -219,6 +225,7 @@
 				AA0001032F25000000000003 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */,
 				AA0001042F25000000000004 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				AA0001052F25000000000005 /* XCRemoteSwiftPackageReference "FluidAudio" */,
+				AA0001062F25000000000006 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2A2572172F2427780015D8A4 /* Products */;
@@ -424,12 +431,12 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 6WCYZER5LX;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
@@ -460,7 +467,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -491,12 +498,12 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 6WCYZER5LX;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
@@ -527,7 +534,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -734,6 +741,14 @@
 				minimumVersion = 0.10.0;
 			};
 		};
+		AA0001062F25000000000006 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 2.29.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -761,6 +776,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA0001052F25000000000005 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
+		};
+		AA0002062F25000000000006 /* MLXLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0001062F25000000000006 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLLM;
+		};
+		AA0002072F25000000000007 /* MLXLMCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0001062F25000000000006 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLMCommon;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -18,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         applySavedVisibilitySettings()
         checkInputMonitoringAndSetupHotkey()
         loadSelectedModel()
+        loadGrammarModelIfEnabled()
         setupNotificationObservers()
     }
 
@@ -91,16 +92,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - Grammar Model Loading
+
+    private func loadGrammarModelIfEnabled() {
+        let enabled = UserDefaults.standard.bool(forKey: AppSettings.grammarCorrectionEnabledKey)
+        guard enabled else {
+            print("Grammar correction disabled, skipping LLM load")
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                print("Auto-loading grammar correction model...")
+                try await GrammarCorrectionService.shared.loadModel()
+                print("Grammar correction model loaded successfully")
+            } catch {
+                print("Failed to auto-load grammar correction model: \(error.localizedDescription)")
+            }
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // Unload the model to free memory
+        // Unload models to free memory
         // This is called on the main thread by AppKit, so we can safely access MainActor-isolated code
         MainActor.assumeIsolated {
             TranscriptionService.shared.unloadModel()
-            print("Model unloaded on app termination")
+            GrammarCorrectionService.shared.unloadModel()
+            print("Models unloaded on app termination")
         }
     }
 
@@ -305,6 +327,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             OverlayManager.shared.showError(message: "No audio recorded")
             typedTextLength = 0
             return
+        }
+
+        // Grammar correction (if enabled and model is loaded)
+        let grammarCorrectionEnabled = UserDefaults.standard.bool(forKey: AppSettings.grammarCorrectionEnabledKey)
+        if grammarCorrectionEnabled && !finalTranscription.isEmpty && GrammarCorrectionService.shared.isModelLoaded {
+            OverlayManager.shared.showProcessing()
+            do {
+                let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
+                let corrected = try await GrammarCorrectionService.shared.correctGrammar(
+                    finalTranscription, language: language
+                )
+                if !corrected.isEmpty && corrected != finalTranscription {
+                    ClipboardService.shared.replaceTypedText(
+                        characterCount: finalTranscription.count,
+                        withText: corrected
+                    )
+                    finalTranscription = corrected
+                }
+            } catch {
+                print("Grammar correction failed: \(error)")
+                // Silently fall back to raw transcription (already typed)
+            }
         }
 
         // Copy final transcription to clipboard if enabled

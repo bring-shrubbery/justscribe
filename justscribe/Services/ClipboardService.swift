@@ -121,6 +121,56 @@ final class ClipboardService {
         return fullText.count
     }
 
+    /// Delete N characters backward then paste replacement text
+    func replaceTypedText(characterCount: Int, withText newText: String) {
+        guard characterCount > 0, !newText.isEmpty else { return }
+
+        print("replaceTypedText: deleting \(characterCount) chars, replacing with '\(newText.prefix(50))...'")
+
+        let source = CGEventSource(stateID: .hidSystemState)
+
+        // Select all typed text using Shift+Home-like approach won't work universally,
+        // so we send individual backspace events
+        // For very long texts, use Cmd+A select-all approach as fallback
+        if characterCount > 500 {
+            // For long texts: select all with Cmd+A then delete
+            // This is a heuristic — works when the field only contains our text
+            if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_A), keyDown: true),
+               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_A), keyDown: false) {
+                keyDown.flags = .maskCommand
+                keyUp.flags = .maskCommand
+                keyDown.post(tap: .cgSessionEventTap)
+                keyUp.post(tap: .cgSessionEventTap)
+                usleep(10000) // 10ms
+            }
+            // Delete the selection
+            if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Delete), keyDown: true),
+               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Delete), keyDown: false) {
+                keyDown.post(tap: .cgSessionEventTap)
+                keyUp.post(tap: .cgSessionEventTap)
+                usleep(5000) // 5ms
+            }
+        } else {
+            // Send backspace events to delete the raw text
+            for _ in 0..<characterCount {
+                if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Delete), keyDown: true),
+                   let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Delete), keyDown: false) {
+                    keyDown.post(tap: .cgSessionEventTap)
+                    keyUp.post(tap: .cgSessionEventTap)
+                    usleep(1000) // 1ms between keystrokes
+                }
+            }
+        }
+
+        // Small delay for the app to process all deletions
+        usleep(20000) // 20ms
+
+        // Paste the corrected text
+        pasteText(newText)
+
+        print("replaceTypedText: completed")
+    }
+
     /// Paste text using clipboard (safer than typing when modifiers are held)
     func pasteText(_ text: String) {
         guard !text.isEmpty else { return }
