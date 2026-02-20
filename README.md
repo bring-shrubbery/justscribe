@@ -2,16 +2,11 @@
   <img src="justscribe/Assets.xcassets/AppIcon.appiconset/Icon-iOS-Default-1024x1024@1x.png" alt="JustScribe app icon" width="128" />
 </p>
 
-# JustScribe
+# JustScribe 💦
 
-Talk. Release. Done.
+Native macOS app for fast voice-to-text dictation anywhere on your system. [Download here](https://quassum.com/apps/justscribe).
 
-JustScribe is a native macOS app for fast voice-to-text dictation anywhere on your system.
-Hold one shortcut, speak naturally, and your text appears in the active app.
-
-[Download JustScribe](https://quassum.com/apps/justscribe)
-
-## Features
+## 🚀 Features
 
 - Dictate in any app with a global shortcut
 - Hold-to-record workflow with live transcription updates
@@ -28,28 +23,29 @@ Hold one shortcut, speak naturally, and your text appears in the active app.
 - Launch at login, Dock visibility, and Menu Bar visibility controls
 - Light, Dark, and System appearance modes
 
-## Quick Start
+## 🐢 Quick Start
 
-1. Install and open JustScribe.
-2. Download and select a transcription model on first launch.
-3. Grant required permissions:
+1. 🌟 Start this repo 🌟
+2. Install and open JustScribe.
+3. Download and select a transcription model on first launch.
+4. Grant required permissions:
    - Microphone
    - Accessibility (needed to type into other apps)
-4. Put your cursor in any text field.
-5. Hold the default shortcut: `Control + Shift + Space`.
-6. Speak while holding.
-7. Release to finish and insert final text.
+5. Put your cursor in any text field.
+6. Hold the default shortcut: `Control + Shift + Space`.
+7. Speak while holding.
+8. Release to finish and insert final text.
 
 You can change the shortcut, model, microphone order, and behavior in Settings.
 
-## Requirements
+## 🤖 Requirements
 
-- macOS
+- macOS with M-series chip (strongly preferred)
 - Internet connection for initial model download
 - Microphone permission
 - Accessibility permission
 
-## Development
+## 😭 Development
 
 ### Open in Xcode
 
@@ -57,22 +53,16 @@ You can change the shortcut, model, microphone order, and behavior in Settings.
 2. Open `justscribe.xcodeproj`.
 3. Build and run the `justscribe` scheme.
 
-### Command Line Build
-
-```bash
-xcodebuild -project justscribe.xcodeproj -scheme justscribe -configuration Debug build
-```
-
-## Support
+## 🙈 Support
 
 - Website: [https://quassum.com/apps/justscribe](https://quassum.com/apps/justscribe)
 - Privacy Policy: [https://quassum.com/apps/justscribe/privacy](https://quassum.com/apps/justscribe/privacy)
 - Terms: [https://quassum.com/terms](https://quassum.com/terms)
 
-## Contributing
+## 💀 Contributing
 
 Issues and pull requests are welcome.
 
-## License
+## 🐂 License
 
 This repository currently does not include an open-source license file.
