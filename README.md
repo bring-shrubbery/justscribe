@@ -2,7 +2,9 @@
   <img src="justscribe/Assets.xcassets/AppIcon.appiconset/Icon-iOS-Default-1024x1024@1x.png" alt="JustScribe app icon" width="128" />
 </p>
 
-# JustScribe 💦
+<a href="https://www.producthunt.com/products/justscribe?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-justscribe" target="_blank" rel="noopener noreferrer"><img alt="JustScribe - On-device instant voice transcription | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1078541&amp;theme=light&amp;t=1773173639426"></a>
+
+# JustScribe 😱
 
 Native macOS app for fast voice-to-text dictation anywhere on your system. [Download here](https://quassum.com/apps/justscribe).
 
