@@ -25,6 +25,13 @@ final class AudioCaptureService: NSObject {
     private var inputSampleRate: Double = 44100
     private var recordingStartTime: Date?
 
+    /// Whether the AVCaptureSession is prepared and running (mic hardware active)
+    private var isSessionPrepared = false
+    /// The device ID the current prepared session is using
+    private var preparedDeviceID: String?
+    /// Whether we are actively accumulating audio samples into the buffer
+    private var isAccumulating = false
+
     // WhisperKit expects 16kHz audio
     private let targetSampleRate: Double = 16000
 
@@ -56,9 +63,15 @@ final class AudioCaptureService: NSObject {
 
     func selectDevice(_ device: MicrophoneDevice) {
         selectedDevice = device
-        if isRecording {
-            stopRecording()
-            startRecording()
+        // If session is prepared for a different device, tear down and re-prepare
+        if isSessionPrepared && preparedDeviceID != device.id {
+            let wasAccumulating = isAccumulating
+            teardownSession()
+            prepareSession()
+            if wasAccumulating {
+                isAccumulating = true
+                isRecording = true
+            }
         }
     }
 
@@ -76,10 +89,12 @@ final class AudioCaptureService: NSObject {
         }
     }
 
-    func startRecording() {
-        guard !isRecording else { return }
+    /// Prepares (creates & starts) the AVCaptureSession for the currently selected device.
+    /// This is idempotent — calling it when already prepared for the same device is a no-op.
+    func prepareSession() {
+        guard !isSessionPrepared else { return }
         guard let device = selectedDevice else {
-            print("No microphone selected")
+            print("No microphone selected, cannot prepare session")
             return
         }
 
@@ -95,43 +110,94 @@ final class AudioCaptureService: NSObject {
         }
 
         do {
-            captureSession = AVCaptureSession()
-            captureSession?.beginConfiguration()
+            let session = AVCaptureSession()
+            session.beginConfiguration()
 
             let input = try AVCaptureDeviceInput(device: avDevice)
-            if captureSession?.canAddInput(input) == true {
-                captureSession?.addInput(input)
+            if session.canAddInput(input) {
+                session.addInput(input)
             }
 
-            audioOutput = AVCaptureAudioDataOutput()
-            audioOutput?.setSampleBufferDelegate(self, queue: DispatchQueue(label: "audio.capture.queue"))
+            let output = AVCaptureAudioDataOutput()
+            output.setSampleBufferDelegate(self, queue: DispatchQueue(label: "audio.capture.queue"))
 
-            if captureSession?.canAddOutput(audioOutput!) == true {
-                captureSession?.addOutput(audioOutput!)
+            if session.canAddOutput(output) {
+                session.addOutput(output)
             }
 
-            captureSession?.commitConfiguration()
-            captureSession?.startRunning()
+            session.commitConfiguration()
+            session.startRunning()
 
-            audioBuffer.removeAll()
-            recordingStartTime = Date()
-            isRecording = true
+            captureSession = session
+            audioOutput = output
+            isSessionPrepared = true
+            preparedDeviceID = device.id
+            print("Audio session prepared for device: \(device.name)")
         } catch {
-            print("Failed to start recording: \(error)")
+            print("Failed to prepare audio session: \(error)")
         }
         #endif
+    }
+
+    /// Tears down the AVCaptureSession completely, releasing mic hardware.
+    private func teardownSession() {
+        captureSession?.stopRunning()
+        captureSession = nil
+        audioOutput = nil
+        isSessionPrepared = false
+        preparedDeviceID = nil
+        isAccumulating = false
+        isRecording = false
+        currentAudioLevel = 0
+        print("Audio session torn down")
+    }
+
+    func startRecording() {
+        guard let device = selectedDevice else {
+            print("No microphone selected")
+            return
+        }
+
+        // If session is already prepared for the correct device, just reset buffer
+        if isSessionPrepared && preparedDeviceID == device.id {
+            audioBuffer.removeAll()
+            recordingStartTime = Date()
+            recordingDuration = 0
+            isAccumulating = true
+            isRecording = true
+            print("Recording started (reusing prepared session)")
+            return
+        }
+
+        // Need to prepare a new session (different device or first time)
+        if isSessionPrepared {
+            teardownSession()
+        }
+
+        prepareSession()
+
+        guard isSessionPrepared else { return }
+
+        audioBuffer.removeAll()
+        recordingStartTime = Date()
+        recordingDuration = 0
+        isAccumulating = true
+        isRecording = true
+        print("Recording started (new session)")
     }
 
     func stopRecording() {
         guard isRecording else { return }
 
-        captureSession?.stopRunning()
-        captureSession = nil
-        audioOutput = nil
+        isAccumulating = false
         isRecording = false
         currentAudioLevel = 0
         recordingDuration = Date().timeIntervalSince(recordingStartTime ?? Date())
         recordingStartTime = nil
+
+        // Tear down session immediately to release mic hardware
+        teardownSession()
+        print("Recording stopped")
     }
 
     func getAudioBuffer() -> [Float] {
@@ -310,6 +376,9 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
         let normalizedLevel = max(0, min(1, (level + 60) / 60))
 
         DispatchQueue.main.async {
+            // Discard samples when not actively recording
+            guard self.isAccumulating else { return }
+
             self.currentAudioLevel = normalizedLevel
 
             // Update recording duration

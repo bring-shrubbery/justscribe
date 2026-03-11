@@ -9,6 +9,89 @@ import Foundation
 import SwiftUI
 import DynamicNotchKit
 
+// MARK: - Overlay Content View
+
+/// Custom expanded content for the DynamicNotch, with a close button.
+private struct OverlayExpandedView: View {
+    let manager: OverlayManager
+    let isNotchStyle: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Icon
+            iconView
+                .frame(width: 30, height: 30)
+
+            // Title + description
+            VStack(alignment: .leading) {
+                Text(manager.titleText)
+                    .font(.headline)
+                    .foregroundStyle(textColor)
+
+                if let desc = manager.descriptionText {
+                    Text(desc)
+                        .font(.caption2)
+                        .foregroundStyle(secondaryTextColor)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            // Close / cancel button
+            Button(action: { manager.hide() }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(secondaryTextColor)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(height: 40)
+    }
+
+    private var textColor: Color {
+        isNotchStyle ? .white : .primary
+    }
+
+    private var secondaryTextColor: Color {
+        isNotchStyle ? .white.opacity(0.5) : .secondary
+    }
+
+    @ViewBuilder
+    private var iconView: some View {
+        switch manager.state {
+        case .idle:
+            Image(systemName: "mic.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(textColor)
+                .padding(4)
+        case .listening:
+            Image(systemName: "mic.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(.red)
+                .padding(4)
+        case .processing:
+            ProgressView()
+                .controlSize(.small)
+        case .completed:
+            Image(systemName: "checkmark.circle.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(.green)
+                .padding(4)
+        case .error:
+            Image(systemName: "exclamationmark.circle.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(.red)
+                .padding(4)
+        }
+    }
+}
+
+// MARK: - OverlayManager
+
 @MainActor
 @Observable
 final class OverlayManager {
@@ -17,7 +100,8 @@ final class OverlayManager {
     private(set) var isVisible = false
     private(set) var currentStyle: OverlayStyle = .bubble
 
-    private var notchInfo: DynamicNotchInfo?
+    private var notch: DynamicNotch<OverlayExpandedView, EmptyView, EmptyView>?
+    private var autoHideTask: Task<Void, Never>?
 
     enum OverlayStyle: String, CaseIterable {
         case bubble
@@ -54,97 +138,71 @@ final class OverlayManager {
         currentStyle = style
     }
 
+    // MARK: - State to text mapping (used by OverlayExpandedView)
+
+    var titleText: String {
+        switch state {
+        case .idle: return "Ready"
+        case .listening: return "Listening..."
+        case .processing: return "Processing..."
+        case .completed: return "Done"
+        case .error(let message): return message
+        }
+    }
+
+    var descriptionText: String? {
+        switch state {
+        case .idle: return "Press shortcut to start"
+        case .listening: return "Speak now"
+        case .processing: return "Transcribing audio"
+        case .completed(let copiedToClipboard): return copiedToClipboard ? "Copied to clipboard" : nil
+        case .error: return nil
+        }
+    }
+
+    // MARK: - Show / Hide
+
     func show(style: OverlayStyle? = nil) {
         if let style = style {
             currentStyle = style
         }
 
-        // Create the notch info
-        notchInfo = DynamicNotchInfo(
-            icon: iconForState(state),
-            title: LocalizedStringKey(titleForState(state)),
-            description: descriptionForState(state).map { LocalizedStringKey($0) },
+        let isNotch = currentStyle == .notch
+        notch = DynamicNotch(
             style: currentStyle.dynamicNotchStyle
-        )
+        ) {
+            OverlayExpandedView(manager: OverlayManager.shared, isNotchStyle: isNotch)
+        }
 
         Task {
-            await notchInfo?.expand()
+            await notch?.expand()
         }
         isVisible = true
     }
 
     func hide() {
-        Task {
-            await notchInfo?.hide()
-            notchInfo = nil
-        }
+        autoHideTask?.cancel()
+        autoHideTask = nil
+        let notchToHide = self.notch
+        self.notch = nil
+        Task { await notchToHide?.hide() }
         isVisible = false
         state = .idle
     }
 
     func updateState(_ newState: OverlayState) {
         state = newState
-
-        // Update the notch content if visible
-        if isVisible, let notchInfo = notchInfo {
-            withAnimation {
-                notchInfo.icon = iconForState(newState)
-                notchInfo.title = LocalizedStringKey(titleForState(newState))
-                notchInfo.description = descriptionForState(newState).map { LocalizedStringKey($0) }
-            }
-        }
-    }
-
-    // MARK: - State to Content Mapping
-
-    private func iconForState(_ state: OverlayState) -> DynamicNotchInfo.Label? {
-        switch state {
-        case .idle:
-            return .init(systemName: "mic.fill")
-        case .listening:
-            return .init(systemName: "mic.fill", color: .red)
-        case .processing:
-            return .init(progress: .constant(-1)) // Indeterminate progress
-        case .completed:
-            return .init(systemName: "checkmark.circle.fill", color: .green)
-        case .error:
-            return .init(systemName: "exclamationmark.circle.fill", color: .red)
-        }
-    }
-
-    private func titleForState(_ state: OverlayState) -> String {
-        switch state {
-        case .idle:
-            return "Ready"
-        case .listening:
-            return "Listening..."
-        case .processing:
-            return "Processing..."
-        case .completed:
-            return "Done"
-        case .error(let message):
-            return message
-        }
-    }
-
-    private func descriptionForState(_ state: OverlayState) -> String? {
-        switch state {
-        case .idle:
-            return "Press shortcut to start"
-        case .listening:
-            return "Speak now"
-        case .processing:
-            return "Transcribing audio"
-        case .completed(let copiedToClipboard):
-            return copiedToClipboard ? "Copied to clipboard" : nil
-        case .error:
-            return nil
-        }
+        // The OverlayExpandedView reads `state` reactively via @Observable,
+        // so no manual notchInfo property updates are needed.
     }
 
     // MARK: - Convenience methods
 
     func showListening() {
+        // Cancel any pending auto-hide from a previous completed/error state
+        autoHideTask?.cancel()
+        autoHideTask = nil
+
         state = .listening
         // Read the user's preferred style from UserDefaults
         // Key matches AppSettings.indicatorStyleKey
@@ -163,21 +221,27 @@ final class OverlayManager {
     }
 
     func showCompleted(copiedToClipboard: Bool) {
-        updateState(.completed(copiedToClipboard: copiedToClipboard))
+        state = .completed(copiedToClipboard: copiedToClipboard)
+        if !isVisible { show() }
 
-        // Auto-hide after delay
-        Task {
+        // Auto-hide after delay (cancel any previous auto-hide first)
+        autoHideTask?.cancel()
+        autoHideTask = Task {
             try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
             hide()
         }
     }
 
     func showError(message: String) {
-        updateState(.error(message: message))
+        state = .error(message: message)
+        if !isVisible { show() }
 
-        // Auto-hide after delay
-        Task {
+        // Auto-hide after delay (cancel any previous auto-hide first)
+        autoHideTask?.cancel()
+        autoHideTask = Task {
             try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
             hide()
         }
     }

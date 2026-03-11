@@ -14,6 +14,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
 
+    private enum RecordingSessionState { case idle, recording, finalizing }
+    private var sessionState: RecordingSessionState = .idle
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         applySavedVisibilitySettings()
         checkInputMonitoringAndSetupHotkey()
@@ -150,9 +153,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func handleHotkeyDown() {
-        // Only start if not already recording
-        guard !OverlayManager.shared.isVisible else {
-            print("Already recording, ignoring key down")
+        guard sessionState == .idle else {
+            print("Not idle (state: \(sessionState)), ignoring key down")
             return
         }
 
@@ -161,9 +163,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func handleHotkeyUp() {
-        // Only stop if currently recording
-        guard OverlayManager.shared.isVisible else {
-            print("Not recording, ignoring key up")
+        guard sessionState == .recording else {
+            print("Not recording (state: \(sessionState)), ignoring key up")
             return
         }
 
@@ -213,6 +214,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func beginRecording() {
+        sessionState = .recording
+
         // Select microphone based on saved priority
         if let priority = UserDefaults.standard.stringArray(forKey: AppSettings.microphonePriorityKey) {
             AudioCaptureService.shared.selectDeviceByPriority(priority)
@@ -252,6 +255,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func stopRecordingAndFinalize() async {
         print("stopRecordingAndFinalize called")
+        sessionState = .finalizing
 
         // Stop streaming transcription and get final text
         let streamedText = TranscriptionService.shared.stopStreamingTranscription()
@@ -259,6 +263,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Stop audio capture
         AudioCaptureService.shared.stopRecording()
+
+        // Short-recording guard: skip transcription if < 0.3s
+        if AudioCaptureService.shared.recordingDuration < 0.3 {
+            print("Recording too short (\(AudioCaptureService.shared.recordingDuration)s), skipping transcription")
+            OverlayManager.shared.showError(message: "Recording too short")
+            AudioCaptureService.shared.clearBuffer()
+            typedTextLength = 0
+            sessionState = .idle
+            return
+        }
 
         // Get audio buffer for final transcription
         let audioBuffer = AudioCaptureService.shared.getAudioBuffer()
@@ -309,6 +323,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     OverlayManager.shared.showError(message: "Processing took too long")
                     AudioCaptureService.shared.clearBuffer()
                     typedTextLength = 0
+                    sessionState = .idle
                     return
                 }
             } catch {
@@ -318,6 +333,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     OverlayManager.shared.showError(message: "Transcription failed")
                     AudioCaptureService.shared.clearBuffer()
                     typedTextLength = 0
+                    sessionState = .idle
                     return
                 }
                 // Otherwise continue with streamed text
@@ -326,6 +342,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // No audio recorded at all
             OverlayManager.shared.showError(message: "No audio recorded")
             typedTextLength = 0
+            sessionState = .idle
             return
         }
 
@@ -374,6 +391,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Reset typed text tracking
         typedTextLength = 0
+        sessionState = .idle
     }
 
     // MARK: - Status Bar
@@ -398,9 +416,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func startTranscriptionFromMenu() {
         Task { @MainActor in
             // Menu click toggles recording (unlike hold-to-record with shortcut)
-            if OverlayManager.shared.isVisible {
+            if sessionState == .recording {
                 await stopRecordingAndFinalize()
-            } else {
+            } else if sessionState == .idle {
                 handleHotkeyDown()
             }
         }
