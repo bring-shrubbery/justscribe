@@ -171,6 +171,7 @@ struct OnboardingView: View {
                 variant: "v3",
                 displayName: "Parakeet v3",
                 sizeDescription: "~250 MB",
+                approximateRAMInMB: 600,
                 isRecommended: true,
                 languageSupport: .multilingual
             ),
@@ -180,6 +181,7 @@ struct OnboardingView: View {
                 variant: "v2",
                 displayName: "Parakeet English",
                 sizeDescription: "~200 MB",
+                approximateRAMInMB: 500,
                 isRecommended: false,
                 languageSupport: .englishOnly
             ),
@@ -189,6 +191,7 @@ struct OnboardingView: View {
                 variant: "openai_whisper-base",
                 displayName: "Whisper Base",
                 sizeDescription: "~142 MB",
+                approximateRAMInMB: 350,
                 isRecommended: false,
                 languageSupport: .multilingual
             ),

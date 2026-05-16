@@ -118,8 +118,34 @@ struct SettingsView: View {
             Text("Voice transcription at your fingertips")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+
+            if let settings = settings {
+                RAMEstimateLabel(settings: settings)
+                    .padding(.top, 4)
+            }
         }
         .padding(.vertical, 32)
+    }
+}
+
+private struct RAMEstimateLabel: View {
+    @Bindable var settings: AppSettings
+
+    private var totalMB: Int {
+        RAMEstimate.totalMB(
+            transcriptionModelID: settings.selectedModelID,
+            grammarEnabled: settings.grammarCorrectionEnabled,
+            grammarModelID: settings.selectedGrammarModelID
+        )
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "memorychip")
+            Text("Estimated RAM usage: \(RAMEstimate.format(totalMB: totalMB))")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 }
 

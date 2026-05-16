@@ -30,6 +30,7 @@ struct UnifiedModelInfo: Identifiable, Sendable {
     let variant: String
     let displayName: String
     let sizeDescription: String
+    let approximateRAMInMB: Int
     let isRecommended: Bool
     let languageSupport: LanguageSupport
 
@@ -52,6 +53,7 @@ extension UnifiedModelInfo {
             variant: "v3",
             displayName: "Parakeet v3",
             sizeDescription: "~250 MB",
+            approximateRAMInMB: 600,
             isRecommended: true,
             languageSupport: .multilingual
         ),
@@ -60,6 +62,7 @@ extension UnifiedModelInfo {
             variant: "v2",
             displayName: "Parakeet English",
             sizeDescription: "~200 MB",
+            approximateRAMInMB: 500,
             isRecommended: false,
             languageSupport: .englishOnly
         ),
@@ -72,6 +75,7 @@ extension UnifiedModelInfo {
             variant: "openai_whisper-tiny",
             displayName: "Whisper Tiny",
             sizeDescription: "~75 MB",
+            approximateRAMInMB: 200,
             isRecommended: false,
             languageSupport: .multilingual
         ),
@@ -80,6 +84,7 @@ extension UnifiedModelInfo {
             variant: "openai_whisper-base",
             displayName: "Whisper Base",
             sizeDescription: "~142 MB",
+            approximateRAMInMB: 350,
             isRecommended: false,
             languageSupport: .multilingual
         ),
@@ -88,6 +93,7 @@ extension UnifiedModelInfo {
             variant: "openai_whisper-small",
             displayName: "Whisper Small",
             sizeDescription: "~466 MB",
+            approximateRAMInMB: 900,
             isRecommended: false,
             languageSupport: .multilingual
         ),
@@ -96,6 +102,7 @@ extension UnifiedModelInfo {
             variant: "openai_whisper-medium",
             displayName: "Whisper Medium",
             sizeDescription: "~1.5 GB",
+            approximateRAMInMB: 2600,
             isRecommended: false,
             languageSupport: .multilingual
         ),
@@ -104,6 +111,7 @@ extension UnifiedModelInfo {
             variant: "openai_whisper-large-v3",
             displayName: "Whisper Large v3",
             sizeDescription: "~3 GB",
+            approximateRAMInMB: 5200,
             isRecommended: false,
             languageSupport: .multilingual
         ),

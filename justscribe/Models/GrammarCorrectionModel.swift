@@ -12,6 +12,7 @@ struct GrammarCorrectionModel: Identifiable, Hashable {
     let hubID: String
     let approximateSize: String
     let approximateRAM: String
+    let approximateRAMInMB: Int
 
     static let llama3_1_8b_4bit = GrammarCorrectionModel(
         id: "llama-3.1-8b-instruct-4bit",
@@ -19,7 +20,8 @@ struct GrammarCorrectionModel: Identifiable, Hashable {
         provider: "Meta (4-bit MLX)",
         hubID: "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit",
         approximateSize: "~4.6 GB",
-        approximateRAM: "~5 GB"
+        approximateRAM: "~5 GB",
+        approximateRAMInMB: 5120
     )
 
     static let allModels: [GrammarCorrectionModel] = [.llama3_1_8b_4bit]
