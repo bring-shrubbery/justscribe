@@ -125,20 +125,39 @@ struct SettingsView: View {
 
 // MARK: - Section Container
 
-struct SettingsSectionContainer<Content: View>: View {
+struct SettingsSectionContainer<Content: View, Accessory: View>: View {
     let title: String
-    @ViewBuilder let content: Content
+    @ViewBuilder let accessory: () -> Accessory
+    @ViewBuilder let content: () -> Content
+
+    init(title: String,
+         @ViewBuilder accessory: @escaping () -> Accessory,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.accessory = accessory
+        self.content = content
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(.primary)
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Spacer()
+                accessory()
+            }
 
-            content
+            content()
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+extension SettingsSectionContainer where Accessory == EmptyView {
+    init(title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.init(title: title, accessory: { EmptyView() }, content: content)
     }
 }
 

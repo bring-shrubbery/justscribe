@@ -17,6 +17,13 @@ struct MicrophoneSettingsSection: View {
 
     var body: some View {
         SettingsSectionContainer(title: "Microphone Priority") {
+            Button {
+                refreshMicrophones()
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.pill)
+        } content: {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Drag to reorder, or use the arrows. Blocked microphones are never selected — even if they're at the top of the list.")
                     .font(.caption)
@@ -69,15 +76,6 @@ struct MicrophoneSettingsSection: View {
                     .background(Color(nsColor: .controlBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-
-                Button {
-                    refreshMicrophones()
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
             }
         }
         .onAppear {
