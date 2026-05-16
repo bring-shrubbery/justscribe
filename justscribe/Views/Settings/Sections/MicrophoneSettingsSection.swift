@@ -14,13 +14,19 @@ struct MicrophoneSettingsSection: View {
     @State private var availableMicrophones: [MicrophoneDevice] = []
     @State private var orderedMicrophones: [MicrophoneDevice] = []
     @State private var draggingID: String?
+    @State private var refreshRotation: Double = 0
+    @State private var isRefreshAnimating: Bool = false
 
     var body: some View {
         SettingsSectionContainer(title: "Microphone Priority") {
             Button {
-                refreshMicrophones()
+                triggerRefresh()
             } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                        .rotationEffect(.degrees(refreshRotation))
+                    Text("Refresh")
+                }
             }
             .buttonStyle(.pillSmall)
         } content: {
@@ -80,6 +86,17 @@ struct MicrophoneSettingsSection: View {
         }
         .onAppear {
             refreshMicrophones()
+        }
+    }
+
+    private func triggerRefresh() {
+        refreshMicrophones()
+        guard !isRefreshAnimating else { return }
+        isRefreshAnimating = true
+        withAnimation(.easeInOut(duration: 0.55)) {
+            refreshRotation += 360
+        } completion: {
+            isRefreshAnimating = false
         }
     }
 
