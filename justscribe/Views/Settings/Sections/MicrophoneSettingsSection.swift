@@ -22,7 +22,7 @@ struct MicrophoneSettingsSection: View {
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
-            .buttonStyle(.pill)
+            .buttonStyle(.pillSmall)
         } content: {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Drag to reorder, or use the arrows. Blocked microphones are never selected — even if they're at the top of the list.")

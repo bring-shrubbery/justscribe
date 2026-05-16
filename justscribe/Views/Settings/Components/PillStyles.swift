@@ -21,24 +21,59 @@ struct PillButtonStyle: ButtonStyle {
         case secondary
     }
 
+    enum Size {
+        case regular
+        case small
+
+        var horizontalPadding: CGFloat {
+            switch self {
+            case .regular: return 12
+            case .small: return 9
+            }
+        }
+
+        var verticalPadding: CGFloat {
+            switch self {
+            case .regular: return 7
+            case .small: return 4
+            }
+        }
+
+        var cornerRadius: CGFloat {
+            switch self {
+            case .regular: return 8
+            case .small: return 6
+            }
+        }
+
+        var font: Font {
+            switch self {
+            case .regular: return .callout
+            case .small: return .caption
+            }
+        }
+    }
+
     var prominence: Prominence = .secondary
+    var size: Size = .regular
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.callout)
+        let shape = RoundedRectangle(cornerRadius: size.cornerRadius)
+        return configuration.label
+            .font(size.font)
             .foregroundStyle(foreground)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.horizontal, size.horizontalPadding)
+            .padding(.vertical, size.verticalPadding)
             .background {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
+                    shape
                         .fill(background(pressed: configuration.isPressed))
                         .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
-                    RoundedRectangle(cornerRadius: 8)
+                    shape
                         .stroke(strokeColor, lineWidth: pillStrokeWidth)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .contentShape(shape)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
@@ -71,8 +106,10 @@ struct PillButtonStyle: ButtonStyle {
 
 extension ButtonStyle where Self == PillButtonStyle {
     static var pill: PillButtonStyle { PillButtonStyle() }
-    static func pill(_ prominence: PillButtonStyle.Prominence) -> PillButtonStyle {
-        PillButtonStyle(prominence: prominence)
+    static var pillSmall: PillButtonStyle { PillButtonStyle(size: .small) }
+    static func pill(_ prominence: PillButtonStyle.Prominence,
+                     size: PillButtonStyle.Size = .regular) -> PillButtonStyle {
+        PillButtonStyle(prominence: prominence, size: size)
     }
 }
 
