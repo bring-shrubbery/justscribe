@@ -60,8 +60,12 @@ private struct AppearanceModePicker: View {
         }
         .padding(4)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .separatorColor).opacity(0.35))
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.6))
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+            }
         )
     }
 
@@ -78,9 +82,13 @@ private struct AppearanceModePicker: View {
                 .frame(width: 52, height: 30)
                 .background {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(nsColor: .controlBackgroundColor))
-                            .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(nsColor: .controlBackgroundColor))
+                                .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                        }
                     }
                 }
                 .contentShape(Rectangle())

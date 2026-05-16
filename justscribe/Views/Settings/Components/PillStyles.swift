@@ -5,6 +5,14 @@
 
 import SwiftUI
 
+// MARK: - Shared
+
+/// Stroke color used around pill controls. `separatorColor` already adapts to
+/// light/dark mode and is heavier than `.quaternaryLabelColor`, giving a
+/// visible edge in both appearances.
+private let pillStrokeColor = Color(nsColor: .separatorColor)
+private let pillStrokeWidth: CGFloat = 1
+
 // MARK: - Button
 
 struct PillButtonStyle: ButtonStyle {
@@ -22,13 +30,24 @@ struct PillButtonStyle: ButtonStyle {
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .background {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(background(pressed: configuration.isPressed))
-                    .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(background(pressed: configuration.isPressed))
+                        .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(strokeColor, lineWidth: pillStrokeWidth)
+                }
             }
             .contentShape(RoundedRectangle(cornerRadius: 8))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private var strokeColor: Color {
+        switch prominence {
+        case .primary: return Color.accentColor.opacity(0.6)
+        case .secondary: return pillStrokeColor
+        }
     }
 
     private func background(pressed: Bool) -> Color {
@@ -65,9 +84,13 @@ struct PillBackground: ViewModifier {
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .background {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-                    .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(pillStrokeColor, lineWidth: pillStrokeWidth)
+                }
             }
             .contentShape(RoundedRectangle(cornerRadius: 8))
     }
@@ -98,7 +121,12 @@ struct PillToggleStyle: ToggleStyle {
             RoundedRectangle(cornerRadius: 12)
                 .fill(isOn
                       ? Color.accentColor
-                      : Color(nsColor: .separatorColor).opacity(0.55))
+                      : Color(nsColor: .controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isOn ? Color.accentColor.opacity(0.7) : pillStrokeColor,
+                                lineWidth: pillStrokeWidth)
+                )
 
             Circle()
                 .fill(Color.white)
