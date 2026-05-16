@@ -75,7 +75,7 @@ struct MicrophoneSettingsSection: View {
 
                             if mic.id != orderedMicrophones.last?.id {
                                 Divider()
-                                    .padding(.leading, 40)
+                                    .padding(.leading, 28)
                             }
                         }
                     }
@@ -277,7 +277,8 @@ struct MicrophoneRow: View {
             .buttonStyle(.plain)
             .help(isBanned ? "Allow this microphone" : "Block this microphone")
         }
-        .padding(.horizontal, 12)
+        .padding(.leading, 0)
+        .padding(.trailing, 12)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
         .opacity(isBanned ? 0.55 : 1)
