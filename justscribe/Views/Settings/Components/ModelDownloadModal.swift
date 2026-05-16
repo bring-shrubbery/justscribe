@@ -102,9 +102,12 @@ struct ModelDownloadModal: View {
 
             // Footer
             HStack {
-                Label("Models are stored locally and audio never leaves your device.", systemImage: "lock.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.fill")
+                    Text("Models are stored locally and audio never leaves your device.")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
                 Spacer()
 
