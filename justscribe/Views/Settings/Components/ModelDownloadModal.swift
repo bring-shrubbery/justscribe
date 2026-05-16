@@ -283,8 +283,8 @@ struct UnifiedModelRow: View {
                             onSelect()
                         } label: {
                             Text("Select")
-                                .font(.subheadline)
                         }
+                        .buttonStyle(.pill)
                     } else {
                         Text("Active")
                             .font(.caption)
@@ -318,8 +318,8 @@ struct UnifiedModelRow: View {
                     onDownload()
                 } label: {
                     Text("Download")
-                        .font(.subheadline)
                 }
+                .buttonStyle(.pill)
             }
         }
         .padding(16)

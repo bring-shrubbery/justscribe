@@ -127,7 +127,7 @@ private struct AvailableGrammarModelRow: View {
                 Label("Download", systemImage: "arrow.down.circle")
                     .font(.callout)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.pill)
         } else if !isLoadedAndSelected {
             Button {
                 selectAndLoad()
@@ -135,7 +135,7 @@ private struct AvailableGrammarModelRow: View {
                 Label("Use", systemImage: "checkmark.circle")
                     .font(.callout)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.pill)
         }
     }
 

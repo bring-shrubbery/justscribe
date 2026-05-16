@@ -38,7 +38,8 @@ struct BehaviorSettingsSection: View {
                     LaunchAtLogin.Toggle {
                         EmptyView()
                     }
-                    .toggleStyle(.switch)
+                    .toggleStyle(.pill)
+                    .labelsHidden()
                 }
 
                 Divider()
@@ -133,7 +134,7 @@ struct ToggleSettingsRow: View {
 
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .toggleStyle(.pill)
         }
     }
 }

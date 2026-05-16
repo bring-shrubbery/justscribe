@@ -39,17 +39,8 @@ struct ModelSettingsSection: View {
         SettingsSectionContainer(title: "Transcription Model") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
-                    ZStack(alignment: .leading) {
+                    Group {
                         if hasDownloadedModels {
-                            // Background that expands to fill space
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color(nsColor: .controlBackgroundColor))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-                                )
-
-                            // Menu overlay
                             Menu {
                                 ForEach(downloadedModelsList) { model in
                                     Button {
@@ -72,36 +63,27 @@ struct ModelSettingsSection: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
+                                .pillBackground()
                             }
                             .buttonStyle(.plain)
+                            .menuIndicator(.hidden)
                         } else {
-                            Text("No models downloaded")
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
+                            HStack {
+                                Text("No models downloaded")
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                            }
+                            .pillBackground()
                         }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .frame(maxWidth: .infinity)
 
                     Button {
                         showingModelDownloadModal = true
                     } label: {
                         Label("More Models", systemImage: "arrow.down.circle")
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color(nsColor: .controlBackgroundColor))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-                                    )
-                            )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pill)
                 }
 
                 // Model status
