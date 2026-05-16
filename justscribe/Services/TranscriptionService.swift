@@ -120,7 +120,7 @@ final class TranscriptionService {
             // Download and load the model
             asrModels = try await AsrModels.downloadAndLoad(version: version)
             asrManager = AsrManager(config: .default)
-            try await asrManager?.initialize(models: asrModels!)
+            try await asrManager?.loadModels(asrModels!)
 
             loadedModelID = "fluidaudio:\(variant)"
             loadedProvider = .fluidAudio
@@ -352,7 +352,8 @@ final class TranscriptionService {
         let rms = sqrt(buffer.map { $0 * $0 }.reduce(0, +) / Float(max(buffer.count, 1)))
         print("FluidAudio audio levels - max: \(maxLevel), min: \(minLevel), RMS: \(rms)")
 
-        let result = try await asrManager.transcribe(buffer)
+        var decoderState = try TdtDecoderState()
+        let result = try await asrManager.transcribe(buffer, decoderState: &decoderState)
         print("FluidAudio raw result text: '\(result.text)'")
 
         return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
