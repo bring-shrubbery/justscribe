@@ -9,6 +9,7 @@ import Foundation
 import MLXLLM
 import MLXLMCommon
 
+@MainActor
 @Observable
 final class GrammarCorrectionService {
     static let shared = GrammarCorrectionService()
@@ -17,11 +18,12 @@ final class GrammarCorrectionService {
     private(set) var isProcessing = false
     private(set) var isLoadingModel = false
     private(set) var loadProgress: Double = 0
+    private(set) var loadedModelID: String?
+    private(set) var downloadedModels: Set<String> = []
+    private(set) var activelyDownloadingModelID: String?
 
     private var modelContainer: ModelContainer?
     private var chatSession: ChatSession?
-
-    static let modelHubID = "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
 
     private static let systemPrompt = """
         You are a grammar correction assistant. Fix grammar, spelling, and punctuation errors \
@@ -29,16 +31,71 @@ final class GrammarCorrectionService {
         text with no explanations, no quotes, and no additional formatting.
         """
 
-    private init() {}
+    private init() {
+        refreshDownloadedModels()
+    }
 
-    func loadModel() async throws {
-        guard !isModelLoaded && !isLoadingModel else { return }
+    // MARK: - Discovery
+
+    func refreshDownloadedModels() {
+        var found: Set<String> = []
+        for model in GrammarCorrectionModel.allModels {
+            if Self.isModelOnDisk(hubID: model.hubID) {
+                found.insert(model.id)
+            }
+        }
+        downloadedModels = found
+    }
+
+    func isModelDownloaded(_ modelID: String) -> Bool {
+        downloadedModels.contains(modelID)
+    }
+
+    /// Probe the on-disk MLX/HuggingFace cache for the given hub ID.
+    /// MLX-LM stores model files under `Library/Caches/models/<org>/<repo>/`.
+    private static func isModelOnDisk(hubID: String) -> Bool {
+        let fileManager = FileManager.default
+        guard let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return false
+        }
+        let modelDir = cachesDir.appendingPathComponent("models").appendingPathComponent(hubID)
+        let config = modelDir.appendingPathComponent("config.json")
+        let weights = modelDir.appendingPathComponent("model.safetensors")
+        let weightsIndex = modelDir.appendingPathComponent("model.safetensors.index.json")
+        return fileManager.fileExists(atPath: config.path)
+            && (fileManager.fileExists(atPath: weights.path) || fileManager.fileExists(atPath: weightsIndex.path))
+    }
+
+    // MARK: - Load / Download
+
+    /// Download (if needed) and load the given grammar model into memory.
+    func loadModel(modelID: String) async throws {
+        guard let model = GrammarCorrectionModel.model(forID: modelID) else {
+            throw GrammarCorrectionError.modelNotFound
+        }
+
+        if isModelLoaded && loadedModelID == modelID {
+            return
+        }
+
+        if isLoadingModel {
+            return
+        }
+
+        // If switching models, unload the previous one first.
+        if isModelLoaded && loadedModelID != modelID {
+            unloadModel()
+        }
 
         isLoadingModel = true
         loadProgress = 0
+        let wasOnDisk = Self.isModelOnDisk(hubID: model.hubID)
+        if !wasOnDisk {
+            activelyDownloadingModelID = modelID
+        }
 
         do {
-            let configuration = ModelConfiguration(id: Self.modelHubID)
+            let configuration = ModelConfiguration(id: model.hubID)
             let container = try await loadModelContainer(configuration: configuration) { [weak self] progress in
                 Task { @MainActor in
                     self?.loadProgress = progress.fractionCompleted
@@ -52,15 +109,43 @@ final class GrammarCorrectionService {
                 generateParameters: GenerateParameters(maxTokens: 2048, temperature: 0.1)
             )
             isModelLoaded = true
+            loadedModelID = modelID
             isLoadingModel = false
+            activelyDownloadingModelID = nil
             loadProgress = 1.0
-            print("Grammar correction model loaded successfully")
+            downloadedModels.insert(modelID)
+            print("Grammar correction model loaded successfully: \(modelID)")
         } catch {
             isLoadingModel = false
+            activelyDownloadingModelID = nil
             loadProgress = 0
-            print("Failed to load grammar correction model: \(error)")
+            print("Failed to load grammar correction model \(modelID): \(error)")
             throw error
         }
+    }
+
+    /// Delete the on-disk files for a downloaded grammar model. If the model is currently
+    /// loaded, it will be unloaded first.
+    func deleteModel(modelID: String) throws {
+        guard let model = GrammarCorrectionModel.model(forID: modelID) else {
+            throw GrammarCorrectionError.modelNotFound
+        }
+
+        if loadedModelID == modelID {
+            unloadModel()
+        }
+
+        let fileManager = FileManager.default
+        guard let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return
+        }
+        let modelDir = cachesDir.appendingPathComponent("models").appendingPathComponent(model.hubID)
+        if fileManager.fileExists(atPath: modelDir.path) {
+            try fileManager.removeItem(at: modelDir)
+            print("Deleted grammar correction model at: \(modelDir.path)")
+        }
+
+        downloadedModels.remove(modelID)
     }
 
     func unloadModel() {
@@ -69,8 +154,11 @@ final class GrammarCorrectionService {
         isModelLoaded = false
         isProcessing = false
         loadProgress = 0
+        loadedModelID = nil
         print("Grammar correction model unloaded")
     }
+
+    // MARK: - Correction
 
     func correctGrammar(_ text: String, language: String? = nil) async throws -> String {
         guard let session = chatSession else {
@@ -113,12 +201,15 @@ final class GrammarCorrectionService {
 
     enum GrammarCorrectionError: LocalizedError {
         case modelNotLoaded
+        case modelNotFound
         case timeout
 
         var errorDescription: String? {
             switch self {
             case .modelNotLoaded:
                 return "Grammar correction model is not loaded."
+            case .modelNotFound:
+                return "Grammar correction model not found."
             case .timeout:
                 return "Grammar correction timed out."
             }

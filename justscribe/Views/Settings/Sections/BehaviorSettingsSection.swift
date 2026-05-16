@@ -87,14 +87,7 @@ struct BehaviorSettingsSection: View {
                         }
                     )
                 )
-
-                Divider()
-
-                GrammarCorrectionSettingsRow(settings: settings)
             }
-            .padding(12)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 
@@ -112,56 +105,6 @@ struct BehaviorSettingsSection: View {
             object: nil,
             userInfo: ["show": show]
         )
-    }
-}
-
-struct GrammarCorrectionSettingsRow: View {
-    @Bindable var settings: AppSettings
-    private var grammarService: GrammarCorrectionService { GrammarCorrectionService.shared }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "text.badge.checkmark")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Grammar Correction")
-                    .font(.body)
-                Text("Fix grammar using Llama 8B (requires ~5GB RAM)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if grammarService.isLoadingModel {
-                    ProgressView(value: grammarService.loadProgress)
-                        .progressViewStyle(.linear)
-                        .frame(maxWidth: 200)
-                    Text("Downloading model...")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-
-            Spacer()
-
-            Toggle("", isOn: Binding(
-                get: { settings.grammarCorrectionEnabled },
-                set: { newValue in
-                    settings.grammarCorrectionEnabled = newValue
-                    UserDefaults.standard.set(newValue, forKey: AppSettings.grammarCorrectionEnabledKey)
-                    if newValue {
-                        Task {
-                            try? await GrammarCorrectionService.shared.loadModel()
-                        }
-                    } else {
-                        GrammarCorrectionService.shared.unloadModel()
-                    }
-                }
-            ))
-            .labelsHidden()
-            .toggleStyle(.switch)
-        }
     }
 }
 

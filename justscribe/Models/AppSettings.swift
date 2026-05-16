@@ -45,6 +45,7 @@ final class AppSettings {
     static let showInDockKey = "showInDock"
     static let showInStatusBarKey = "showInStatusBar"
     static let grammarCorrectionEnabledKey = "grammarCorrectionEnabled"
+    static let selectedGrammarModelIDKey = "selectedGrammarModelID"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -110,6 +111,11 @@ final class AppSettings {
             UserDefaults.standard.set(grammarCorrectionEnabled, forKey: Self.grammarCorrectionEnabledKey)
         }
     }
+    var selectedGrammarModelID: String = "" {
+        didSet {
+            UserDefaults.standard.set(selectedGrammarModelID, forKey: Self.selectedGrammarModelIDKey)
+        }
+    }
 
     // Timestamps
     var createdAt: Date = Date()
@@ -141,5 +147,6 @@ final class AppSettings {
         UserDefaults.standard.set(showInDock, forKey: Self.showInDockKey)
         UserDefaults.standard.set(showInStatusBar, forKey: Self.showInStatusBarKey)
         UserDefaults.standard.set(grammarCorrectionEnabled, forKey: Self.grammarCorrectionEnabledKey)
+        UserDefaults.standard.set(selectedGrammarModelID, forKey: Self.selectedGrammarModelIDKey)
     }
 }

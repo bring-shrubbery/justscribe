@@ -53,8 +53,6 @@ struct LinksSettingsSection: View {
                     url: Constants.URLs.support
                 )
             }
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
 
             // Version info
             HStack {
@@ -102,7 +100,6 @@ struct LinkRow: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }

@@ -43,6 +43,10 @@ struct SettingsView: View {
 
                         Divider()
 
+                        GrammarCorrectionSettingsSection(settings: settings)
+
+                        Divider()
+
                         AppearanceSettingsSection(settings: settings)
 
                         Divider()

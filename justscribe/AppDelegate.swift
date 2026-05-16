@@ -104,10 +104,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        let selectedID = UserDefaults.standard.string(forKey: AppSettings.selectedGrammarModelIDKey) ?? ""
+        guard !selectedID.isEmpty else {
+            print("Grammar correction enabled but no model selected, skipping LLM load")
+            return
+        }
+
         Task { @MainActor in
+            guard GrammarCorrectionService.shared.isModelDownloaded(selectedID) else {
+                print("Grammar correction model \(selectedID) not downloaded, skipping auto-load")
+                return
+            }
             do {
-                print("Auto-loading grammar correction model...")
-                try await GrammarCorrectionService.shared.loadModel()
+                print("Auto-loading grammar correction model: \(selectedID)")
+                try await GrammarCorrectionService.shared.loadModel(modelID: selectedID)
                 print("Grammar correction model loaded successfully")
             } catch {
                 print("Failed to auto-load grammar correction model: \(error.localizedDescription)")
