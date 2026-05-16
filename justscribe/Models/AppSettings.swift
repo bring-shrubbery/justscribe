@@ -32,6 +32,14 @@ enum AppearanceMode: String, Codable, CaseIterable {
         case .system: return "System"
         }
     }
+
+    var iconName: String {
+        switch self {
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        case .system: return "circle.lefthalf.filled"
+        }
+    }
 }
 
 @Model
