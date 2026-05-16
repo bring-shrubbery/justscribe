@@ -55,6 +55,10 @@ struct SettingsView: View {
 
                         Divider()
 
+                        TipJarSettingsSection()
+
+                        Divider()
+
                         LinksSettingsSection()
 
                         #if DEBUG
