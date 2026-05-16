@@ -158,12 +158,13 @@ struct PillToggleStyle: ToggleStyle {
             RoundedRectangle(cornerRadius: 12)
                 .fill(isOn
                       ? Color.accentColor
-                      : Color(nsColor: .controlBackgroundColor))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(isOn ? Color.accentColor.opacity(0.7) : pillStrokeColor,
-                                lineWidth: pillStrokeWidth)
-                )
+                      : Color(nsColor: .separatorColor).opacity(0.35))
+                .overlay {
+                    if isOn {
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.accentColor.opacity(0.7), lineWidth: pillStrokeWidth)
+                    }
+                }
 
             Circle()
                 .fill(Color.white)
