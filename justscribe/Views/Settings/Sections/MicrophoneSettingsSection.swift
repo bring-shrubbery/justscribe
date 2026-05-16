@@ -24,7 +24,7 @@ struct MicrophoneSettingsSection: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.clockwise")
-                        .rotationEffect(.degrees(refreshRotation))
+                        .rotationEffect(.degrees(refreshRotation), anchor: UnitPoint(x: 0.5, y: 0.58))
                     Text("Refresh")
                 }
             }
