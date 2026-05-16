@@ -226,10 +226,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func beginRecording() {
         sessionState = .recording
 
-        // Select microphone based on saved priority
-        if let priority = UserDefaults.standard.stringArray(forKey: AppSettings.microphonePriorityKey) {
-            AudioCaptureService.shared.selectDeviceByPriority(priority)
-        }
+        // Select microphone based on saved priority, skipping any the user has blocked
+        let priority = UserDefaults.standard.stringArray(forKey: AppSettings.microphonePriorityKey) ?? []
+        let banned = UserDefaults.standard.stringArray(forKey: AppSettings.bannedMicrophoneIDsKey) ?? []
+        AudioCaptureService.shared.selectDeviceByPriority(priority, excluding: banned)
 
         // Start audio capture BEFORE showing UI so no audio is lost
         AudioCaptureService.shared.startRecording()

@@ -49,6 +49,7 @@ final class AppSettings {
     static let copyToClipboardKey = "copyToClipboard"
     static let selectedLanguageKey = "selectedLanguage"
     static let microphonePriorityKey = "microphonePriority"
+    static let bannedMicrophoneIDsKey = "bannedMicrophoneIDs"
     static let indicatorStyleKey = "indicatorStyle"
     static let showInDockKey = "showInDock"
     static let showInStatusBarKey = "showInStatusBar"
@@ -66,6 +67,13 @@ final class AppSettings {
     var microphonePriority: [String] = [] {
         didSet {
             UserDefaults.standard.set(microphonePriority, forKey: Self.microphonePriorityKey)
+        }
+    }
+
+    // Microphones the user has explicitly blocked from being selected
+    var bannedMicrophoneIDs: [String] = [] {
+        didSet {
+            UserDefaults.standard.set(bannedMicrophoneIDs, forKey: Self.bannedMicrophoneIDsKey)
         }
     }
 
@@ -151,6 +159,7 @@ final class AppSettings {
         UserDefaults.standard.set(copyToClipboard, forKey: Self.copyToClipboardKey)
         UserDefaults.standard.set(selectedLanguage, forKey: Self.selectedLanguageKey)
         UserDefaults.standard.set(microphonePriority, forKey: Self.microphonePriorityKey)
+        UserDefaults.standard.set(bannedMicrophoneIDs, forKey: Self.bannedMicrophoneIDsKey)
         UserDefaults.standard.set(indicatorStyleRaw, forKey: Self.indicatorStyleKey)
         UserDefaults.standard.set(showInDock, forKey: Self.showInDockKey)
         UserDefaults.standard.set(showInStatusBar, forKey: Self.showInStatusBarKey)

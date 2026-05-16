@@ -75,16 +75,17 @@ final class AudioCaptureService: NSObject {
         }
     }
 
-    func selectDeviceByPriority(_ priorityList: [String]) {
-        for deviceID in priorityList {
+    func selectDeviceByPriority(_ priorityList: [String], excluding bannedIDs: [String] = []) {
+        let banned = Set(bannedIDs)
+        for deviceID in priorityList where !banned.contains(deviceID) {
             if let device = availableDevices.first(where: { $0.id == deviceID && $0.isAvailable }) {
                 selectDevice(device)
                 return
             }
         }
 
-        // Fall back to first available
-        if let first = availableDevices.first(where: { $0.isAvailable }) {
+        // Fall back to first available unbanned device
+        if let first = availableDevices.first(where: { $0.isAvailable && !banned.contains($0.id) }) {
             selectDevice(first)
         }
     }
