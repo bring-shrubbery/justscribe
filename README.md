@@ -29,7 +29,7 @@ Native macOS app for fast voice-to-text dictation anywhere on your system. [Down
 
 ## 🐢 Quick Start
 
-1. 🌟 Start this repo 🌟
+1. 🌟 Star this repo 🌟
 2. Follow the author [Antoni (@bringshrubberyy)](https://x.com/bringshrubberyy) on X
 3. Install and open JustScribe.
 4. Download and select a transcription model on first launch.
