@@ -67,4 +67,8 @@ Issues and pull requests are welcome.
 
 ## 🐂 License
 
-This repository currently does not include an open-source license file.
+Copyright © 2026 Quassum MB.
+
+JustScribe is licensed under the [GNU General Public License v3.0](LICENSE).
+You may use, modify, and redistribute it under the terms of that license; any
+distributed derivative work must also be released under the GPL-3.0.
