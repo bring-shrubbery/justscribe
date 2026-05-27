@@ -18,6 +18,8 @@ Native macOS app for fast voice-to-text dictation anywhere on your system. [Down
   - Parakeet v3 (recommended, multilingual)
   - Parakeet English (v2)
   - Whisper Tiny, Base, Small, Medium, Large v3
+- Optional on-device grammar correction (fixes grammar, spelling, and punctuation in transcriptions)
+  - Llama 3.1 8B Instruct (4-bit MLX), downloaded on demand
 - Customizable shortcut, including modifier-only shortcuts
 - Microphone priority ordering
 - Recording indicator styles: Floating Bubble or Notch
