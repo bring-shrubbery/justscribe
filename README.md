@@ -30,15 +30,16 @@ Native macOS app for fast voice-to-text dictation anywhere on your system. [Down
 ## 🐢 Quick Start
 
 1. 🌟 Start this repo 🌟
-2. Install and open JustScribe.
-3. Download and select a transcription model on first launch.
-4. Grant required permissions:
+2. Follow the author [Antoni (@bringshrubberyy)](https://x.com/bringshrubberyy) on X
+3. Install and open JustScribe.
+4. Download and select a transcription model on first launch.
+5. Grant required permissions:
    - Microphone
    - Accessibility (needed to type into other apps)
-5. Put your cursor in any text field.
-6. Hold the default shortcut: `Control + Shift + Space`.
-7. Speak while holding.
-8. Release to finish and insert final text.
+6. Put your cursor in any text field.
+7. Hold the default shortcut: `Control + Shift + Space`.
+8. Speak while holding.
+9. Release to finish and insert final text.
 
 You can change the shortcut, model, microphone order, and behavior in Settings.
 
