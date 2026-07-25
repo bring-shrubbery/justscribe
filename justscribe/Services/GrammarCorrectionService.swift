@@ -55,7 +55,7 @@ final class GrammarCorrectionService {
     func refreshDownloadedModels() {
         var found: Set<String> = []
         for model in GrammarCorrectionModel.allModels {
-            if Self.isModelOnDisk(hubID: model.hubID) {
+            if let hubID = model.hubID, Self.isModelOnDisk(hubID: hubID) {
                 found.insert(model.id)
             }
         }
@@ -85,7 +85,8 @@ final class GrammarCorrectionService {
 
     /// Download (if needed) and load the given grammar model into memory.
     func loadModel(modelID: String) async throws {
-        guard let model = GrammarCorrectionModel.model(forID: modelID) else {
+        guard let model = GrammarCorrectionModel.model(forID: modelID),
+              let hubID = model.hubID else {
             throw GrammarCorrectionError.modelNotFound
         }
 
@@ -104,13 +105,13 @@ final class GrammarCorrectionService {
 
         isLoadingModel = true
         loadProgress = 0
-        let wasOnDisk = Self.isModelOnDisk(hubID: model.hubID)
+        let wasOnDisk = Self.isModelOnDisk(hubID: hubID)
         if !wasOnDisk {
             activelyDownloadingModelID = modelID
         }
 
         do {
-            let configuration = ModelConfiguration(id: model.hubID)
+            let configuration = ModelConfiguration(id: hubID)
             let container = try await loadModelContainer(configuration: configuration) { [weak self] progress in
                 Task { @MainActor in
                     self?.loadProgress = progress.fractionCompleted
@@ -142,7 +143,8 @@ final class GrammarCorrectionService {
     /// Delete the on-disk files for a downloaded grammar model. If the model is currently
     /// loaded, it will be unloaded first.
     func deleteModel(modelID: String) throws {
-        guard let model = GrammarCorrectionModel.model(forID: modelID) else {
+        guard let model = GrammarCorrectionModel.model(forID: modelID),
+              let hubID = model.hubID else {
             throw GrammarCorrectionError.modelNotFound
         }
 
@@ -154,7 +156,7 @@ final class GrammarCorrectionService {
         guard let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
             return
         }
-        let modelDir = cachesDir.appendingPathComponent("models").appendingPathComponent(model.hubID)
+        let modelDir = cachesDir.appendingPathComponent("models").appendingPathComponent(hubID)
         if fileManager.fileExists(atPath: modelDir.path) {
             try fileManager.removeItem(at: modelDir)
             print("Deleted grammar correction model at: \(modelDir.path)")
