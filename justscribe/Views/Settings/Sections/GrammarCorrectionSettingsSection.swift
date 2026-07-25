@@ -72,6 +72,12 @@ private struct AvailableGrammarModelRow: View {
         service.isModelLoaded && service.loadedModelID == model.id
     }
 
+    private var subtitleText: String {
+        [model.provider, model.approximateSize, model.approximateRAM.map { "RAM \($0)" }]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "shippingbox")
@@ -82,7 +88,7 @@ private struct AvailableGrammarModelRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.displayName)
                     .font(.body)
-                Text("\(model.provider) · \(model.approximateSize) · RAM \(model.approximateRAM)")
+                Text(subtitleText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
