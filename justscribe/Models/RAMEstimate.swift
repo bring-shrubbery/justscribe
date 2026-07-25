@@ -33,7 +33,7 @@ enum RAMEstimate {
         }
         if grammarEnabled,
            let model = GrammarCorrectionModel.model(forID: grammarModelID) {
-            total += model.approximateRAMInMB
+            total += model.approximateRAMInMB ?? 0
         }
         return total
     }
