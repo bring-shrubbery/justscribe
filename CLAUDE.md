@@ -58,8 +58,17 @@ Two backends sit behind one unified model ID of the form `provider:variant`
 downloads and has to probe several on-disk locations (sandbox Documents, Caches, Application
 Support) because the two SDKs cache models differently.
 
-Grammar correction is a separate opt-in path: `GrammarCorrectionService` runs an MLX LLM
-(Llama 3.1 8B 4-bit) downloaded on demand.
+Grammar correction is a separate opt-in path with its own two-backend split, this time behind a
+`GrammarBackend` protocol rather than an inline switch (`Services/Grammar/`).
+`AppleFoundationGrammarBackend` uses the OS `FoundationModels` model — no download, no RAM budget,
+but unavailable unless Apple Intelligence is enabled — and is the default selection.
+`MLXGrammarBackend` runs Llama 3.1 8B 4-bit, downloaded on demand. `GrammarCorrectionService` is
+just the router plus the `@Observable` state the settings UI binds to.
+
+Because the Apple model needs no download, `isReadyToUse(_:)` — not "is it downloaded" — is the
+question the UI and `AppDelegate` ask before loading. Apple's context window is ~4096 tokens, so
+text over 4,000 characters is split by `GrammarTextChunker`, whose `chunks(t).joined() == t`
+invariant is what keeps `ClipboardService.replaceTypedText` bookkeeping correct.
 
 ### Settings persistence — dual-write, deliberately
 
