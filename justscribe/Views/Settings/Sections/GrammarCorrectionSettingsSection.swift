@@ -39,7 +39,7 @@ struct GrammarCorrectionSettingsSection: View {
                             if !newValue {
                                 service.unloadModel()
                             } else if !settings.selectedGrammarModelID.isEmpty,
-                                      service.isModelDownloaded(settings.selectedGrammarModelID) {
+                                      service.isReadyToUse(settings.selectedGrammarModelID) {
                                 let modelID = settings.selectedGrammarModelID
                                 Task { try? await service.loadModel(modelID: modelID) }
                             }
@@ -63,7 +63,7 @@ private struct AvailableGrammarModelRow: View {
     @Bindable var settings: AppSettings
     private var service: GrammarCorrectionService { GrammarCorrectionService.shared }
 
-    private var isDownloaded: Bool { service.isModelDownloaded(model.id) }
+    private var isDownloaded: Bool { service.isReadyToUse(model.id) }
     private var isDownloading: Bool { service.activelyDownloadingModelID == model.id }
     private var isLoadingThisModel: Bool {
         service.isLoadingModel && service.loadedModelID != model.id && !isDownloading
