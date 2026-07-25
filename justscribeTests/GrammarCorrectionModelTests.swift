@@ -65,4 +65,21 @@ struct GrammarCorrectionModelTests {
         )
         #expect(total == 0)
     }
+
+    @Test func aBlankStoredSelectionBecomesTheAppleModel() {
+        // Installs that never picked a model should land on the zero-cost default.
+        #expect(AppSettings.normalizedGrammarModelID("") == "apple-foundation")
+    }
+
+    @Test func anExistingLlamaSelectionIsPreserved() {
+        // Explicit user choices are never overridden.
+        #expect(
+            AppSettings.normalizedGrammarModelID("llama-3.1-8b-instruct-4bit")
+                == "llama-3.1-8b-instruct-4bit"
+        )
+    }
+
+    @Test func anUnknownStoredSelectionFallsBackToTheDefault() {
+        #expect(AppSettings.normalizedGrammarModelID("deleted-model") == "apple-foundation")
+    }
 }

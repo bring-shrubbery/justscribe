@@ -142,7 +142,7 @@ final class AppSettings {
             UserDefaults.standard.set(grammarCorrectionEnabled, forKey: Self.grammarCorrectionEnabledKey)
         }
     }
-    var selectedGrammarModelID: String = "" {
+    var selectedGrammarModelID: String = GrammarCorrectionModel.defaultModelID {
         didSet {
             UserDefaults.standard.set(selectedGrammarModelID, forKey: Self.selectedGrammarModelIDKey)
         }
@@ -154,11 +154,23 @@ final class AppSettings {
 
     init() {}
 
+    /// Resolve a stored grammar model selection. A blank or unrecognised value
+    /// becomes the default; an explicit, still-valid choice is left alone.
+    nonisolated static func normalizedGrammarModelID(_ stored: String) -> String {
+        GrammarCorrectionModel.model(forID: stored) != nil
+            ? stored
+            : GrammarCorrectionModel.defaultModelID
+    }
+
     static func getOrCreate(in context: ModelContext) -> AppSettings {
         let descriptor = FetchDescriptor<AppSettings>()
         let existing = try? context.fetch(descriptor)
 
         if let settings = existing?.first {
+            // Existing rows keep whatever they stored, except a blank or stale
+            // selection, which resolves to the current default.
+            settings.selectedGrammarModelID =
+                Self.normalizedGrammarModelID(settings.selectedGrammarModelID)
             // Sync to UserDefaults (didSet may not fire on SwiftData load)
             settings.syncToUserDefaults()
             return settings
