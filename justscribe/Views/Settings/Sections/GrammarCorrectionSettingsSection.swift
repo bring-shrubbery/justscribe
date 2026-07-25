@@ -170,7 +170,7 @@ private struct MLXGrammarModelRow: View {
         do {
             try service.deleteModel(modelID: model.id)
             if settings.selectedGrammarModelID == model.id {
-                settings.selectedGrammarModelID = ""
+                settings.selectedGrammarModelID = GrammarCorrectionModel.defaultModelID
             }
         } catch {
             print("Failed to delete grammar model: \(error)")
@@ -204,6 +204,7 @@ private struct AppleGrammarModelRow: View {
     private var isLoading: Bool { service.isLoadingModel && service.loadedModelID != model.id }
 
     var body: some View {
+        let availability = self.availability
         HStack(spacing: 12) {
             Image(systemName: "apple.intelligence")
                 .font(.body)
@@ -239,12 +240,12 @@ private struct AppleGrammarModelRow: View {
 
             Spacer()
 
-            actionButton
+            actionButton(availability)
         }
     }
 
     @ViewBuilder
-    private var actionButton: some View {
+    private func actionButton(_ availability: GrammarBackendAvailability) -> some View {
         switch availability {
         case .available, .requiresDownload:
             if isLoading {
@@ -262,7 +263,10 @@ private struct AppleGrammarModelRow: View {
         case .unavailable(_, let settingsURL):
             if let settingsURL {
                 Button {
-                    NSWorkspace.shared.open(settingsURL)
+                    if !NSWorkspace.shared.open(settingsURL),
+                       let fallback = URL(string: "x-apple.systempreferences:") {
+                        NSWorkspace.shared.open(fallback)
+                    }
                 } label: {
                     Label("Open Settings", systemImage: "gear")
                         .font(.callout)

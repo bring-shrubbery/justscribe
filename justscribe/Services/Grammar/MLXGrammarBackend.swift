@@ -142,7 +142,7 @@ final class MLXGrammarBackend: GrammarBackend {
         }
 
         // Clear previous conversation to avoid context buildup
-        await session.clear()
+        session.clear()
 
         let prompt: String
         if let language, !language.isEmpty, language != "en" {

@@ -33,6 +33,9 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
     private static let singleShotLimit = 4000
     private static let chunkLength = 2000
     private static let requestTimeout: Duration = .seconds(20)
+    /// Whole-correction ceiling for the chunked path, so a long dictation can't
+    /// block new recordings for N x requestTimeout.
+    private static let totalChunkedTimeout: Duration = .seconds(60)
 
     private static let instructions = """
         You are a grammar correction assistant. Fix grammar, spelling, and punctuation errors \
@@ -46,6 +49,7 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
     )
 
     private(set) var isReady = false
+    private var warmSession: LanguageModelSession?
 
     var availability: GrammarBackendAvailability {
         Self.availability(for: SystemLanguageModel.default.availability)
@@ -90,13 +94,16 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
             )
         }
         // Nothing to download; just warm the model so the first correction isn't slow.
-        makeSession().prewarm()
+        let session = makeSession()
+        session.prewarm()
+        warmSession = session
         isReady = true
         onProgress(1.0)
     }
 
     func unload() {
         isReady = false
+        warmSession = nil
     }
 
     // MARK: - Correction
@@ -108,10 +115,18 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
             return try await correctOne(text, language: language)
         }
 
+        let deadline = ContinuousClock.now.advanced(by: Self.totalChunkedTimeout)
         var corrected: [String] = []
+        var timedOut = false
         for chunk in GrammarTextChunker.chunks(text, maxLength: Self.chunkLength) {
             let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else {
+            guard !trimmed.isEmpty, !timedOut else {
+                corrected.append(chunk)
+                continue
+            }
+            if ContinuousClock.now >= deadline {
+                // Out of budget: keep the rest verbatim rather than stalling dictation.
+                timedOut = true
                 corrected.append(chunk)
                 continue
             }
@@ -124,6 +139,9 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
                 print("Grammar correction chunk failed, keeping original: \(error)")
                 corrected.append(chunk)
             }
+        }
+        if timedOut {
+            print("Grammar correction exceeded its overall budget; remaining text left uncorrected")
         }
         return corrected.joined()
     }
@@ -143,8 +161,11 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
         }
 
         // A fresh session per request keeps context from accumulating across dictations.
-        // Extract `.content` inside the closure: `Response` is not Sendable, `String` is.
-        let session = makeSession()
+        // The first request after prepare() reuses the prewarmed session; every request
+        // after that builds a new one. Extract `.content` inside the closure: `Response`
+        // is not Sendable, `String` is.
+        let session = warmSession ?? makeSession()
+        warmSession = nil
         let corrected = try await withGrammarTimeout(Self.requestTimeout) {
             try await session.respond(
                 to: prompt,

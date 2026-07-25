@@ -169,8 +169,10 @@ final class AppSettings {
         if let settings = existing?.first {
             // Existing rows keep whatever they stored, except a blank or stale
             // selection, which resolves to the current default.
-            settings.selectedGrammarModelID =
-                Self.normalizedGrammarModelID(settings.selectedGrammarModelID)
+            let normalized = Self.normalizedGrammarModelID(settings.selectedGrammarModelID)
+            if normalized != settings.selectedGrammarModelID {
+                settings.selectedGrammarModelID = normalized
+            }
             // Sync to UserDefaults (didSet may not fire on SwiftData load)
             settings.syncToUserDefaults()
             return settings
@@ -178,6 +180,7 @@ final class AppSettings {
 
         let settings = AppSettings()
         context.insert(settings)
+        settings.syncToUserDefaults()
         return settings
     }
 
