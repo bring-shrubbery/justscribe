@@ -18,6 +18,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+import AppKit
 import SwiftUI
 
 struct GrammarCorrectionSettingsSection: View {
@@ -39,7 +40,7 @@ struct GrammarCorrectionSettingsSection: View {
                             if !newValue {
                                 service.unloadModel()
                             } else if !settings.selectedGrammarModelID.isEmpty,
-                                      service.isModelDownloaded(settings.selectedGrammarModelID) {
+                                      service.isReadyToUse(settings.selectedGrammarModelID) {
                                 let modelID = settings.selectedGrammarModelID
                                 Task { try? await service.loadModel(modelID: modelID) }
                             }
@@ -50,7 +51,12 @@ struct GrammarCorrectionSettingsSection: View {
                 if settings.grammarCorrectionEnabled {
                     ForEach(GrammarCorrectionModel.allModels) { model in
                         Divider()
-                        AvailableGrammarModelRow(model: model, settings: settings)
+                        switch model.backend {
+                        case .apple:
+                            AppleGrammarModelRow(model: model, settings: settings)
+                        case .mlx:
+                            MLXGrammarModelRow(model: model, settings: settings)
+                        }
                     }
                 }
             }
@@ -58,18 +64,24 @@ struct GrammarCorrectionSettingsSection: View {
     }
 }
 
-private struct AvailableGrammarModelRow: View {
+private struct MLXGrammarModelRow: View {
     let model: GrammarCorrectionModel
     @Bindable var settings: AppSettings
     private var service: GrammarCorrectionService { GrammarCorrectionService.shared }
 
-    private var isDownloaded: Bool { service.isModelDownloaded(model.id) }
+    private var isDownloaded: Bool { service.isReadyToUse(model.id) }
     private var isDownloading: Bool { service.activelyDownloadingModelID == model.id }
     private var isLoadingThisModel: Bool {
         service.isLoadingModel && service.loadedModelID != model.id && !isDownloading
     }
     private var isLoadedAndSelected: Bool {
         service.isModelLoaded && service.loadedModelID == model.id
+    }
+
+    private var subtitleText: String {
+        [model.provider, model.approximateSize, model.approximateRAM.map { "RAM \($0)" }]
+            .compactMap { $0 }
+            .joined(separator: " · ")
     }
 
     var body: some View {
@@ -82,7 +94,7 @@ private struct AvailableGrammarModelRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.displayName)
                     .font(.body)
-                Text("\(model.provider) · \(model.approximateSize) · RAM \(model.approximateRAM)")
+                Text(subtitleText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -158,7 +170,7 @@ private struct AvailableGrammarModelRow: View {
         do {
             try service.deleteModel(modelID: model.id)
             if settings.selectedGrammarModelID == model.id {
-                settings.selectedGrammarModelID = ""
+                settings.selectedGrammarModelID = GrammarCorrectionModel.defaultModelID
             }
         } catch {
             print("Failed to delete grammar model: \(error)")
@@ -179,5 +191,88 @@ private struct AvailableGrammarModelRow: View {
     private func selectAndLoad() {
         settings.selectedGrammarModelID = model.id
         Task { try? await service.loadModel(modelID: model.id) }
+    }
+}
+
+private struct AppleGrammarModelRow: View {
+    let model: GrammarCorrectionModel
+    @Bindable var settings: AppSettings
+    private var service: GrammarCorrectionService { GrammarCorrectionService.shared }
+
+    private var availability: GrammarBackendAvailability { service.availability(for: model.id) }
+    private var isLoaded: Bool { service.isModelLoaded && service.loadedModelID == model.id }
+    private var isLoading: Bool { service.isLoadingModel && service.loadedModelID != model.id }
+
+    var body: some View {
+        let availability = self.availability
+        HStack(spacing: 12) {
+            Image(systemName: "apple.intelligence")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.displayName)
+                    .font(.body)
+                Text("\(model.provider) · No download")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                switch availability {
+                case .available, .requiresDownload:
+                    if isLoaded {
+                        Label("Loaded", systemImage: "checkmark.circle.fill")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else if isLoading {
+                        HStack(spacing: 6) {
+                            ProgressView().scaleEffect(0.6)
+                            Text("Loading…").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                case .unavailable(let reason, _):
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            Spacer()
+
+            actionButton(availability)
+        }
+    }
+
+    @ViewBuilder
+    private func actionButton(_ availability: GrammarBackendAvailability) -> some View {
+        switch availability {
+        case .available, .requiresDownload:
+            if isLoading {
+                ProgressView().scaleEffect(0.7)
+            } else if !isLoaded {
+                Button {
+                    settings.selectedGrammarModelID = model.id
+                    Task { try? await service.loadModel(modelID: model.id) }
+                } label: {
+                    Label("Use", systemImage: "checkmark.circle")
+                        .font(.callout)
+                }
+                .buttonStyle(.pill)
+            }
+        case .unavailable(_, let settingsURL):
+            if let settingsURL {
+                Button {
+                    if !NSWorkspace.shared.open(settingsURL),
+                       let fallback = URL(string: "x-apple.systempreferences:") {
+                        NSWorkspace.shared.open(fallback)
+                    }
+                } label: {
+                    Label("Open Settings", systemImage: "gear")
+                        .font(.callout)
+                }
+                .buttonStyle(.pill)
+            }
+        }
     }
 }

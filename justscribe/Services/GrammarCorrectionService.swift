@@ -21,9 +21,10 @@
 //
 
 import Foundation
-import MLXLLM
-import MLXLMCommon
 
+/// Routes grammar correction to whichever backend serves the selected model.
+/// Owns the observable state the settings UI binds to; the backends own the
+/// engine-specific details.
 @MainActor
 @Observable
 final class GrammarCorrectionService {
@@ -34,17 +35,13 @@ final class GrammarCorrectionService {
     private(set) var isLoadingModel = false
     private(set) var loadProgress: Double = 0
     private(set) var loadedModelID: String?
+    /// MLX models present on disk. Always empty of Apple models — they aren't downloaded.
     private(set) var downloadedModels: Set<String> = []
     private(set) var activelyDownloadingModelID: String?
 
-    private var modelContainer: ModelContainer?
-    private var chatSession: ChatSession?
-
-    private static let systemPrompt = """
-        You are a grammar correction assistant. Fix grammar, spelling, and punctuation errors \
-        in the following text. Preserve the original meaning and tone. Output ONLY the corrected \
-        text with no explanations, no quotes, and no additional formatting.
-        """
+    private let appleBackend = AppleFoundationGrammarBackend()
+    private let mlxBackend = MLXGrammarBackend()
+    private var activeBackend: (any GrammarBackend)?
 
     private init() {
         refreshDownloadedModels()
@@ -52,50 +49,40 @@ final class GrammarCorrectionService {
 
     // MARK: - Discovery
 
+    private func backend(for modelID: String) -> (any GrammarBackend)? {
+        guard let model = GrammarCorrectionModel.model(forID: modelID) else { return nil }
+        switch model.backend {
+        case .apple: return appleBackend
+        case .mlx: return mlxBackend
+        }
+    }
+
     func refreshDownloadedModels() {
-        var found: Set<String> = []
-        for model in GrammarCorrectionModel.allModels {
-            if Self.isModelOnDisk(hubID: model.hubID) {
-                found.insert(model.id)
-            }
-        }
-        downloadedModels = found
+        mlxBackend.refreshDownloadedModels()
+        downloadedModels = mlxBackend.downloadedModelIDs
     }
 
-    func isModelDownloaded(_ modelID: String) -> Bool {
-        downloadedModels.contains(modelID)
+    /// Whether the model can be used right now with no further download. For MLX
+    /// models that means the weights are on disk; for the Apple model it means
+    /// Apple Intelligence is enabled and ready.
+    func isReadyToUse(_ modelID: String) -> Bool {
+        backend(for: modelID)?.availability == .available
     }
 
-    /// Probe the on-disk MLX/HuggingFace cache for the given hub ID.
-    /// MLX-LM stores model files under `Library/Caches/models/<org>/<repo>/`.
-    private static func isModelOnDisk(hubID: String) -> Bool {
-        let fileManager = FileManager.default
-        guard let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
-            return false
-        }
-        let modelDir = cachesDir.appendingPathComponent("models").appendingPathComponent(hubID)
-        let config = modelDir.appendingPathComponent("config.json")
-        let weights = modelDir.appendingPathComponent("model.safetensors")
-        let weightsIndex = modelDir.appendingPathComponent("model.safetensors.index.json")
-        return fileManager.fileExists(atPath: config.path)
-            && (fileManager.fileExists(atPath: weights.path) || fileManager.fileExists(atPath: weightsIndex.path))
+    func availability(for modelID: String) -> GrammarBackendAvailability {
+        backend(for: modelID)?.availability
+            ?? .unavailable(reason: "Unknown model.", settingsURL: nil)
     }
 
-    // MARK: - Load / Download
+    // MARK: - Load
 
-    /// Download (if needed) and load the given grammar model into memory.
     func loadModel(modelID: String) async throws {
-        guard let model = GrammarCorrectionModel.model(forID: modelID) else {
-            throw GrammarCorrectionError.modelNotFound
+        guard let target = backend(for: modelID) else {
+            throw GrammarBackendError.modelNotFound
         }
 
-        if isModelLoaded && loadedModelID == modelID {
-            return
-        }
-
-        if isLoadingModel {
-            return
-        }
+        if isModelLoaded && loadedModelID == modelID { return }
+        if isLoadingModel { return }
 
         // If switching models, unload the previous one first.
         if isModelLoaded && loadedModelID != modelID {
@@ -104,31 +91,21 @@ final class GrammarCorrectionService {
 
         isLoadingModel = true
         loadProgress = 0
-        let wasOnDisk = Self.isModelOnDisk(hubID: model.hubID)
-        if !wasOnDisk {
+        if target.availability == .requiresDownload {
             activelyDownloadingModelID = modelID
         }
 
         do {
-            let configuration = ModelConfiguration(id: model.hubID)
-            let container = try await loadModelContainer(configuration: configuration) { [weak self] progress in
-                Task { @MainActor in
-                    self?.loadProgress = progress.fractionCompleted
-                }
+            try await target.prepare { [weak self] fraction in
+                self?.loadProgress = fraction
             }
-
-            modelContainer = container
-            chatSession = ChatSession(
-                container,
-                instructions: Self.systemPrompt,
-                generateParameters: GenerateParameters(maxTokens: 2048, temperature: 0.1)
-            )
+            activeBackend = target
             isModelLoaded = true
             loadedModelID = modelID
             isLoadingModel = false
             activelyDownloadingModelID = nil
             loadProgress = 1.0
-            downloadedModels.insert(modelID)
+            refreshDownloadedModels()
             print("Grammar correction model loaded successfully: \(modelID)")
         } catch {
             isLoadingModel = false
@@ -139,33 +116,24 @@ final class GrammarCorrectionService {
         }
     }
 
-    /// Delete the on-disk files for a downloaded grammar model. If the model is currently
-    /// loaded, it will be unloaded first.
+    /// Delete a downloaded model's files. Throws for models that are part of macOS.
     func deleteModel(modelID: String) throws {
-        guard let model = GrammarCorrectionModel.model(forID: modelID) else {
-            throw GrammarCorrectionError.modelNotFound
+        guard let target = backend(for: modelID) else {
+            throw GrammarBackendError.modelNotFound
         }
-
+        guard let mlx = target as? MLXGrammarBackend else {
+            throw GrammarBackendError.notDeletable
+        }
         if loadedModelID == modelID {
             unloadModel()
         }
-
-        let fileManager = FileManager.default
-        guard let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
-            return
-        }
-        let modelDir = cachesDir.appendingPathComponent("models").appendingPathComponent(model.hubID)
-        if fileManager.fileExists(atPath: modelDir.path) {
-            try fileManager.removeItem(at: modelDir)
-            print("Deleted grammar correction model at: \(modelDir.path)")
-        }
-
-        downloadedModels.remove(modelID)
+        try mlx.delete(modelID: modelID)
+        refreshDownloadedModels()
     }
 
     func unloadModel() {
-        chatSession = nil
-        modelContainer = nil
+        activeBackend?.unload()
+        activeBackend = nil
         isModelLoaded = false
         isProcessing = false
         loadProgress = 0
@@ -176,58 +144,15 @@ final class GrammarCorrectionService {
     // MARK: - Correction
 
     func correctGrammar(_ text: String, language: String? = nil) async throws -> String {
-        guard let session = chatSession else {
-            throw GrammarCorrectionError.modelNotLoaded
+        guard let backend = activeBackend else {
+            throw GrammarBackendError.notReady
         }
 
         isProcessing = true
         defer { isProcessing = false }
 
-        // Clear previous conversation to avoid context buildup
-        await session.clear()
-
-        let prompt: String
-        if let language, !language.isEmpty, language != "en" {
-            prompt = "Language: \(language). Text: \(text)"
-        } else {
-            prompt = text
-        }
-
-        // Use timeout to prevent hanging
-        let corrected = try await withThrowingTaskGroup(of: String.self) { group in
-            group.addTask {
-                try await session.respond(to: prompt)
-            }
-
-            group.addTask {
-                try await Task.sleep(for: .seconds(30))
-                throw GrammarCorrectionError.timeout
-            }
-
-            let result = try await group.next()!
-            group.cancelAll()
-            return result
-        }
-
-        let trimmed = corrected.trimmingCharacters(in: .whitespacesAndNewlines)
-        print("Grammar correction: '\(text)' -> '\(trimmed)'")
-        return trimmed
-    }
-
-    enum GrammarCorrectionError: LocalizedError {
-        case modelNotLoaded
-        case modelNotFound
-        case timeout
-
-        var errorDescription: String? {
-            switch self {
-            case .modelNotLoaded:
-                return "Grammar correction model is not loaded."
-            case .modelNotFound:
-                return "Grammar correction model not found."
-            case .timeout:
-                return "Grammar correction timed out."
-            }
-        }
+        let corrected = try await backend.correct(text, language: language)
+        print("Grammar correction: '\(text)' -> '\(corrected)'")
+        return corrected
     }
 }

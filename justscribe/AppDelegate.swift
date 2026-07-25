@@ -126,7 +126,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         Task { @MainActor in
-            guard GrammarCorrectionService.shared.isModelDownloaded(selectedID) else {
+            guard GrammarCorrectionService.shared.isReadyToUse(selectedID) else {
                 print("Grammar correction model \(selectedID) not downloaded, skipping auto-load")
                 return
             }
