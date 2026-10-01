@@ -26,7 +26,7 @@ fail() { echo "error: $*" >&2; exit 1; }
 
 ENT=$(mktemp)
 trap 'rm -f "$ENT"' EXIT
-codesign -d --entitlements - --xml "$APP" > "$ENT" 2>/dev/null
+codesign -d --entitlements - --xml "$APP" > "$ENT" 2>/dev/null || fail "$APP is not signed"
 [ -s "$ENT" ] || fail "$APP carries no entitlements to preserve"
 
 sign() { codesign -f -s "$IDENTITY" -o runtime --timestamp "$@"; }
