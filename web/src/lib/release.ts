@@ -42,6 +42,7 @@ export function releaseFrom(json: unknown): Release | null {
 /**
  * Fetches the latest release. `token`, when given, authenticates the request:
  * Workers Builds share egress addresses, and the unauthenticated limit is per address.
+ * The request gives up after ten seconds, so a hung API cannot stall the build.
  */
 export async function fetchLatestRelease(fetchImpl: typeof fetch = fetch, token?: string): Promise<Release | null> {
   const headers: Record<string, string> = {
@@ -50,7 +51,7 @@ export async function fetchLatestRelease(fetchImpl: typeof fetch = fetch, token?
   };
   if (token) headers.Authorization = `Bearer ${token}`;
   try {
-    const response = await fetchImpl(latestReleaseAPI, { headers });
+    const response = await fetchImpl(latestReleaseAPI, { headers, signal: AbortSignal.timeout(10_000) });
     if (!response.ok) return null;
     return releaseFrom(await response.json());
   } catch {

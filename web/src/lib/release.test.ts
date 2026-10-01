@@ -75,6 +75,23 @@ describe('fetchLatestRelease', () => {
     expect(await fetchLatestRelease(failing)).toBeNull();
   });
 
+  it('gives the request an abort signal, so a hung API cannot stall the build', async () => {
+    let signal: AbortSignal | null | undefined;
+    const spy: typeof fetch = async (_input, init) => {
+      signal = init?.signal;
+      return new Response(JSON.stringify(v100), { status: 200 });
+    };
+    await fetchLatestRelease(spy);
+    expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('is null when the request times out', async () => {
+    const timedOut: typeof fetch = async () => {
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    };
+    expect(await fetchLatestRelease(timedOut)).toBeNull();
+  });
+
   it('is null when the body is not json', async () => {
     const html: typeof fetch = async () => new Response('<html>', { status: 200 });
     expect(await fetchLatestRelease(html)).toBeNull();
