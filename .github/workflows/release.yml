@@ -48,8 +48,14 @@ jobs:
         id: decide
         run: |
           previous=$(app/Scripts/release-version.sh --previous)
-          changed=$(app/Scripts/release-changes.sh "$previous")
           sha=$(git rev-parse HEAD)
+          # Re-running an old run after a newer release would ship an older commit as a
+          # newer version and roll back every installed copy.
+          if [ -n "$previous" ] && ! git merge-base --is-ancestor "$previous" HEAD; then
+            echo "::error::$sha does not descend from the last release $previous; refusing to release an older commit (docs/release.md)"
+            exit 1
+          fi
+          changed=$(app/Scripts/release-changes.sh "$previous")
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           if [ -z "$changed" ]; then
             echo "no code changes since ${previous:-the first commit}; nothing to release"

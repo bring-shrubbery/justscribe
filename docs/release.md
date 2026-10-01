@@ -142,7 +142,19 @@ Xcode*) shows it.
 
 ## When it fails
 
+"Re-run" below means re-running the failed run while no newer release exists. A
+run re-runs the commit it was started for, so once a later push has released,
+re-running an older run is refused (the second bullet below): push a new commit or use
+**Run workflow** on `main` instead.
+
 - **missing repository secrets** — the first step names them; add and re-run.
+- **does not descend from the last release; refusing to release an older commit** —
+  by design. The run was building a commit older than the latest release tag,
+  almost always because an old failed run was re-run after a newer push had
+  already released. Releasing it would ship an older build under a newer version
+  and roll back every installed copy. Nothing was built or tagged. Its changes are
+  already on `main`, so push a new commit or use **Run workflow** on `main`; that
+  run releases everything since the last tag.
 - **notarization ended with status Invalid** — the step prints Apple's log;
   the usual causes are a binary without the hardened runtime or a missing
   timestamp. Both are set by the project and the workflow, so look at what
@@ -167,5 +179,5 @@ Xcode*) shows it.
   since vX.Y.Z" and releases nothing.
 - **Rebuild the website failed** — the release is already published; only the site's
   download button is stale. Re-run the build from the Worker's *Builds* page in the
-  Cloudflare dashboard (re-running the Release workflow prints "no code changes" and
-  does nothing).
+  Cloudflare dashboard (re-running the Release workflow releases nothing: it prints
+  "no code changes", or refuses once a newer release exists).
