@@ -34,9 +34,16 @@ line a user will read.
 
 ## One-time setup: the secrets
 
-The Developer ID certificate and the App Store Connect key are the ones
-neural-sheet uses (team `6WCYZER5LX`); export or reuse the same files and set
-them on this repository.
+CI signs with its own Developer ID certificate and notarizes with its own App
+Store Connect key, both created on 2026-10-01 for this repository (team
+`6WCYZER5LX`):
+
+- Certificate `Developer ID Application: Quassum MB (6WCYZER5LX)`, issued by
+  Apple's G2 intermediate, serial `7D710D6EF68386DF6029CFD8C0EDA8F7`, valid
+  until **2031-09-17**. Its private key exists only in the
+  `MACOS_CERTIFICATE_P12` secret; the certificate in the maintainer's login
+  keychain is an older one (expires 2027-02-01) with the same name.
+- Team API key `JustScribe CI` (`KFW2U59XR2`), role Developer.
 
 The workflow refuses to run without all eight of these repository secrets; an
 unsigned build must never reach a release.
@@ -57,6 +64,19 @@ You need the `Developer ID Application: Quassum MB (6WCYZER5LX)` certificate
 
 1. Keychain Access → My Certificates → right-click the certificate → Export.
    Choose `.p12`, set a password, save as `developer-id.p12`.
+
+   To issue a fresh certificate instead (when this one nears expiry): only the
+   Account Holder can create a Developer ID certificate, and not through the
+   API. Generate a key and request (`openssl req -new -newkey rsa:2048 -nodes
+   -keyout devid.key -out devid.csr -subj "/CN=JustScribe CI"`), upload the
+   `.csr` at developer.apple.com → Certificates → + → Developer ID Application
+   → G2 Sub-CA, download the `.cer`, and package it with macOS's own OpenSSL:
+   `/usr/bin/openssl x509 -inform DER -in developerID_application.cer -out
+   devid.pem && /usr/bin/openssl pkcs12 -export -inkey devid.key -in devid.pem
+   -out developer-id.p12`. A `.p12` written by a newer OpenSSL (or by `asc
+   certificates export`) uses encryption `security import` cannot read, on the
+   runner as well as locally ("MAC verification failed"). Delete `devid.key`
+   afterwards.
 2. Encode and store it, then delete the file:
 
 ```sh

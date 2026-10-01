@@ -160,6 +160,13 @@ jobs:
           security import "$RUNNER_TEMP/cert.p12" -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
           rm "$RUNNER_TEMP/cert.p12"
+          # The certificate is issued by Apple's Developer ID G2 intermediate, which a
+          # runner image may not carry; without it the identity is not valid. Pinned by
+          # checksum (the same certificate macOS installs with Xcode).
+          curl -fsSL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/DeveloperIDG2CA.cer" \
+            https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          echo "f16cd3c54c7f83cea4bf1a3e6a0819c8aaa8e4a1528fd144715f350643d2df3a  $RUNNER_TEMP/DeveloperIDG2CA.cer" | shasum -a 256 -c -
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k build.keychain
           if ! security find-identity -v -p codesigning build.keychain | tee /dev/stderr | grep -q "$IDENTITY"; then
             echo "::error::the imported certificate does not yield the identity $IDENTITY"; exit 1
           fi
