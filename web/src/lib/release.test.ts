@@ -1,0 +1,90 @@
+import { describe, expect, it } from 'vitest';
+import { fetchLatestRelease, formatMegabytes, releaseFrom, latestReleaseAPI } from './release';
+
+const v100 = {
+  tag_name: 'v1.0.0',
+  html_url: 'https://github.com/bring-shrubbery/justscribe/releases/tag/v1.0.0',
+  assets: [
+    { name: 'JustScribe-v1.0.0-macos-arm64.zip', browser_download_url: 'https://example.invalid/zip', size: 4271794 },
+    { name: 'JustScribe-v1.0.0-macos-arm64.dmg', browser_download_url: 'https://example.invalid/dmg', size: 4326140 },
+    { name: 'appcast.xml', browser_download_url: 'https://example.invalid/appcast', size: 900 },
+  ],
+};
+
+function respond(status: number, body: unknown): typeof fetch {
+  return async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+}
+
+describe('releaseFrom', () => {
+  it('picks the dmg asset', () => {
+    expect(releaseFrom(v100)).toEqual({
+      version: 'v1.0.0',
+      notesURL: 'https://github.com/bring-shrubbery/justscribe/releases/tag/v1.0.0',
+      dmgURL: 'https://example.invalid/dmg',
+      dmgBytes: 4326140,
+    });
+  });
+
+  it('is null without a dmg asset', () => {
+    expect(releaseFrom({ ...v100, assets: v100.assets.filter((a) => !a.name.endsWith('.dmg')) })).toBeNull();
+  });
+
+  it('is null for a body that is not a release', () => {
+    expect(releaseFrom(null)).toBeNull();
+    expect(releaseFrom('nope')).toBeNull();
+    expect(releaseFrom({ tag_name: 'v1', assets: 'not-an-array' })).toBeNull();
+    expect(releaseFrom({ tag_name: '', html_url: 'x', assets: v100.assets })).toBeNull();
+  });
+});
+
+describe('fetchLatestRelease', () => {
+  it('returns the release on 200', async () => {
+    expect(await fetchLatestRelease(respond(200, v100))).toMatchObject({ version: 'v1.0.0' });
+  });
+
+  it('asks the API with the github accept header and a user agent, and a bearer token when given', async () => {
+    let seen: { url: string; headers: Headers } | undefined;
+    const spy: typeof fetch = async (input, init) => {
+      seen = { url: String(input), headers: new Headers(init?.headers) };
+      return new Response(JSON.stringify(v100), { status: 200 });
+    };
+    await fetchLatestRelease(spy, 'tok');
+    expect(seen?.url).toBe(latestReleaseAPI);
+    expect(seen?.headers.get('accept')).toBe('application/vnd.github+json');
+    expect(seen?.headers.get('user-agent')).toBe('justscribe-web');
+    expect(seen?.headers.get('authorization')).toBe('Bearer tok');
+  });
+
+  it('sends no authorization header without a token', async () => {
+    let auth: string | null = 'unset';
+    const spy: typeof fetch = async (_input, init) => {
+      auth = new Headers(init?.headers).get('authorization');
+      return new Response(JSON.stringify(v100), { status: 200 });
+    };
+    await fetchLatestRelease(spy);
+    expect(auth).toBeNull();
+  });
+
+  it('is null on a non-2xx status', async () => {
+    expect(await fetchLatestRelease(respond(403, { message: 'rate limited' }))).toBeNull();
+    expect(await fetchLatestRelease(respond(404, { message: 'Not Found' }))).toBeNull();
+  });
+
+  it('is null when the request throws', async () => {
+    const failing: typeof fetch = async () => { throw new Error('offline'); };
+    expect(await fetchLatestRelease(failing)).toBeNull();
+  });
+
+  it('is null when the body is not json', async () => {
+    const html: typeof fetch = async () => new Response('<html>', { status: 200 });
+    expect(await fetchLatestRelease(html)).toBeNull();
+  });
+});
+
+describe('formatMegabytes', () => {
+  it('rounds to one decimal in decimal megabytes', () => {
+    expect(formatMegabytes(4326140)).toBe('4.3 MB');
+    expect(formatMegabytes(950000)).toBe('1.0 MB');
+    expect(formatMegabytes(12345678)).toBe('12.3 MB');
+  });
+});

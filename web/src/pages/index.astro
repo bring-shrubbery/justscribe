@@ -1,0 +1,236 @@
+---
+import Base from '../layouts/Base.astro';
+import Download from '../components/Download.astro';
+import { Image } from 'astro:assets';
+import icon from '../assets/icon.png';
+import screenshot from '../assets/screenshot.png';
+import { fetchLatestRelease } from '../lib/release';
+
+// Workers Builds share egress addresses; an optional token lifts the per-address limit.
+const release = await fetchLatestRelease(fetch, import.meta.env.GITHUB_TOKEN);
+const repo = 'https://github.com/bring-shrubbery/justscribe';
+const site = 'https://justscribe.quassum.com';
+const title = 'JustScribe: Free On-Device Voice Dictation for Mac';
+const description =
+  'Free, open-source voice dictation for Mac. Hold a shortcut, speak, and the text is typed into whatever app you are in. Transcription runs entirely on your Mac.';
+
+// The FAQ, rendered as a section and as FAQPage structured data. Plain text only:
+// answer engines quote it, so every sentence must hold without the page around it.
+const faq: { q: string; a: string }[] = [
+  {
+    q: 'Is JustScribe free?',
+    a: 'Yes. JustScribe is free and open source under the GNU General Public License v3.0. There are no subscriptions, accounts or usage limits.',
+  },
+  {
+    q: 'Does it work offline?',
+    a: 'Yes. Transcription and grammar correction run on your Mac; your audio never leaves it. The only network use is downloading a model the first time you pick it, and checking for updates.',
+  },
+  {
+    q: 'Which Macs does it run on?',
+    a: 'macOS 26.2 or later on Apple silicon (M1 and newer). There is no Intel build.',
+  },
+  {
+    q: 'Why does it need Accessibility permission?',
+    a: 'JustScribe types the transcribed text into the app you are using by sending keystrokes, which macOS only allows for apps you have granted Accessibility access. Microphone access is needed to hear you.',
+  },
+  {
+    q: 'Which languages does it understand?',
+    a: 'The recommended Parakeet v3 model and the Whisper models are multilingual. Parakeet English is English only and slightly smaller.',
+  },
+  {
+    q: 'I installed JustScribe from the Mac App Store. How do I move to this version?',
+    a: 'Download JustScribe here and drag it into Applications, replacing the App Store copy. Your downloaded models and settings are kept. macOS will ask for Accessibility permission again because the app is signed differently; if the switch has no effect, remove the old JustScribe entry in System Settings, Privacy & Security, Accessibility and add it again. From then on the app updates itself.',
+  },
+  {
+    q: 'How do updates work?',
+    a: 'JustScribe checks for a new version once a day and installs it in the background the next time the app quits. You can turn that off or check by hand in Settings, Updates.',
+  },
+];
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://quassum.com/#organization',
+      name: 'Quassum',
+      url: 'https://quassum.com',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${site}/#website`,
+      url: `${site}/`,
+      name: 'JustScribe',
+      publisher: { '@id': 'https://quassum.com/#organization' },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${site}/#app`,
+      name: 'JustScribe',
+      url: `${site}/`,
+      description,
+      applicationCategory: 'ProductivityApplication',
+      applicationSubCategory: 'Voice dictation',
+      operatingSystem: 'macOS 26.2 or later (Apple silicon)',
+      image: `${site}/icon.png`,
+      screenshot: new URL(screenshot.src, Astro.site).href,
+      license: 'https://www.gnu.org/licenses/gpl-3.0.html',
+      isAccessibleForFree: true,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      author: { '@id': 'https://quassum.com/#organization' },
+      publisher: { '@id': 'https://quassum.com/#organization' },
+      sameAs: [repo],
+      featureList: [
+        'Dictate into any app with a global hold-to-record shortcut',
+        'Live transcription while you speak, with a final accuracy pass on release',
+        'On-device transcription with Parakeet and Whisper models',
+        'Optional on-device grammar, spelling and punctuation correction',
+        'Customizable shortcut, including modifier-only shortcuts',
+        'Automatic updates',
+      ],
+      ...(release
+        ? {
+            softwareVersion: release.version.replace(/^v/, ''),
+            downloadUrl: release.dmgURL,
+            releaseNotes: release.notesURL,
+          }
+        : { downloadUrl: `${repo}/releases/latest` }),
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': `${site}/#faq`,
+      mainEntity: faq.map(({ q, a }) => ({
+        '@type': 'Question',
+        name: q,
+        acceptedAnswer: { '@type': 'Answer', text: a },
+      })),
+    },
+  ],
+};
+---
+<Base title={title} description={description} structuredData={structuredData}>
+  <main>
+    <a class="github" href={repo} aria-label="JustScribe on GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+      </svg>
+    </a>
+    <section class="hero">
+      <Image class="icon" src={icon} width={96} height={96} densities={[1, 2]} alt="" loading="eager" />
+      <h1>JustScribe <span class="subtitle">Voice dictation for Mac, entirely on-device</span></h1>
+      <p class="lead">
+        Hold a shortcut, speak, and the text is typed into whatever app you are in. No account, no
+        subscription, and your voice never leaves your Mac.
+      </p>
+      <Download release={release} />
+      <Image
+        class="screenshot"
+        src={screenshot}
+        widths={[680, 1360]}
+        sizes="(max-width: 712px) 100vw, 680px"
+        alt="JustScribe's recording indicator dropping from the MacBook notch: a red microphone and the words Listening, speak now"
+        loading="eager"
+        fetchpriority="high"
+      />
+    </section>
+
+    <section id="what">
+      <h2>What it does</h2>
+      <ul>
+        <li><strong>Dictate anywhere.</strong> A global shortcut works in every app: editors, browsers, chat, the terminal. The text goes where your cursor is.</li>
+        <li><strong>Hold to record.</strong> Text appears while you speak. When you let go, JustScribe transcribes the whole recording once more for accuracy.</li>
+        <li><strong>Stay on your Mac.</strong> Transcription runs on-device with Parakeet or Whisper models. Nothing is uploaded.</li>
+        <li><strong>Fix the grammar, if you like.</strong> Optional on-device correction of grammar, spelling and punctuation, using Apple Intelligence or a local Llama model.</li>
+        <li><strong>Make it yours.</strong> Any shortcut, including modifier-only ones; microphone priority order; a floating bubble or a notch indicator; light and dark appearance.</li>
+        <li><strong>Stay out of the way.</strong> Lives in the menu bar, can launch at login, can copy each transcription to the clipboard, and updates itself.</li>
+      </ul>
+    </section>
+
+    <section id="start">
+      <h2>Quick start</h2>
+      <ol>
+        <li><strong>Install.</strong> Open the disk image and drag JustScribe into Applications.</li>
+        <li><strong>Pick a model.</strong> On first launch, download a transcription model. Parakeet v3 is the recommended one.</li>
+        <li><strong>Grant two permissions.</strong> Microphone, to hear you, and Accessibility, to type into other apps.</li>
+        <li><strong>Dictate.</strong> Put the cursor in any text field, hold <kbd>Control</kbd> <kbd>Shift</kbd> <kbd>Space</kbd>, speak, and release.</li>
+      </ol>
+      <p class="muted">The shortcut, model, microphone order and behaviour are all in Settings.</p>
+    </section>
+
+    <section id="models">
+      <h2>Models</h2>
+      <p>Models are downloaded on demand and stored on your Mac. Pick one in Settings; you can switch at any time.</p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th scope="col">Model</th><th scope="col">Download</th><th scope="col">Languages</th><th scope="col">Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Parakeet v3</td><td class="num">~250 MB</td><td>Multilingual</td><td>Recommended</td></tr>
+            <tr><td>Parakeet English</td><td class="num">~200 MB</td><td>English</td><td></td></tr>
+            <tr><td>Whisper Tiny</td><td class="num">~75 MB</td><td>Multilingual</td><td>Smallest</td></tr>
+            <tr><td>Whisper Base</td><td class="num">~142 MB</td><td>Multilingual</td><td></td></tr>
+            <tr><td>Whisper Small</td><td class="num">~466 MB</td><td>Multilingual</td><td></td></tr>
+            <tr><td>Whisper Medium</td><td class="num">~1.5 GB</td><td>Multilingual</td><td></td></tr>
+            <tr><td>Whisper Large v3</td><td class="num">~3 GB</td><td>Multilingual</td><td>Largest</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">
+        Grammar correction is off by default. It can use the model built into macOS when Apple Intelligence is
+        enabled (no download), or Llama 3.1 8B (~4.6 GB download, about 5 GB of memory while loaded).
+      </p>
+    </section>
+
+    <section id="app-store">
+      <h2>Coming from the App Store version</h2>
+      <p>
+        JustScribe is no longer distributed through the Mac App Store. Download it here and drag it into
+        Applications, replacing the old copy. Your models and settings are kept.
+      </p>
+      <div class="callout">
+        <p>
+          <strong>macOS will ask for Accessibility permission again</strong>, because this version is signed
+          differently. If the switch has no effect, remove the old JustScribe entry in System Settings →
+          Privacy &amp; Security → Accessibility and add it again.
+        </p>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2>Questions</h2>
+      <dl class="faq">
+        {faq.map(({ q, a }) => (
+          <div>
+            <dt>{q}</dt>
+            <dd>{a}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+
+    <section id="source">
+      <h2>Source and license</h2>
+      <p>
+        JustScribe is open source under the <a href={`${repo}/blob/main/LICENSE`}>GNU General Public License v3.0</a>.
+        The code is on <a href={repo}>GitHub</a>; bug reports and feature requests go to
+        <a href={`${repo}/issues`}>Issues</a>. To build it yourself, clone the repository, open
+        <code>app/justscribe.xcodeproj</code> in Xcode and run the <strong>justscribe</strong> scheme.
+      </p>
+      <p class="muted">
+        <a href="https://quassum.com/apps/justscribe/privacy">Privacy policy</a> ·
+        <a href="https://quassum.com/terms">Terms</a> ·
+        <a href="https://github.com/sponsors/bring-shrubbery">Sponsor the project</a>
+      </p>
+    </section>
+  </main>
+  <footer>
+    <div class="inner">
+      <span>JustScribe</span>
+      <a href={repo}>GitHub</a>
+      <a href={`${repo}/releases`}>Releases</a>
+      <a href="https://quassum.com/apps/justscribe/privacy">Privacy</a>
+      <a href="https://quassum.com">Quassum</a>
+    </div>
+  </footer>
+</Base>

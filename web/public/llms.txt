@@ -1,0 +1,24 @@
+# JustScribe
+
+> Voice dictation as a native macOS menu-bar app. Hold a global shortcut, speak, and the transcribed text is typed into whatever app has focus. Transcription and grammar correction run entirely on the Mac; nothing is uploaded.
+
+JustScribe is a free, open-source (GPL-3.0) app by Quassum for macOS 26.2 and later on Apple silicon.
+
+## Key facts
+
+- Platform: macOS 26.2 or later, Apple silicon only. Signed and notarized disk image; no longer on the Mac App Store.
+- Price: free. No account, subscription or usage limit.
+- How it works: hold the shortcut (default Control + Shift + Space) to record; text streams in while speaking and is re-transcribed for accuracy on release.
+- Transcription models: Parakeet v3 (recommended, multilingual, ~250 MB), Parakeet English (~200 MB), Whisper Tiny, Base, Small, Medium and Large v3 (75 MB to 3 GB). Downloaded on demand.
+- Grammar correction: optional, on-device, through Apple Intelligence or Llama 3.1 8B (~4.6 GB).
+- Permissions: Microphone, and Accessibility to type into other apps.
+- Updates: the app updates itself; releases are published on GitHub.
+
+## Links
+
+- [Website](https://justscribe.quassum.com/): download and overview
+- [Latest release](https://github.com/bring-shrubbery/justscribe/releases/latest): the .dmg and release notes
+- [Source code](https://github.com/bring-shrubbery/justscribe): GitHub repository and README
+- [Issues](https://github.com/bring-shrubbery/justscribe/issues): bug reports and feature requests
+- [Privacy policy](https://quassum.com/apps/justscribe/privacy)
+- [Quassum](https://quassum.com/): the studio behind JustScribe, Vilnius, Lithuania
