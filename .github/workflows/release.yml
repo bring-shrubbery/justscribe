@@ -5,7 +5,8 @@ name: Release
 # release, tagged vX.Y.Z. The version is the higher of MARKETING_VERSION in the
 # Xcode project and the last release tag's patch + 1; raise MARKETING_VERSION in
 # Xcode to ship a minor or major. Changes to docs/, web/, icon-composer/,
-# screenshots/, *.md, LICENSE and .github/ (except the workflows) do not release.
+# screenshots/, *.md, LICENSE, .gitignore and .github/ (except the workflows) do
+# not release.
 # docs/release.md explains the secrets and the flow.
 
 on:
@@ -110,10 +111,28 @@ jobs:
           ref: ${{ env.SHA }}
           # The release notes are the commits since the previous tag.
           fetch-depth: 0
+      # Again here, not only in the version job: "Re-run failed jobs" re-runs this job
+      # alone with the version job's old outputs, after a newer release may have shipped.
+      - name: Check the tag and the last release
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "::error::the tag $TAG already exists; a previous run tagged it (docs/release.md, The tag exists)"
+            exit 1
+          fi
+          previous=$(app/Scripts/release-version.sh --previous)
+          if [ -n "$previous" ] && ! git merge-base --is-ancestor "$previous" HEAD; then
+            echo "::error::$SHA does not descend from the last release $previous; refusing to release an older commit (docs/release.md)"
+            exit 1
+          fi
+          echo "$TAG is free and $SHA descends from ${previous:-no previous release}"
       - name: Select the newest installed Xcode
         run: |
-          # shellcheck disable=SC2012  # /Applications/Xcode_*.app names are well-known; ls -d | sort -V is intentional.
-          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          # Never a beta or release candidate: users would run a build made by a pre-release toolchain.
+          XCODE=$(printf '%s\n' /Applications/Xcode_*.app | grep -viE '/Xcode_[^/]*(beta|candidate|rc)[^/]*$' | sort -V | tail -1)
+          if [ ! -d "$XCODE" ]; then
+            echo "::error::no released Xcode installed; found only:"; printf '%s\n' /Applications/Xcode_*.app
+            exit 1
+          fi
           echo "using $XCODE"
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
@@ -148,6 +167,9 @@ jobs:
         run: |
           set -o pipefail
           # Above the App Store's last build (8), and monotonic: Sparkle compares this.
+          # GITHUB_RUN_NUMBER counts runs of this workflow file: never rename or recreate
+          # release.yml. If it must happen, raise the offset above the last released build
+          # number (and in the Summary step), or installed copies stop updating.
           BUILD=$((GITHUB_RUN_NUMBER + 100))
           xcodebuild -project justscribe.xcodeproj -scheme justscribe -configuration Release \
             -destination 'platform=macOS,arch=arm64' -archivePath build/justscribe.xcarchive \
@@ -168,6 +190,19 @@ jobs:
           fi
           echo "built $built ($build_number)"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+      - name: Show the build errors
+        if: failure()
+        working-directory: app
+        run: |
+          [ -f build.log ] || exit 0
+          grep -n -E "error:|Test case '.*' failed|\*\* (BUILD|TEST|ARCHIVE) FAILED \*\*" build.log | head -80 || true
+      - name: Keep the build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log
+          path: app/build.log
+          if-no-files-found: ignore
 
       - name: Build the disk image
         working-directory: app
@@ -246,6 +281,19 @@ jobs:
           KEY="$RUNNER_TEMP/sparkle-key"
           trap 'rm -f "$KEY"' EXIT
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY"
+
+          # A key that does not match the app's SUPublicEDKey would publish an update every
+          # installed copy rejects. Compares public keys only; the private key is never printed.
+          APP=build/justscribe.xcarchive/Products/Applications/justscribe.app
+          expected=$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP/Contents/Info.plist")
+          if ! derived=$(xcrun swift Scripts/release-sparkle-public-key.swift "$KEY"); then
+            echo "::error::SPARKLE_PRIVATE_KEY is not a key exported with generate_keys -x (docs/release.md, Sparkle)"; exit 1
+          fi
+          if [ "$derived" != "$expected" ]; then
+            echo "::error::SPARKLE_PRIVATE_KEY belongs to the public key $derived, but the app's SUPublicEDKey is $expected; refusing to sign (docs/release.md, Sparkle)"
+            exit 1
+          fi
+          echo "SPARKLE_PRIVATE_KEY matches SUPublicEDKey $expected"
 
           # Sparkle's command-line tools, pinned by version and checksum.
           TOOLS="$RUNNER_TEMP/sparkle"

@@ -27,6 +27,10 @@ jobs:
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
           sw_vers -productVersion
+      # The release checks SPARKLE_PRIVATE_KEY with this script; it needs CryptoKit, so it
+      # runs here rather than in the Linux scripts job (where the test skips itself).
+      - name: Test the Sparkle key check
+        run: app/Scripts/release-sparkle-public-key-test.sh
       # mlx-swift compiles Metal shaders; recent Xcode ships the Metal toolchain as a component.
       - name: Install the Metal toolchain
         run: xcodebuild -downloadComponent MetalToolchain || true
@@ -44,6 +48,18 @@ jobs:
             -skipPackagePluginValidation -skipMacroValidation \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM="" \
             test -only-testing:justscribeTests 2>&1 | tee build.log | tail -40
+      - name: Show the build errors
+        if: failure()
+        run: |
+          [ -f build.log ] || exit 0
+          grep -n -E "error:|Test case '.*' failed|\*\* (BUILD|TEST|ARCHIVE) FAILED \*\*" build.log | head -80 || true
+      - name: Keep the build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
 
   scripts:
     name: Release scripts
