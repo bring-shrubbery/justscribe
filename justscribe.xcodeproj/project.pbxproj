@@ -37,7 +37,6 @@
 		2A2572162F2427780015D8A4 /* justscribe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = justscribe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A2572252F24277A0015D8A4 /* justscribeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = justscribeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A25722F2F24277A0015D8A4 /* justscribeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = justscribeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		2AB9EDD52FB8998000034124 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -93,7 +92,6 @@
 		2A25720D2F2427780015D8A4 = {
 			isa = PBXGroup;
 			children = (
-				2AB9EDD52FB8998000034124 /* Products.storekit */,
 				2A2572182F2427780015D8A4 /* justscribe */,
 				2A2572282F24277A0015D8A4 /* justscribeTests */,
 				2A2572322F24277A0015D8A4 /* justscribeUITests */,

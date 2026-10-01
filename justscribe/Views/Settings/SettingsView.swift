@@ -70,7 +70,7 @@ struct SettingsView: View {
 
                         Divider()
 
-                        TipJarSettingsSection()
+                        SupportSettingsSection()
 
                         Divider()
 

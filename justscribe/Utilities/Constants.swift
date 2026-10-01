@@ -27,11 +27,12 @@ enum Constants {
     static let bundleIdentifier = "com.quassum.justscribe"
 
     enum URLs {
-        static let website = URL(string: "https://quassum.com/apps/justscribe")!
+        static let website = URL(string: "https://justscribe.quassum.com")!
         static let privacyPolicy = URL(string: "https://quassum.com/apps/justscribe/privacy")!
         static let termsOfService = URL(string: "https://quassum.com/terms")!
         static let credits = URL(string: "https://quassum.com/apps/justscribe#credits")!
         static let support = URL(string: "https://quassum.com/apps/justscribe#support")!
+        static let sponsor = URL(string: "https://github.com/sponsors/bring-shrubbery")!
     }
 
     enum Storage {
