@@ -38,6 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         loadSelectedModel()
         loadGrammarModelIfEnabled()
         setupNotificationObservers()
+        _ = UpdateService.shared // starts Sparkle's scheduled checks
     }
 
     private func setupNotificationObservers() {
@@ -432,6 +433,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Start Transcription", action: #selector(startTranscriptionFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit JustScribe", action: #selector(quitApp), keyEquivalent: "q"))
 
@@ -464,6 +466,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func checkForUpdatesFromMenu() {
+        // A menu-bar app is usually not frontmost; Sparkle's window must not open behind others.
+        NSApp.activate(ignoringOtherApps: true)
+        UpdateService.shared.checkForUpdates()
+    }
+
     @objc private func quitApp() {
         NSApp.terminate(nil)
     }
@@ -491,5 +499,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 statusItem = nil
             }
         }
+    }
+}
+
+extension AppDelegate: NSMenuItemValidation {
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(checkForUpdatesFromMenu) {
+            return UpdateService.shared.canCheckForUpdates
+        }
+        return true
     }
 }

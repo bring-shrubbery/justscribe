@@ -70,6 +70,10 @@ struct SettingsView: View {
 
                         Divider()
 
+                        UpdateSettingsSection()
+
+                        Divider()
+
                         SupportSettingsSection()
 
                         Divider()

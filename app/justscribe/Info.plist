@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+	<!-- Sparkle. The rest of the Info.plist is generated from build settings and merged with this. -->
+	<key>SUFeedURL</key>
+	<string>https://justscribe.quassum.com/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>iReWrwCRErK8BUS22WVQip5W96fDaoQZm+RXzv4UItk=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<!-- The app is sandboxed: Sparkle installs through its XPC launcher service. -->
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+</dict>
 </plist>

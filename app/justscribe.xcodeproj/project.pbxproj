@@ -14,6 +14,7 @@
 		2ADCFA232F26A5D5008F5AA4 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002052F25000000000005 /* FluidAudio */; };
 		AA0003062F25000000000006 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002062F25000000000006 /* MLXLLM */; };
 		AA0003072F25000000000007 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002072F25000000000007 /* MLXLMCommon */; };
+		AA0003082F25000000000008 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AA0002082F25000000000008 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +70,7 @@
 				2ADCF7452F268C98008F5AA4 /* WhisperKit in Frameworks */,
 				AA0003062F25000000000006 /* MLXLLM in Frameworks */,
 				AA0003072F25000000000007 /* MLXLMCommon in Frameworks */,
+				AA0003082F25000000000008 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -136,6 +138,7 @@
 				AA0002052F25000000000005 /* FluidAudio */,
 				AA0002062F25000000000006 /* MLXLLM */,
 				AA0002072F25000000000007 /* MLXLMCommon */,
+				AA0002082F25000000000008 /* Sparkle */,
 			);
 			productName = justscribe;
 			productReference = 2A2572162F2427780015D8A4 /* justscribe.app */;
@@ -226,6 +229,7 @@
 				AA0001042F25000000000004 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				AA0001052F25000000000005 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				AA0001062F25000000000006 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
+				AA0001072F25000000000007 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2A2572172F2427780015D8A4 /* Products */;
@@ -749,6 +753,14 @@
 				minimumVersion = 2.29.1;
 			};
 		};
+		AA0001072F25000000000007 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.10.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -786,6 +798,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA0001062F25000000000006 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXLMCommon;
+		};
+		AA0002082F25000000000008 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0001072F25000000000007 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
