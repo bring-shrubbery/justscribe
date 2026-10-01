@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: Build and test the app
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select the newest installed Xcode
+        run: |
+          # shellcheck disable=SC2012
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+          sw_vers -productVersion
+      # mlx-swift compiles Metal shaders; recent Xcode ships the Metal toolchain as a component.
+      - name: Install the Metal toolchain
+        run: xcodebuild -downloadComponent MetalToolchain || true
+      - name: Cache Swift packages
+        uses: actions/cache@v6
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('app/justscribe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+      # Signed ad hoc: the unit tests run inside the sandboxed app, which must carry its entitlements.
+      - name: Build and run the unit tests
+        run: |
+          set -o pipefail
+          xcodebuild -project app/justscribe.xcodeproj -scheme justscribe \
+            -configuration Debug -destination 'platform=macOS,arch=arm64' \
+            -skipPackagePluginValidation -skipMacroValidation \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM="" \
+            test -only-testing:justscribeTests 2>&1 | tee build.log | tail -40
+
+  scripts:
+    name: Release scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install xmllint
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libxml2-utils
+      - name: Run the script tests
+        run: |
+          for t in app/Scripts/release-*-test.sh; do
+            echo "== $t"; "$t"
+          done
+
+  web:
+    name: Website
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
