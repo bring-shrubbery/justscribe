@@ -84,6 +84,17 @@ Shortcuts have their own model (`Models/ShortcutConfig.swift`): `HotkeyService` 
 KeyboardShortcuts/Carbon Events for modifier+key combos, and a raw
 `NSEvent.addGlobalMonitorForEvents(.flagsChanged)` monitor for modifier-only shortcuts.
 
+### Releases and updates
+
+Every push to `main` that passes CI and changes code is released automatically
+(`.github/workflows/release.yml`, `app/Scripts/release-*.sh`, `docs/release.md`): commit
+subjects become the release notes users read, so prefix changes users never see with
+`docs:`, `web:` or `ci:`, and keep unfinished work on a branch. Installed copies update
+through Sparkle (`Services/UpdateService.swift`; feed and key in `Info.plist`). The app is
+sandboxed, so Sparkle depends on `SUEnableInstallerLauncherService` and the two
+mach-lookup entitlements in `justscribe.entitlements` — removing either breaks updates for
+every installed copy.
+
 ## Conventions and gotchas
 
 - The Xcode project uses file-system-synchronized groups: **new files under `app/justscribe/` are picked

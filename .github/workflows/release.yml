@@ -1,0 +1,335 @@
+name: Release
+
+# Every code change that lands on main and passes CI becomes a patch release:
+# a signed, notarized JustScribe-vX.Y.Z-macos-arm64.dmg (and zip) on a GitHub
+# release, tagged vX.Y.Z. The version is the higher of MARKETING_VERSION in the
+# Xcode project and the last release tag's patch + 1; raise MARKETING_VERSION in
+# Xcode to ship a minor or major. Changes to docs/, web/, icon-composer/,
+# screenshots/, *.md, LICENSE and .github/ (except the workflows) do not release.
+# docs/release.md explains the secrets and the flow.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Releases queue rather than race: two runs computing the same version would
+# fight over the tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Decide the version
+    # Only a green CI run of a push to main (not a pull request build whose head
+    # branch happens to be main) or a manual dispatch releases.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.decide.outputs.release }}
+      version: ${{ steps.decide.outputs.version }}
+      tag: ${{ steps.decide.outputs.tag }}
+      sha: ${{ steps.decide.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The commit CI built, not main's tip, which may have moved on.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+      - name: Compare with the last release
+        id: decide
+        run: |
+          previous=$(app/Scripts/release-version.sh --previous)
+          changed=$(app/Scripts/release-changes.sh "$previous")
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ -z "$changed" ]; then
+            echo "no code changes since ${previous:-the first commit}; nothing to release"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          version=$(app/Scripts/release-version.sh)
+          echo "releasing v$version from $sha (previous release: ${previous:-none}); changed:"
+          echo "$changed"
+          {
+            echo "release=true"
+            echo "version=$version"
+            echo "tag=v$version"
+          } >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Build and publish
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    runs-on: macos-26
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      TAG: ${{ needs.version.outputs.tag }}
+      SHA: ${{ needs.version.outputs.sha }}
+    steps:
+      - name: Check the signing secrets
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          missing=()
+          for name in MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD MACOS_SIGNING_IDENTITY \
+                      APPLE_TEAM_ID ASC_API_KEY_P8 ASC_API_KEY_ID ASC_API_ISSUER_ID SPARKLE_PRIVATE_KEY; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::missing repository secrets: ${missing[*]}; see docs/release.md"
+            exit 1
+          fi
+          echo "all signing secrets present"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+          # The release notes are the commits since the previous tag.
+          fetch-depth: 0
+      - name: Select the newest installed Xcode
+        run: |
+          # shellcheck disable=SC2012  # /Applications/Xcode_*.app names are well-known; ls -d | sort -V is intentional.
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+      # mlx-swift compiles Metal shaders; recent Xcode ships the Metal toolchain as a component.
+      - name: Install the Metal toolchain
+        run: xcodebuild -downloadComponent MetalToolchain || true
+
+      - name: Import the signing certificate
+        env:
+          P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p ci build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p ci build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security import "$RUNNER_TEMP/cert.p12" -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
+          rm "$RUNNER_TEMP/cert.p12"
+          if ! security find-identity -v -p codesigning build.keychain | tee /dev/stderr | grep -q "$IDENTITY"; then
+            echo "::error::the imported certificate does not yield the identity $IDENTITY"; exit 1
+          fi
+
+      - name: Archive
+        id: archive
+        working-directory: app
+        env:
+          IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -o pipefail
+          # Above the App Store's last build (8), and monotonic: Sparkle compares this.
+          BUILD=$((GITHUB_RUN_NUMBER + 100))
+          xcodebuild -project justscribe.xcodeproj -scheme justscribe -configuration Release \
+            -destination 'platform=macOS,arch=arm64' -archivePath build/justscribe.xcarchive \
+            -skipPackagePluginValidation -skipMacroValidation \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$IDENTITY" DEVELOPMENT_TEAM="$TEAM_ID" \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            archive 2>&1 | tee build.log | tail -30
+          APP=build/justscribe.xcarchive/Products/Applications/justscribe.app
+          Scripts/release-resign.sh "$APP" "$IDENTITY"
+          built=$(defaults read "$PWD/$APP/Contents/Info.plist" CFBundleShortVersionString)
+          if [ "$built" != "$VERSION" ]; then
+            echo "::error::built CFBundleShortVersionString is $built, expected $VERSION"; exit 1
+          fi
+          build_number=$(defaults read "$PWD/$APP/Contents/Info.plist" CFBundleVersion)
+          if [ "$build_number" != "$BUILD" ]; then
+            echo "::error::built CFBundleVersion is $build_number, expected $BUILD"; exit 1
+          fi
+          echo "built $built ($build_number)"
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+
+      - name: Build the disk image
+        working-directory: app
+        run: |
+          brew install create-dmg
+          APP=build/justscribe.xcarchive/Products/Applications/justscribe.app
+          DMG="build/JustScribe-$TAG-macos-arm64.dmg"
+          rm -rf build/dmg-root && mkdir -p build/dmg-root
+          cp -R "$APP" build/dmg-root/
+          volicon=()
+          if [ -f "$APP/Contents/Resources/AppIcon.icns" ]; then
+            volicon=(--volicon "$APP/Contents/Resources/AppIcon.icns")
+          fi
+          # create-dmg exits 64 with no DMG produced when the Finder AppleScript
+          # that lays out the window fails, which happens intermittently on
+          # headless runners; retry once without the Finder layout.
+          args=(
+            --volname "JustScribe $TAG" "${volicon[@]}"
+            --window-pos 200 120 --window-size 540 380 --icon-size 128
+            --icon justscribe.app 140 180 --app-drop-link 400 180
+            --no-internet-enable --hdiutil-quiet
+          )
+          if ! create-dmg "${args[@]}" "$DMG" build/dmg-root; then
+            echo "::warning::create-dmg could not lay out the window; retrying without the Finder layout"
+            create-dmg "${args[@]}" --skip-jenkins "$DMG" build/dmg-root
+          fi
+          ls -l "$DMG"
+
+      - name: Sign, notarize and staple
+        working-directory: app
+        env:
+          IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          APP=build/justscribe.xcarchive/Products/Applications/justscribe.app
+          DMG="build/JustScribe-$TAG-macos-arm64.dmg"
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          trap 'rm -f "$KEY"' EXIT
+          printf '%s\n' "$ASC_API_KEY_P8" > "$KEY"
+
+          codesign --sign "$IDENTITY" --timestamp "$DMG"
+          codesign --verify --verbose=2 "$DMG"
+
+          if ! xcrun notarytool submit "$DMG" --key "$KEY" --key-id "$ASC_API_KEY_ID" \
+            --issuer "$ASC_API_ISSUER_ID" --wait --timeout 45m --output-format json \
+            | tee build/notarize.json; then
+            echo "::warning::notarytool exited non-zero; reading its status"
+          fi
+          status=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", ""))' < build/notarize.json)
+          if [ "$status" != "Accepted" ]; then
+            id=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("id", ""))' < build/notarize.json)
+            [ -n "$id" ] && xcrun notarytool log "$id" --key "$KEY" --key-id "$ASC_API_KEY_ID" --issuer "$ASC_API_ISSUER_ID" || true
+            echo "::error::notarization ended with status '${status:-unknown}'"
+            exit 1
+          fi
+
+          # The ticket covers the app inside the image too; staple both so the
+          # DMG and the zipped app each work offline.
+          xcrun stapler staple "$DMG"
+          xcrun stapler staple "$APP"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+          ditto -c -k --keepParent "$APP" "build/JustScribe-$TAG-macos-arm64.zip"
+
+      - name: Sign the update and write the appcast
+        working-directory: app
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          SPARKLE_VERSION: 2.10.0
+          SPARKLE_SHA256: c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c
+        run: |
+          set -o pipefail
+          ZIP="build/JustScribe-$TAG-macos-arm64.zip"
+          KEY="$RUNNER_TEMP/sparkle-key"
+          trap 'rm -f "$KEY"' EXIT
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY"
+
+          # Sparkle's command-line tools, pinned by version and checksum.
+          TOOLS="$RUNNER_TEMP/sparkle"
+          mkdir -p "$TOOLS"
+          curl -fsSL --retry 3 --retry-all-errors -o "$TOOLS/Sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+          echo "$SPARKLE_SHA256  $TOOLS/Sparkle.tar.xz" | shasum -a 256 -c -
+          tar -xJf "$TOOLS/Sparkle.tar.xz" -C "$TOOLS" bin/sign_update
+
+          signature=$("$TOOLS/bin/sign_update" --ed-key-file "$KEY" "$ZIP")
+          echo "sign_update: $signature"
+          ed=$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' <<< "$signature")
+          length=$(sed -n 's/.*length="\([0-9]*\)".*/\1/p' <<< "$signature")
+          if [ -z "$ed" ] || [ -z "$length" ]; then
+            echo "::error::sign_update did not produce a signature and length"; exit 1
+          fi
+
+          # The notes: the commits since the last release, as HTML inside the feed (what the
+          # update prompt shows) and as Markdown for the release page.
+          previous=$(Scripts/release-version.sh --previous)
+          Scripts/release-notes.sh "$previous" --html > build/release-notes.html
+          Scripts/release-notes.sh "$previous" --markdown > build/release-notes.md
+          {
+            echo
+            echo "**Full changelog**: https://github.com/$GITHUB_REPOSITORY/compare/${previous:-$(git rev-list --max-parents=0 HEAD | tail -1)}...$TAG"
+          } >> build/release-notes.md
+          cat build/release-notes.md
+
+          Scripts/release-appcast.sh \
+            --version "$VERSION" --build "${{ steps.archive.outputs.build_number }}" --tag "$TAG" \
+            --url "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/JustScribe-$TAG-macos-arm64.zip" \
+            --length "$length" --signature "$ed" \
+            --notes-file build/release-notes.html \
+            --notes-link "https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" \
+            --date "$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')" > build/appcast.xml
+          xmllint --noout build/appcast.xml
+          cat build/appcast.xml
+
+      - name: Keep the assets as run artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: JustScribe-${{ env.TAG }}-macos-arm64
+          path: |
+            app/build/JustScribe-${{ env.TAG }}-macos-arm64.dmg
+            app/build/JustScribe-${{ env.TAG }}-macos-arm64.zip
+            app/build/appcast.xml
+          if-no-files-found: error
+
+      - name: Remove the signing keychain
+        if: always()
+        run: security delete-keychain build.keychain || true
+
+      - name: Tag the commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "JustScribe $TAG" "$SHA"
+          git push origin "refs/tags/$TAG"
+
+      - name: Publish the GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ env.SHA }}
+          name: JustScribe ${{ env.TAG }}
+          body_path: app/build/release-notes.md
+          fail_on_unmatched_files: true
+          files: |
+            app/build/JustScribe-${{ env.TAG }}-macos-arm64.dmg
+            app/build/JustScribe-${{ env.TAG }}-macos-arm64.zip
+            app/build/appcast.xml
+
+      - name: Rebuild the website
+        env:
+          CF_DEPLOY_HOOK_URL: ${{ secrets.CF_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$CF_DEPLOY_HOOK_URL" ]; then
+            echo "::warning::CF_DEPLOY_HOOK_URL is not set; the website keeps offering the previous release until it is rebuilt (docs/release.md)"
+            exit 0
+          fi
+          curl -fsS --retry 3 --retry-all-errors -X POST "$CF_DEPLOY_HOOK_URL" -o /dev/null
+          echo "website rebuild requested"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## JustScribe $TAG"
+            echo
+            echo "- commit \`$SHA\`"
+            echo "- build $((GITHUB_RUN_NUMBER + 100))"
+            echo "- https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
+          } >> "$GITHUB_STEP_SUMMARY"
