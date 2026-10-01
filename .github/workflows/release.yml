@@ -115,13 +115,19 @@ jobs:
       # alone with the version job's old outputs, after a newer release may have shipped.
       - name: Check the tag and the last release
         run: |
-          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
-            echo "::error::the tag $TAG already exists; a previous run tagged it (docs/release.md, The tag exists)"
-            exit 1
-          fi
+          # Ancestry first: a stale run whose tag number a later commit took must be told
+          # it is stale, not that its tag exists.
           previous=$(app/Scripts/release-version.sh --previous)
           if [ -n "$previous" ] && ! git merge-base --is-ancestor "$previous" HEAD; then
             echo "::error::$SHA does not descend from the last release $previous; refusing to release an older commit (docs/release.md)"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            if [ "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$(git rev-parse HEAD)" ]; then
+              echo "::error::this commit was already tagged $TAG by an earlier attempt that did not finish publishing (docs/release.md, the tag already exists)"
+            else
+              echo "::error::another commit was already released as $TAG; this run is stale, do not delete the tag (docs/release.md, the tag already exists)"
+            fi
             exit 1
           fi
           echo "$TAG is free and $SHA descends from ${previous:-no previous release}"

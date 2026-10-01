@@ -197,7 +197,9 @@ other script tests skips it.
 "Re-run" below means re-running the failed run while no newer release exists. A
 run re-runs the commit it was started for, so once a later push has released,
 re-running an older run is refused (the *does not descend* bullet below): push a
-new commit or use **Run workflow** on `main` instead.
+new commit or use **Run workflow** on `main` instead. *Build and publish*
+repeats the version job's checks at its start, because "Re-run failed jobs"
+re-runs it alone with the version it was given the first time.
 
 - **missing repository secrets** — the first step names them; add and re-run.
 - **The build failed** (in CI or in *Archive*) — the step after it, *Show the build
@@ -211,9 +213,9 @@ new commit or use **Run workflow** on `main` instead.
   almost always because an old failed run was re-run after a newer push had
   already released. Releasing it would ship an older build under a newer version
   and roll back every installed copy. Both jobs check this before building, so
-  nothing was built or tagged. Its changes are
-  already on `main`, so push a new commit or use **Run workflow** on `main`; that
-  run releases everything since the last tag.
+  nothing was built or tagged; never delete the newer release's tag to get past
+  it. Its changes are already on `main`, so push a new commit or use
+  **Run workflow** on `main`; that run releases everything since the last tag.
 - **notarization ended with status Invalid** — the step prints Apple's log;
   the usual causes are a binary without the hardened runtime or a missing
   timestamp. Both are set by the project and the workflow, so look at what
@@ -231,19 +233,30 @@ new commit or use **Run workflow** on `main` instead.
   `SUPublicEDKey` (the step says "refusing to sign" and prints both public keys;
   see [Sparkle](#3-sparkle-in-app-updates)). Fix the secret and re-run; nothing
   was tagged.
-- **the tag vX.Y.Z already exists** — a previous run tagged but failed to publish.
-  *Build and publish* stops at its start, before building. The notarized DMG
-  and zip are attached to that earlier run as artifacts (its run page,
-  *Artifacts*). Publish all three — the DMG, the zip **and `appcast.xml`** — or
-  installed copies will find no feed until the next release. Either publish them
-  by hand as release `vX.Y.Z`, or, only if no newer release than that tag's
-  commit exists, delete the tag (`git push origin :refs/tags/vX.Y.Z`) and the
-  release if one was created, then re-run. If a newer release exists, never
-  delete the tag: that release already carries these changes, so publish this
-  one by hand or leave it as a tag without a release. A full re-run
-  without deleting the tag prints "no code changes since vX.Y.Z" and releases
-  nothing.
+- **this commit was already tagged vX.Y.Z by an earlier attempt that did not
+  finish publishing** — an earlier attempt of this same run tagged this very
+  commit, then failed before the release was complete. *Build and publish* stops
+  at its start, before building. (No newer release exists: that would have
+  stopped the run with *does not descend* first.) The notarized DMG and zip are
+  attached to the earlier attempt as artifacts (its run page, *Artifacts*).
+  Publish all three — the DMG, the zip **and `appcast.xml`** — or installed
+  copies will find no feed until the next release. Either publish them by hand as
+  release `vX.Y.Z`, or delete the tag (`git push origin :refs/tags/vX.Y.Z`) and
+  the release created from it, if one exists, then re-run. This is the only case
+  in which deleting a release tag is right: the tag points at the commit being
+  re-run, and its release was never published or lacks assets. If release
+  `vX.Y.Z` is published with all three assets, delete nothing: the run failed
+  after publishing (see *Rebuild the website failed*). A full re-run without
+  deleting the tag prints "no code changes since vX.Y.Z" and releases nothing.
+- **another commit was already released as vX.Y.Z; this run is stale, do not
+  delete the tag** — by design, and nothing to recover. The run re-used a
+  version computed before an earlier commit's run released that number
+  ("Re-run failed jobs" keeps the *Decide the version* job's old outputs).
+  Delete nothing: `vX.Y.Z` is another commit's published release. To release this
+  commit's changes, re-run *all* jobs (the version is computed afresh), push a
+  new commit, or use **Run workflow** on `main`.
 - **Rebuild the website failed** — the release is already published; only the site's
   download button is stale. Re-run the build from the Worker's *Builds* page in the
   Cloudflare dashboard (re-running the Release workflow releases nothing: it prints
-  "no code changes", or stops because the tag exists or a newer release exists).
+  "no code changes", or stops because this commit was already tagged or a newer
+  release exists).
