@@ -41,6 +41,14 @@ them on this repository.
 The workflow refuses to run without all eight of these repository secrets; an
 unsigned build must never reach a release.
 
+`app/Scripts/release-secrets.sh` sets them for you: it asks for the `.p12` and
+its password, the `.p8` with its Key ID and Issuer ID, exports the Sparkle key
+from the login keychain, checks each value (a trial import of the certificate,
+a call to Apple's notary service, the Sparkle key against `SUPublicEDKey`) and
+sends it with `gh secret set`. Secrets that already exist are left alone unless
+you pass `--all`. The sections below say where each value comes from, and how
+to set one by hand.
+
 ### 1. The Developer ID certificate
 
 You need the `Developer ID Application: Quassum MB (6WCYZER5LX)` certificate
