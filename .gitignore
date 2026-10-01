@@ -1,0 +1,23 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.dSYM
+*.dSYM.zip
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Agent scratch
+.superpowers/
+
+# macOS
+.DS_Store
+
+# Website
+web/node_modules/
+web/dist/
+web/.astro/
+web/.wrangler/

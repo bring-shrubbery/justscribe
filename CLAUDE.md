@@ -11,22 +11,24 @@ SwiftUI + AppKit, sandboxed, GPL-3.0.
 ## Commands
 
 ```bash
-xcodebuild -scheme justscribe -configuration Debug build
+xcodebuild -project app/justscribe.xcodeproj -scheme justscribe -configuration Debug build
 ```
 
 ```bash
-xcodebuild -scheme justscribe -destination 'platform=macOS' test
+xcodebuild -project app/justscribe.xcodeproj -scheme justscribe -destination 'platform=macOS' test
 ```
 
 Single test (Swift Testing):
 
 ```bash
-xcodebuild -scheme justscribe -destination 'platform=macOS' test -only-testing:justscribeTests/justscribeTests/example
+xcodebuild -project app/justscribe.xcodeproj -scheme justscribe -destination 'platform=macOS' test -only-testing:justscribeTests/justscribeTests/example
 ```
 
 No lint step is configured.
 
 ## Architecture
+
+The repository has three parts: `app/` (the Xcode project, sources, tests and release scripts), `web/` (the Astro site served at justscribe.quassum.com) and `docs/`. Source paths below are relative to `app/justscribe/`.
 
 `justscribeApp.swift` is a thin `@main` shell: it owns the SwiftData container and the Settings
 window scene. **The real app logic lives in `AppDelegate.swift`**, which orchestrates every
@@ -84,14 +86,13 @@ KeyboardShortcuts/Carbon Events for modifier+key combos, and a raw
 
 ## Conventions and gotchas
 
-- The Xcode project uses file-system-synchronized groups: **new files under `justscribe/` are picked
+- The Xcode project uses file-system-synchronized groups: **new files under `app/justscribe/` are picked
   up automatically — never hand-edit `project.pbxproj`** to add them.
 - Every source file carries the GPL-3.0 header (auto-inserted by
-  `justscribe.xcodeproj/xcshareddata/IDETemplateMacros.plist`). Keep it on new files.
+  `app/justscribe.xcodeproj/xcshareddata/IDETemplateMacros.plist`). Keep it on new files.
 - Carbon `kVK_*` constants are `Int` in Swift, not `Int32` — don't cast when switching on them.
 - `KeyboardShortcuts.Key(rawValue:)` is **not** optional; optional binding won't compile.
 - SourceKit often reports "Cannot find type" for cross-file references in this project; verify with
   an actual `xcodebuild` before chasing it.
 - App is sandboxed (`justscribe.entitlements`: audio-input, network client, user-selected files).
   Model files therefore land inside the container, not `~/.cache`.
-- In-app tips use StoreKit; `Products.storekit` is the local testing configuration.

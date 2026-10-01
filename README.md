@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="justscribe/Assets.xcassets/AppIcon.appiconset/Icon-macOS-Default-1024x1024@1x.png" alt="JustScribe app icon" width="128" />
+  <img src="app/justscribe/Assets.xcassets/AppIcon.appiconset/Icon-macOS-Default-1024x1024@1x.png" alt="JustScribe app icon" width="128" />
 </p>
 
 <a href="https://www.producthunt.com/products/justscribe?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-justscribe" target="_blank" rel="noopener noreferrer"><img alt="JustScribe - On-device instant voice transcription | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1078541&amp;theme=light&amp;t=1773173639426"></a>
 
 # JustScribe 😱
 
-Native macOS app for fast voice-to-text dictation anywhere on your system. [Download here](https://quassum.com/apps/justscribe).
+Native macOS app for fast voice-to-text dictation anywhere on your system. [Download here](https://justscribe.quassum.com).
 
 ## 🚀 Features
 
@@ -55,12 +55,12 @@ You can change the shortcut, model, microphone order, and behavior in Settings.
 ### Open in Xcode
 
 1. Clone this repository.
-2. Open `justscribe.xcodeproj`.
+2. Open `app/justscribe.xcodeproj`.
 3. Build and run the `justscribe` scheme.
 
 ## 🙈 Support
 
-- Website: [https://quassum.com/apps/justscribe](https://quassum.com/apps/justscribe)
+- Website: [https://justscribe.quassum.com](https://justscribe.quassum.com)
 - Privacy Policy: [https://quassum.com/apps/justscribe/privacy](https://quassum.com/apps/justscribe/privacy)
 - Terms: [https://quassum.com/terms](https://quassum.com/terms)
 
