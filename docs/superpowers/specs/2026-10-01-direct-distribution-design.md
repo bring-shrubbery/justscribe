@@ -138,8 +138,9 @@ On push and pull request to `main`; concurrency per ref, cancel in progress.
 
 - `release-version.sh` — `max(MARKETING_VERSION in
   app/justscribe.xcodeproj/project.pbxproj, highest strict vX.Y.Z tag with
-  patch + 1)`; `--previous` prints the last release tag. A two-component
-  project version (`1.3`) is read as `1.3.0`.
+  patch + 1)`; `--previous` prints the last release tag. Every configuration
+  must carry the same three-component version, so all six (the test targets
+  too) are set to `1.3.0`.
 - `release-changes.sh` — paths changed since the previous tag, ignoring
   `docs/`, `web/`, `icon-composer/`, `screenshots/`, `*.md`, `LICENSE`,
   `.gitignore` and `.github/` except `.github/workflows/`. Empty output means
@@ -152,6 +153,10 @@ On push and pull request to `main`; concurrency per ref, cancel in progress.
 - `release-appcast.sh` — writes the one-item feed from its arguments;
   `sparkle:minimumSystemVersion` = `26.2`.
 - Each has a `-test.sh` beside it, adapted with the script.
+- `release-resign.sh <app> <identity>` — new: the inside-out re-signing of
+  Sparkle's helpers and the app described in the workflow below, with its
+  assertions, as a script so it can be rehearsed locally with the Developer ID
+  certificate before the first release.
 
 ### `.github/workflows/release.yml`
 
