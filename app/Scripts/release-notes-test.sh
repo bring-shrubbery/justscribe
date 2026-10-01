@@ -52,4 +52,25 @@ else
     echo "FAIL no previous tag should list the history"; failures=$((failures + 1))
 fi
 
+# A branch merged with a merge commit contributes its commits, not the merge. Built in a
+# scratch repository with a copy of the script, which reads the repo it sits in.
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/app/Scripts"
+cp "$SCRIPT" "$TMP/app/Scripts/"
+g() { git -C "$TMP" "$@" >/dev/null 2>&1; }
+g init -b main && g config user.name Test && g config user.email test@example.com && g config commit.gpgsign false
+g commit --allow-empty -m "First release" && g tag v1.3.0
+g checkout -b side
+g commit --allow-empty -m "Add a side feature" && g commit --allow-empty -m "polish the side feature"
+g checkout main && g merge --no-ff -m "Merge branch 'side'" side
+got=$("$TMP/app/Scripts/release-notes.sh" v1.3.0 --markdown)
+want="- Add a side feature${nl}- Polish the side feature"
+if [ "$got" = "$want" ]; then
+    echo "ok   merged branch -> its commits, not the merge"
+else
+    echo "FAIL merged branch"; printf '  got:\n%s\n  want:\n%s\n' "$got" "$want"
+    failures=$((failures + 1))
+fi
+
 if [ "$failures" -eq 0 ]; then echo "all passed"; else echo "$failures failed"; exit 1; fi

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Prints the release notes for the commits since the previous release tag: one line per
-# commit subject, oldest first, as written, with the first letter raised.
+# commit subject, oldest first, as written, with the first letter raised. Merge commits
+# are skipped; the commits a merged branch brings in are listed.
 # Commits to the documentation, the website and CI (`docs:`, `web:`, `ci:`) change nothing
 # in the app and are left out. A release with nothing left says "Maintenance release."
 #
@@ -25,9 +26,9 @@ subjects() {
     if [ -n "${RELEASE_SUBJECTS+x}" ]; then
         printf '%s\n' "$RELEASE_SUBJECTS"
     elif [ -n "$previous" ]; then
-        git -C "$ROOT" log --first-parent --no-merges --reverse --format=%s "$previous..HEAD"
+        git -C "$ROOT" log --no-merges --reverse --format=%s "$previous..HEAD"
     else
-        git -C "$ROOT" log --first-parent --no-merges --reverse --format=%s HEAD
+        git -C "$ROOT" log --no-merges --reverse --format=%s HEAD
     fi
 }
 
