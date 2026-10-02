@@ -3,7 +3,7 @@ layout: ../layouts/Page.astro
 title: "JustScribe Privacy Policy"
 description: "JustScribe transcribes on your Mac and has no servers: your audio and text are never collected. What the app and this website do and do not do with your data."
 heading: "JustScribe Privacy Policy"
-updated: "2026-10-03"
+updated: "2026-10-02"
 download: false
 ---
 
@@ -37,7 +37,7 @@ JustScribe uses on-device machine learning models (Parakeet and Whisper) to tran
 - Audio is held in memory while you record and discarded afterwards. It is not saved to disk.
 - Audio is never uploaded. We do not operate transcription servers.
 - Optional grammar correction also runs on your Mac, using either the language model built into macOS (Apple Intelligence) or a Llama model stored on your Mac.
-- Files you transcribe are read where they are and never uploaded. When you ask for speakers to be identified, the App writes a temporary copy of the file's audio inside its own sandbox container and deletes it afterwards. The transcript is discarded when you close the window unless you save it.
+- Files you transcribe are read where they are and never uploaded. When you ask for speakers to be identified, the App writes a temporary copy of the file's audio inside its own sandbox container and deletes it when the pass ends; if the App was quit or failed meanwhile, the copy is removed the next time the App starts or identifies speakers. The transcript is discarded when you close the window unless you copy or save it.
 
 ## What is stored on your Mac
 
@@ -55,7 +55,7 @@ The App sends nothing else, and nothing to us directly.
 
 ## Microphone permission
 
-JustScribe needs microphone access to hear what you dictate. It records only while you hold the shortcut or use the menu to start a transcription. You can revoke the permission at any time in System Settings.
+JustScribe needs microphone access to hear what you dictate. It records only while you hold the shortcut or choose Start Transcription in the menu. You can revoke the permission at any time in System Settings.
 
 ## Accessibility permission
 

@@ -2094,5 +2094,14 @@ These cannot be automated; do them before merging, because merging to `main` rel
 7. **Copy** and **Save…** produce exactly the text shown; closing the window mid-job asks "Stop transcribing?".
 8. An hour-long file: watch memory in Activity Monitor; it should not grow with the length of the file.
 9. A recording in a language without spaces between words (if one is to hand) has no spaces inserted.
+10. Speakers ON with a `.mov` that has video and audio (an iPhone recording).
+11. A file dropped from a folder the App was never granted, with speakers on.
+12. Quit during the speaker pass, relaunch, and confirm `~/Library/Containers/com.quassum.justscribe/Data/tmp` holds no `fluidaudio-streaming-*.raw`.
+13. With a Whisper model, key down and up while a file chunk is in flight: the text is typed once; note how long the wait is.
+14. "Open Settings" from the window when the Settings window is closed.
+15. With the Dock icon hidden, the window comes to the front.
+16. Cmd-C and Cmd-W in the window.
+17. Scroll up during a job and confirm new text does not pull the view down; scroll to the end and confirm it follows again.
+18. A three-hour file with speakers, watching disk and memory.
 
 After release (a `web:` change, once the version is published): update the "File transcription" rows in `web/src/pages/macwhisper-alternative.md` and `superwhisper-alternative.md`, the home page feature list and `llms.txt`, and bump those pages' `updated` dates.

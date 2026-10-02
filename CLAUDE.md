@@ -79,21 +79,31 @@ invariant is what keeps `ClipboardService.replaceTypedText` bookkeeping correct.
 `Services/FileTranscription/`: `AudioFileDecoder` (an actor; AVFoundation → 16 kHz mono) →
 `AudioChunker` (20–30 s chunks cut at quiet points) → `TranscriptionService.transcribeTimed`
 (words with times) → `TranscriptBuilder` (paragraphs). With speakers on,
-`SpeakerDiarizationService` (FluidAudio's offline diarizer, models fetched on first use) runs
-once over the whole file first; `TranscriptBuilder` shows labels when its turns hold two or more
-speakers and numbers them by first appearance among the words. `FileTranscriptionJob` drives one
-file, waits between chunks while `AppDelegate.isDictating` (dictation always goes first), and
-rebuilds the paragraphs off the main actor after each chunk, since the main actor also handles
-the hotkey. Every use of the speech model goes through `TranscriptionService`'s `InferenceGate`,
-one request at a time; a new inference path that bypasses it runs the model concurrently with
-dictation. The speaker pass does not use the gate and cannot be interrupted once started (the
-diarizer ignores cancellation). `transcribeTimed` pads buffers to one second because Parakeet
-rejects audio under 0.3 s and a file's last chunk can be shorter.
+`SpeakerDiarizationService` (FluidAudio's offline diarizer; its models are fetched when speakers
+are first turned on, never inside a job) runs once over the whole file first; `TranscriptBuilder`
+shows labels when its turns hold two or more speakers and numbers them by first appearance among
+the words. `FileTranscriptionJob` drives one file, waits before the speaker pass and between
+chunks while `AppDelegate.isDictating` (dictation always goes first), and rebuilds the paragraphs
+off the main actor after each chunk, since the main actor also handles the hotkey.
+
+Every use of the speech model goes through `TranscriptionService`'s `InferenceGate`
+(`Services/InferenceGate.swift`), one request at a time in arrival order; a new inference path
+that bypasses it runs the model concurrently with dictation. A caller cancelled while queued gets
+`CancellationError` (that is how dictation's 30 s final-pass timeout fires behind a file chunk);
+one cancelled after it was granted the gate runs and releases it. The speaker pass does not use
+that gate and cannot be interrupted once started (the diarizer ignores cancellation), so passes
+run one at a time on a gate of their own. The diarizer writes a raw copy of the file's audio
+(`fluidaudio-streaming-*.raw`) to the container's `tmp` and deletes it only on success, so the
+service sweeps those files at launch, before each pass and after a pass that threw — only between
+passes. `transcribeTimed` pads a short buffer with trailing silence, Parakeet's to 1 s and
+Whisper's to 2 s: Parakeet rejects audio under 0.3 s, and Whisper silently decodes nothing from
+1 s or less; a file's last chunk can be that short.
 
 Nothing about a file is persisted: closing the window calls `FileTranscriptionModel.discard()`,
-and the abandoned job finishes its chunk in flight on its own. `TimedWord.text` keeps the model's
-own leading space and transcripts are built by concatenation, so languages written without
-spaces stay intact — do not "join with spaces".
+and the abandoned job finishes its chunk in flight on its own. Transcripts are built by
+concatenating the model's own pieces, never by joining with spaces, so languages written without
+spaces stay intact. The assembler and the fallback paths put a space before a chunk's first word
+(except punctuation), so an unspaced language can get a space at a chunk boundary on those paths.
 
 ### Settings persistence — dual-write, deliberately
 
