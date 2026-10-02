@@ -153,7 +153,9 @@ struct TranscriptParagraph: Equatable, Sendable { var start: Double; var speaker
 ### `Services/FileTranscription/FileTranscriptionJob.swift`
 
 - `@MainActor @Observable final class`. One instance per file.
-- `enum Phase { idle, preparingSpeakers(Double?), identifyingSpeakers, transcribing(Double), pausedForDictation(Double), finished, cancelled, failed(String) }`
+- `enum Phase { idle, identifyingSpeakers, transcribing(Double), pausedForDictation(Double), finished, cancelled, failed(String) }`
+  (downloading the speaker models is the window's concern, through
+  `SpeakerDiarizationService.downloadProgress`, and happens before a job starts)
 - `private(set) var paragraphs: [TranscriptParagraph]`, `var text: String`,
   `func start()`, `func cancel()`.
 - Depends on three small protocols so tests can substitute fakes:
@@ -217,8 +219,9 @@ struct TranscriptParagraph: Equatable, Sendable { var start: Double; var speaker
   hour; earlier paragraphs are stable as words are appended.
 - Token-to-word merging for Parakeet timings (pure helper).
 - `AudioFileDecoder`: a WAV generated in the test (44.1 kHz stereo) decodes to
-  16 kHz mono with the expected sample count within 1%; a text file fails as
-  `notReadable`; a video without audio fails as `noAudioTrack`.
+  16 kHz mono with the expected sample count within 1%; a text file and a
+  missing file fail as `notReadable`. A video without audio (`noAudioTrack`) is
+  checked by hand: producing one in a unit test needs a video encoder session.
 - `FileTranscriptionJob` with fakes: progress reaches 1 and phase `finished`;
   times are shifted by chunk offsets; it does not call the transcriber while
   `isDictating` and resumes after; cancel keeps the text; a failing chunk
