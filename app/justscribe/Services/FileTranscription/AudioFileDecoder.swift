@@ -52,7 +52,9 @@ actor AudioFileDecoder: FileAudioSource {
     private let output: AVAssetReaderTrackOutput
     private var finished = false
 
-    static func open(_ url: URL) async throws -> AudioFileDecoder {
+    /// `@concurrent` so the synchronous reader setup never runs on the caller's actor (the main
+    /// actor when the window calls it); a plain async function here would inherit it.
+    @concurrent static func open(_ url: URL) async throws -> AudioFileDecoder {
         let asset = AVURLAsset(url: url)
         let tracks: [AVAssetTrack]
         let seconds: Double
@@ -109,7 +111,7 @@ actor AudioFileDecoder: FileAudioSource {
             }
             guard let block = CMSampleBufferGetDataBuffer(sampleBuffer) else { continue }
             let length = CMBlockBufferGetDataLength(block)
-            if length == 0 { continue }
+            if length < MemoryLayout<Float>.size { continue }
             var samples = [Float](repeating: 0, count: length / MemoryLayout<Float>.size)
             let status = samples.withUnsafeMutableBytes { bytes in
                 CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: bytes.count, destination: bytes.baseAddress!)

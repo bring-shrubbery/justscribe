@@ -58,18 +58,15 @@ struct AudioFileDecoderTests {
         #expect(try await decoder.next() == nil)                    // stays finished
     }
 
-    @Test func buffersAddUpToTheWholeFile() async throws {
+    @Test func theFileArrivesInBuffersOfUnderASecond() async throws {
         let url = try makeWAV(seconds: 3)
         defer { try? FileManager.default.removeItem(at: url) }
         let decoder = try await AudioFileDecoder.open(url)
         var buffers: [[Float]] = []
-        while let next = try await decoder.next() {
-            buffers.append(next)
-            await Task.yield()                                      // something else happens between pulls
-        }
-        #expect(!buffers.isEmpty)
-        #expect(buffers.allSatisfy { !$0.isEmpty })
-        #expect(buffers.map(\.count).reduce(0, +) == buffers.flatMap { $0 }.count)
+        while let next = try await decoder.next() { buffers.append(next) }
+        // Observed for this WAV: five buffers of 8192 samples (0.512 s) and a last one of 7034.
+        #expect(buffers.count > 1)                                  // streamed, not the whole file at once
+        #expect(buffers.allSatisfy { !$0.isEmpty && $0.count <= 16_000 })   // none longer than a second
         #expect(abs(Double(buffers.map(\.count).reduce(0, +)) - 48_000) < 480)
     }
 
