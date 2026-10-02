@@ -3,7 +3,7 @@ layout: ../layouts/Page.astro
 title: "JustScribe Privacy Policy"
 description: "JustScribe transcribes on your Mac and has no servers: your audio and text are never collected. What the app and this website do and do not do with your data."
 heading: "JustScribe Privacy Policy"
-updated: "2026-10-02"
+updated: "2026-10-03"
 download: false
 ---
 
@@ -37,6 +37,7 @@ JustScribe uses on-device machine learning models (Parakeet and Whisper) to tran
 - Audio is held in memory while you record and discarded afterwards. It is not saved to disk.
 - Audio is never uploaded. We do not operate transcription servers.
 - Optional grammar correction also runs on your Mac, using either the language model built into macOS (Apple Intelligence) or a Llama model stored on your Mac.
+- Files you transcribe are read where they are and never uploaded. When you ask for speakers to be identified, the App writes a temporary copy of the file's audio inside its own sandbox container and deletes it afterwards. The transcript is discarded when you close the window unless you save it.
 
 ## What is stored on your Mac
 
@@ -46,7 +47,7 @@ Your settings, and the model files you download, are stored on your Mac in the A
 
 The App contacts the internet in three cases. None of them sends audio or text.
 
-- **Downloading a model.** When you choose a transcription model, or the optional Llama grammar model, the App downloads it from Hugging Face (huggingface.co). As with any download, Hugging Face sees your IP address and which file was requested. Their handling of that request is covered by their own privacy policy.
+- **Downloading a model.** When you choose a transcription model, the optional Llama grammar model, or turn on speaker identification for file transcription, the App downloads it from Hugging Face (huggingface.co). As with any download, Hugging Face sees your IP address and which file was requested. Their handling of that request is covered by their own privacy policy.
 - **Checking for updates.** The App checks for a new version when it starts and about once a day. The check requests a small file from justscribe.quassum.com, which redirects to GitHub (github.com), and a newer version is downloaded from GitHub. Those services see your IP address and the App's version. You can turn automatic updates off in Settings; a manual check makes the same requests.
 - **Links you open.** Links in Settings, such as this policy or the sponsor page, open in your browser.
 

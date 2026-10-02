@@ -72,6 +72,29 @@ question the UI and `AppDelegate` ask before loading. Apple's context window is 
 text over 4,000 characters is split by `GrammarTextChunker`, whose `chunks(t).joined() == t`
 invariant is what keeps `ClipboardService.replaceTypedText` bookkeeping correct.
 
+### File transcription
+
+"Transcribe File…" in the status-item menu opens an AppKit window
+(`Views/FileTranscription/`, state in `FileTranscriptionModel`) over a second pipeline in
+`Services/FileTranscription/`: `AudioFileDecoder` (an actor; AVFoundation → 16 kHz mono) →
+`AudioChunker` (20–30 s chunks cut at quiet points) → `TranscriptionService.transcribeTimed`
+(words with times) → `TranscriptBuilder` (paragraphs). With speakers on,
+`SpeakerDiarizationService` (FluidAudio's offline diarizer, models fetched on first use) runs
+once over the whole file first; `TranscriptBuilder` shows labels when its turns hold two or more
+speakers and numbers them by first appearance among the words. `FileTranscriptionJob` drives one
+file, waits between chunks while `AppDelegate.isDictating` (dictation always goes first), and
+rebuilds the paragraphs off the main actor after each chunk, since the main actor also handles
+the hotkey. Every use of the speech model goes through `TranscriptionService`'s `InferenceGate`,
+one request at a time; a new inference path that bypasses it runs the model concurrently with
+dictation. The speaker pass does not use the gate and cannot be interrupted once started (the
+diarizer ignores cancellation). `transcribeTimed` pads buffers to one second because Parakeet
+rejects audio under 0.3 s and a file's last chunk can be shorter.
+
+Nothing about a file is persisted: closing the window calls `FileTranscriptionModel.discard()`,
+and the abandoned job finishes its chunk in flight on its own. `TimedWord.text` keeps the model's
+own leading space and transcripts are built by concatenation, so languages written without
+spaces stay intact — do not "join with spaces".
+
 ### Settings persistence — dual-write, deliberately
 
 `AppSettings` is a SwiftData `@Model` used by the Settings UI, but every field mirrors itself into
@@ -107,3 +130,9 @@ every installed copy.
   an actual `xcodebuild` before chasing it.
 - App is sandboxed (`justscribe.entitlements`: audio-input, network client, user-selected files).
   Model files therefore land inside the container, not `~/.cache`.
+- The app target builds with default actor isolation `MainActor` and
+  `SWIFT_APPROACHABLE_CONCURRENCY`, so a `nonisolated` async function runs on its caller's actor
+  unless marked `@concurrent`. Heavy work must be `@concurrent`, in its own actor, or in
+  `Task.detached`, or it blocks the main actor and with it the dictation hotkey.
+- Unit tests run inside the app and share its bundle ID: never write `UserDefaults.standard` from
+  a test; inject a throwaway suite instead.
