@@ -43,6 +43,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         loadGrammarModelIfEnabled()
         setupNotificationObservers()
         _ = UpdateService.shared // starts Sparkle's scheduled checks
+        // A speaker pass cut short by a quit or a crash leaves a copy of a file's audio behind.
+        Task(priority: .background) { await SpeakerDiarizationService.shared.cleanUpLeftoverAudio() }
     }
 
     private func setupNotificationObservers() {

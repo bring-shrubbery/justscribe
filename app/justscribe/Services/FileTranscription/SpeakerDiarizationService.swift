@@ -37,6 +37,8 @@ final class SpeakerDiarizationService: SpeakerTurnProviding {
     private var models: OfflineDiarizerModels?
     /// The load in flight, so a second caller waits for it instead of starting another.
     private var loadTask: Task<OfflineDiarizerModels, Error>?
+    /// One pass at a time, and no sweep of the temporary directory while one runs.
+    private let passes = InferenceGate()
 
     private init() {}
 
@@ -51,20 +53,67 @@ final class SpeakerDiarizationService: SpeakerTurnProviding {
         if let speakerCount {
             config = config.withSpeakers(exactly: speakerCount)
         }
-        // The diarizer is heavy; keep it off the main actor.
-        let work = Task.detached(priority: .userInitiated) {
-            let manager = OfflineDiarizerManager(config: config)
-            manager.initialize(models: models)
-            return try await manager.process(url).segments.map {
-                (speaker: $0.speakerId, start: $0.startTimeSeconds, end: $0.endTimeSeconds)
+        let segments = try await Self.runPass(on: passes, sweep: { await Self.sweepLeftoverAudio() }) {
+            // The diarizer is heavy; keep it off the main actor.
+            let work = Task.detached(priority: .userInitiated) {
+                let manager = OfflineDiarizerManager(config: config)
+                manager.initialize(models: models)
+                return try await manager.process(url).segments.map {
+                    (speaker: $0.speakerId, start: $0.startTimeSeconds, end: $0.endTimeSeconds)
+                }
+            }
+            return try await withTaskCancellationHandler {
+                try await work.value
+            } onCancel: {
+                work.cancel()
             }
         }
-        let segments = try await withTaskCancellationHandler {
-            try await work.value
-        } onCancel: {
-            work.cancel()
-        }
         return Self.turns(fromSegments: segments)
+    }
+
+    /// Deletes the temporary audio copies that passes cut short by a quit or a crash left
+    /// behind. Waits for a pass in flight, whose copy is still in use.
+    func cleanUpLeftoverAudio() async {
+        _ = try? await Self.runPass(on: passes, sweep: {}) { await Self.sweepLeftoverAudio() }
+    }
+
+    /// Runs `pass` once the passes asked for before it have ended, as the diarizer cannot be
+    /// stopped and two passes would share its models. `sweep` runs before the pass and again
+    /// if it throws. A caller cancelled while it waits throws `CancellationError` and runs
+    /// nothing.
+    static func runPass<T>(
+        on gate: InferenceGate, sweep: () async -> Void, _ pass: () async throws -> T
+    ) async throws -> T {
+        try await gate.run {
+            await sweep()
+            do {
+                return try await pass()
+            } catch {
+                await sweep()
+                throw error
+            }
+        }
+    }
+
+    /// The diarizer reads the file through a raw copy of its audio in the temporary directory
+    /// and deletes the copy only when it returns. Called only while no pass runs.
+    @concurrent
+    private static func sweepLeftoverAudio() async {
+        removeLeftoverAudio()
+    }
+
+    /// Deletes the files named `fluidaudio-streaming-*.raw` in `directory`, and nothing else.
+    nonisolated static func removeLeftoverAudio(in directory: URL = FileManager.default.temporaryDirectory) {
+        let fileManager = FileManager.default
+        guard let names = try? fileManager.contentsOfDirectory(atPath: directory.path) else { return }
+        for name in names where name.hasPrefix("fluidaudio-streaming-") && name.hasSuffix(".raw") {
+            let url = directory.appendingPathComponent(name)
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
+                continue
+            }
+            try? fileManager.removeItem(at: url)
+        }
     }
 
     /// The diarizer's segments as turns, in time order, without empty ones.

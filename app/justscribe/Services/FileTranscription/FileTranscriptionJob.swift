@@ -95,6 +95,8 @@ final class FileTranscriptionJob {
     private let pollInterval: Duration
     private var hasStarted = false
     private var task: Task<Void, Never>?
+    /// The speaker pass while it runs or waits for its turn.
+    private var speakerPass: Task<[SpeakerTurn], Error>?
 
     init(
         url: URL, language: String?, speakers: SpeakerRequest,
@@ -120,9 +122,11 @@ final class FileTranscriptionJob {
 
     /// Stops after the chunk in flight; the text so far stays. Does nothing unless running.
     /// A cancel between `start()` and the task's first turn ends the run before it opens the file.
+    /// A speaker pass waiting behind another ends at once; one that has started runs to its end.
     func cancel() {
         guard isRunning else { return }
         isCancelling = true
+        speakerPass?.cancel()
     }
 
     func run() async {
@@ -162,7 +166,15 @@ final class FileTranscriptionJob {
             phase = .identifyingSpeakers
             do {
                 let count: Int? = if case .exactly(let number) = speakers { number } else { nil }
-                turns = try await speakerProvider.turns(for: url, speakerCount: count)
+                // A task of its own, so `cancel()` can end a pass still waiting behind another.
+                let pass = Task { try await speakerProvider.turns(for: url, speakerCount: count) }
+                speakerPass = pass
+                defer { speakerPass = nil }
+                turns = try await withTaskCancellationHandler {
+                    try await pass.value
+                } onCancel: {
+                    pass.cancel()
+                }
             } catch {
                 phase = shouldStop ? .cancelled : .failed(Message.speakersFailed)
                 return

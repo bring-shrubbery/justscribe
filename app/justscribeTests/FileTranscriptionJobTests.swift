@@ -89,10 +89,13 @@ private final class FakeSpeakers: SpeakerTurnProviding {
     var result: Result<[SpeakerTurn], Error> = .success([])
     var requested: Int??
     var onTurns: (() -> Void)?
+    /// When set, the pass waits until it is cancelled, as one queued behind another pass does.
+    var waitsForCancel = false
     struct Boom: Error {}
     func turns(for url: URL, speakerCount: Int?) async throws -> [SpeakerTurn] {
         requested = .some(speakerCount)
         onTurns?()
+        if waitsForCancel { try await Task.sleep(for: .seconds(30)) }
         return try result.get()
     }
 }
@@ -296,6 +299,20 @@ struct FileTranscriptionJobTests {
         await job.run()
         #expect(job.phase == .cancelled)
         #expect(transcriber.calls == 0)
+    }
+
+    @Test func cancellingWhileTheSpeakerPassWaitsItsTurnEndsAtOnce() async {
+        let transcriber = FakeTranscriber()
+        let provider = FakeSpeakers()
+        provider.waitsForCancel = true
+        let job = makeJob(seconds: 30, speakers: .detect, transcriber: transcriber, provider: provider)
+        let running = Task { await job.run() }
+        #expect(await waitUntil { provider.requested != nil })
+        job.cancel()
+        #expect(await waitUntil { job.phase == .cancelled })
+        #expect(transcriber.calls == 0)
+        // Ends a run that ignored the cancel, so a failure does not leave it waiting.
+        running.cancel()
     }
 
     @Test func aSourceFailingPartWayKeepsTheEarlierText() async {
