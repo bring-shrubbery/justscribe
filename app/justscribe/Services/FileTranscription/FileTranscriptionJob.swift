@@ -62,16 +62,28 @@ final class FileTranscriptionJob {
         static func stopped(_ reason: String) -> String { "Transcription stopped: \(reason)" }
     }
 
-    private(set) var phase: Phase = .idle
+    private(set) var phase: Phase = .idle {
+        didSet { if isFinal { isCancelling = false } }
+    }
     private(set) var paragraphs: [TranscriptParagraph] = []
+    /// Whether a cancel was asked for and the job is finishing the chunk in flight.
+    private(set) var isCancelling = false
+    /// Whether the file reported its duration; when it did not, progress stays at 0.
+    private(set) var isDurationKnown = false
     var text: String { TranscriptBuilder.text(paragraphs) }
 
-    var isRunning: Bool {
+    /// From the moment `run()` begins (opening the file included) until a final phase.
+    var isRunning: Bool { hasStarted && !isFinal }
+
+    private var isFinal: Bool {
         switch phase {
-        case .identifyingSpeakers, .transcribing, .pausedForDictation: true
-        case .idle, .finished, .cancelled, .failed: false
+        case .finished, .cancelled, .failed: true
+        case .idle, .identifyingSpeakers, .transcribing, .pausedForDictation: false
         }
     }
+
+    /// A cancel from the user or of the task running the job.
+    private var shouldStop: Bool { isCancelling || Task.isCancelled }
 
     let url: URL
     private let language: String?
@@ -81,7 +93,7 @@ final class FileTranscriptionJob {
     private let speakerProvider: any SpeakerTurnProviding
     private let openSource: @Sendable (URL) async throws -> any FileAudioSource
     private let pollInterval: Duration
-    private var cancelRequested = false
+    private var hasStarted = false
     private var task: Task<Void, Never>?
 
     init(
@@ -106,18 +118,23 @@ final class FileTranscriptionJob {
         task = Task { await run() }
     }
 
-    /// Stops after the chunk in flight; the text so far stays.
+    /// Stops after the chunk in flight; the text so far stays. Does nothing unless running.
     func cancel() {
-        cancelRequested = true
+        guard isRunning else { return }
+        isCancelling = true
     }
 
     func run() async {
+        guard phase == .idle, !hasStarted else { return }
+        hasStarted = true
         guard transcriber.isModelLoaded else {
             phase = .failed(Message.noModel)
             return
         }
         let generation = transcriber.modelGeneration
+        var modelChanged: Bool { !transcriber.isModelLoaded || transcriber.modelGeneration != generation }
 
+        // A local, so the file is closed whenever `run()` returns.
         let source: any FileAudioSource
         do {
             source = try await openSource(url)
@@ -125,7 +142,13 @@ final class FileTranscriptionJob {
             phase = .failed(error.message)
             return
         } catch {
-            phase = .failed(AudioFileError.notReadable.message)
+            phase = shouldStop ? .cancelled : .failed(AudioFileError.notReadable.message)
+            return
+        }
+        let duration = source.duration
+        isDurationKnown = duration > 0
+        if shouldStop {
+            phase = .cancelled
             return
         }
 
@@ -136,16 +159,15 @@ final class FileTranscriptionJob {
                 let count: Int? = if case .exactly(let number) = speakers { number } else { nil }
                 turns = try await speakerProvider.turns(for: url, speakerCount: count)
             } catch {
-                phase = .failed(Message.speakersFailed)
+                phase = shouldStop ? .cancelled : .failed(Message.speakersFailed)
                 return
             }
-            if cancelRequested {
+            if shouldStop {
                 phase = .cancelled
                 return
             }
         }
 
-        let duration = source.duration
         var words: [TimedWord] = []
         var chunker = AudioChunker()
         var fraction = 0.0
@@ -153,16 +175,15 @@ final class FileTranscriptionJob {
 
         /// Transcribes one chunk; false when the job has ended (its phase says why).
         func transcribe(_ chunk: AudioChunk) async -> Bool {
-            while dictation.isDictating {
-                if cancelRequested { break }
+            while dictation.isDictating, !shouldStop {
                 phase = .pausedForDictation(fraction)
                 try? await Task.sleep(for: pollInterval)
             }
-            if cancelRequested {
+            if shouldStop {
                 phase = .cancelled
                 return false
             }
-            guard transcriber.isModelLoaded, transcriber.modelGeneration == generation else {
+            guard !modelChanged else {
                 phase = .failed(Message.modelChanged)
                 return false
             }
@@ -173,17 +194,23 @@ final class FileTranscriptionJob {
                     TimedWord(text: $0.text, start: $0.start + chunk.startSeconds, end: $0.end + chunk.startSeconds)
                 }
             } catch {
-                phase = .failed(Message.stopped(error.localizedDescription))
+                // An unload while the chunk queued for the model throws; say what happened.
+                phase = modelChanged ? .failed(Message.modelChanged)
+                    : shouldStop ? .cancelled
+                    : .failed(Message.stopped(error.localizedDescription))
                 return false
             }
-            paragraphs = TranscriptBuilder.paragraphs(words: words, turns: turns)
+            // Off the main actor: with many speaker turns a rebuild takes long enough to delay a hotkey.
+            // Nothing else touches `words` or `paragraphs` meanwhile, as `run()` is entered once.
+            paragraphs = await Self.buildParagraphs(words: words, turns: turns)
             let end = chunk.startSeconds + Double(chunk.samples.count) / Double(AudioChunker.sampleRate)
             fraction = duration > 0 ? min(1, max(fraction, end / duration)) : fraction
-            if transcriber.modelGeneration != generation {
+            // Checked after the rebuild, so a change or cancel made during it is seen.
+            if modelChanged {
                 phase = .failed(Message.modelChanged)
                 return false
             }
-            if cancelRequested {
+            if shouldStop {
                 phase = .cancelled
                 return false
             }
@@ -201,12 +228,17 @@ final class FileTranscriptionJob {
             phase = .failed(error.message)
             return
         } catch {
-            phase = .failed(AudioFileError.notReadable.message)
+            phase = shouldStop ? .cancelled : .failed(AudioFileError.notReadable.message)
             return
         }
         if let last = chunker.finish() {
             guard await transcribe(last) else { return }
         }
         phase = paragraphs.isEmpty ? .failed(Message.noSpeech) : .finished
+    }
+
+    @concurrent
+    private static func buildParagraphs(words: [TimedWord], turns: [SpeakerTurn]) async -> [TranscriptParagraph] {
+        TranscriptBuilder.paragraphs(words: words, turns: turns)
     }
 }

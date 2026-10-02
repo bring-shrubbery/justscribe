@@ -24,14 +24,21 @@ import Testing
 
 /// Audio that is `seconds` long, handed out in one-second buffers of a steady tone. `duration`
 /// is what the file claims, which for some files is missing (0) or only approximately right.
+/// With `failAfter`, reading throws once that many buffers have been handed out.
 private final class FakeSource: FileAudioSource, @unchecked Sendable {
     let duration: Double
     private var remaining: Int
-    init(seconds: Int, duration: Double? = nil) {
+    private var failAfter: Int?
+    init(seconds: Int, duration: Double? = nil, failAfter: Int? = nil) {
         self.duration = duration ?? Double(seconds)
         remaining = seconds
+        self.failAfter = failAfter
     }
     func next() async throws -> [Float]? {
+        if let failAfter {
+            guard failAfter > 0 else { throw AudioFileError.notReadable }
+            self.failAfter = failAfter - 1
+        }
         guard remaining > 0 else { return nil }
         remaining -= 1
         return (0..<16_000).map { $0 % 2 == 0 ? 0.5 : -0.5 }
@@ -45,6 +52,7 @@ private final class FakeTranscriber: TimedTranscribing {
     var calls = 0
     var failOnCall: Int?
     var changeModelOnCall: Int?
+    var unloadOnCall: Int?
     var wordsPerChunk: [[TimedWord]] = []
     var onCall: (() -> Void)?
 
@@ -55,6 +63,11 @@ private final class FakeTranscriber: TimedTranscribing {
         onCall?()
         if failOnCall == calls { throw Boom() }
         if changeModelOnCall == calls { modelGeneration += 1 }
+        if unloadOnCall == calls {
+            // As the real service does when the model is unloaded while a chunk waits its turn.
+            isModelLoaded = false
+            throw Boom()
+        }
         if calls <= wordsPerChunk.count { return wordsPerChunk[calls - 1] }
         return [TimedWord(text: " chunk\(calls).", start: 1, end: 2)]
     }
@@ -62,16 +75,24 @@ private final class FakeTranscriber: TimedTranscribing {
 
 @MainActor
 private final class FakeDictation: DictationActivity {
-    var isDictating = false
+    /// When set, dictation reads as over from this moment, even if nothing else gets to run.
+    var endsAt: ContinuousClock.Instant?
+    private var dictating = false
+    var isDictating: Bool {
+        get { dictating && (endsAt.map { ContinuousClock.now < $0 } ?? true) }
+        set { dictating = newValue }
+    }
 }
 
 @MainActor
 private final class FakeSpeakers: SpeakerTurnProviding {
     var result: Result<[SpeakerTurn], Error> = .success([])
     var requested: Int??
+    var onTurns: (() -> Void)?
     struct Boom: Error {}
     func turns(for url: URL, speakerCount: Int?) async throws -> [SpeakerTurn] {
         requested = .some(speakerCount)
+        onTurns?()
         return try result.get()
     }
 }
@@ -92,6 +113,16 @@ struct FileTranscriptionJobTests {
             speakerProvider: provider ?? FakeSpeakers(),
             openSource: open ?? { _ in FakeSource(seconds: seconds) },
             pollInterval: .milliseconds(5))
+    }
+
+    /// Polls until `condition` holds or two seconds pass; false on timeout.
+    private func waitUntil(_ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !condition() {
+            if ContinuousClock.now > deadline { return false }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        return true
     }
 
     @Test func aShortFileIsOneChunkAndFinishes() async {
@@ -213,9 +244,8 @@ struct FileTranscriptionJobTests {
         dictation.isDictating = true
         let job = makeJob(seconds: 7, transcriber: transcriber, dictation: dictation)
         let running = Task { await job.run() }
-        try? await Task.sleep(for: .milliseconds(60))
+        #expect(await waitUntil { job.phase == .pausedForDictation(0) })
         #expect(transcriber.calls == 0)
-        #expect(job.phase == .pausedForDictation(0))
         dictation.isDictating = false
         await running.value
         #expect(transcriber.calls == 1)
@@ -235,11 +265,126 @@ struct FileTranscriptionJobTests {
             #expect(job.isRunning)
         }
         #expect(!job.isRunning)
+        #expect(!job.isDurationKnown)
         await job.run()
+        #expect(job.isDurationKnown == (claimedDuration > 0))
         #expect(job.phase == .finished)
         #expect(seen.count == 3)
         #expect(seen == seen.sorted())
         #expect(seen.allSatisfy { $0 >= 0 && $0 <= 1 })
         #expect(!job.isRunning)
+    }
+
+    @Test func cancellingWhilePausedForDictationEndsWithoutTranscribing() async {
+        let transcriber = FakeTranscriber()
+        let dictation = FakeDictation()
+        dictation.isDictating = true
+        let job = makeJob(seconds: 7, transcriber: transcriber, dictation: dictation)
+        let running = Task { await job.run() }
+        #expect(await waitUntil { job.phase == .pausedForDictation(0) })
+        job.cancel()
+        await running.value
+        #expect(job.phase == .cancelled)
+        #expect(transcriber.calls == 0)
+    }
+
+    @Test func cancellingDuringTheSpeakerPassEndsBeforeAnyChunk() async {
+        let transcriber = FakeTranscriber()
+        let provider = FakeSpeakers()
+        let job = makeJob(seconds: 30, speakers: .detect, transcriber: transcriber, provider: provider)
+        provider.onTurns = { job.cancel() }
+        await job.run()
+        #expect(job.phase == .cancelled)
+        #expect(transcriber.calls == 0)
+    }
+
+    @Test func aSourceFailingPartWayKeepsTheEarlierText() async {
+        // The first chunk is cut once 30 s are buffered; reading fails at 45 s, before a second.
+        let transcriber = FakeTranscriber()
+        let job = makeJob(
+            seconds: 70, transcriber: transcriber,
+            open: { _ in FakeSource(seconds: 70, failAfter: 45) })
+        await job.run()
+        #expect(job.phase == .failed(AudioFileError.notReadable.message))
+        #expect(transcriber.calls == 1)
+        #expect(job.paragraphs.count == 1)
+    }
+
+    @Test func theModelUnloadedDuringAPauseSaysTheModelChanged() async {
+        let transcriber = FakeTranscriber()
+        let dictation = FakeDictation()
+        dictation.isDictating = true
+        let job = makeJob(seconds: 7, transcriber: transcriber, dictation: dictation)
+        let running = Task { await job.run() }
+        #expect(await waitUntil { job.phase == .pausedForDictation(0) })
+        transcriber.isModelLoaded = false
+        dictation.isDictating = false
+        await running.value
+        #expect(job.phase == .failed(FileTranscriptionJob.Message.modelChanged))
+        #expect(transcriber.calls == 0)
+    }
+
+    @Test func theModelUnloadedUnderAChunkSaysTheModelChanged() async {
+        let transcriber = FakeTranscriber()
+        transcriber.unloadOnCall = 2
+        let job = makeJob(seconds: 70, transcriber: transcriber)
+        await job.run()
+        #expect(job.phase == .failed(FileTranscriptionJob.Message.modelChanged))
+        #expect(job.paragraphs.count == 1)
+    }
+
+    @Test func isCancellingLastsFromTheRequestToTheEnd() async {
+        let transcriber = FakeTranscriber()
+        let job = makeJob(seconds: 70, transcriber: transcriber)
+        var duringRun: [Bool] = []
+        transcriber.onCall = {
+            duringRun.append(job.isCancelling)
+            job.cancel()
+            duringRun.append(job.isCancelling)
+        }
+        await job.run()
+        #expect(duringRun == [false, true])
+        #expect(job.phase == .cancelled)
+        #expect(!job.isCancelling)
+    }
+
+    @Test func cancellingAJobThatIsNotRunningDoesNothing() async {
+        let idle = makeJob(seconds: 7)
+        idle.cancel()
+        #expect(!idle.isCancelling)
+        #expect(idle.phase == .idle)
+
+        let finished = makeJob(seconds: 7)
+        await finished.run()
+        finished.cancel()
+        #expect(!finished.isCancelling)
+        #expect(finished.phase == .finished)
+    }
+
+    @Test func runningAFinishedJobAgainChangesNothing() async {
+        let transcriber = FakeTranscriber()
+        let job = makeJob(seconds: 7, transcriber: transcriber)
+        await job.run()
+        let paragraphs = job.paragraphs
+        await job.run()
+        #expect(transcriber.calls == 1)
+        #expect(job.phase == .finished)
+        #expect(job.paragraphs == paragraphs)
+    }
+
+    @Test func aCancelledTaskEndsTheJob() async {
+        let transcriber = FakeTranscriber()
+        let dictation = FakeDictation()
+        dictation.isDictating = true
+        let job = makeJob(seconds: 7, transcriber: transcriber, dictation: dictation)
+        let running = Task { await job.run() }
+        #expect(await waitUntil { job.phase == .pausedForDictation(0) })
+        // Without an end to dictation a job that ignored the cancellation would wait forever;
+        // with one, such a job goes on to transcribe and the expectations below fail instead.
+        dictation.endsAt = .now + .milliseconds(300)
+        running.cancel()
+        await running.value
+        #expect(job.phase == .cancelled)
+        #expect(transcriber.calls == 0)
     }
 }
