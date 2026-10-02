@@ -1,18 +1,21 @@
 ---
 import Base from '../layouts/Base.astro';
 import Download from '../components/Download.astro';
+import Footer from '../components/Footer.astro';
 import { Image } from 'astro:assets';
 import icon from '../assets/icon.png';
 import screenshot from '../assets/screenshot.png';
-import { fetchLatestRelease } from '../lib/release';
+import settingsShot from '../assets/settings.png';
+import modelsShot from '../assets/models.png';
+import { latestRelease } from '../lib/release';
 
 // Workers Builds share egress addresses; an optional token lifts the per-address limit.
-const release = await fetchLatestRelease(fetch, import.meta.env.GITHUB_TOKEN);
+const release = await latestRelease(import.meta.env.GITHUB_TOKEN);
 const repo = 'https://github.com/bring-shrubbery/justscribe';
 const site = 'https://justscribe.quassum.com';
-const title = 'JustScribe: Free On-Device Voice Dictation for Mac';
+const title = 'JustScribe: Free Voice Dictation and Speech to Text for Mac';
 const description =
-  'Free, open-source voice dictation for Mac. Hold a shortcut, speak, and the text is typed into whatever app you are in. Transcription runs entirely on your Mac.';
+  'Free, open-source voice dictation for Mac. Hold a shortcut, speak, and your speech becomes text in any app. Speech to text runs entirely on your Mac.';
 
 // The FAQ, rendered as a section and as FAQPage structured data. Plain text only:
 // answer engines quote it, so every sentence must hold without the page around it.
@@ -117,7 +120,7 @@ const structuredData = {
     </a>
     <section class="hero">
       <Image class="icon" src={icon} width={96} height={96} densities={[1, 2]} alt="" loading="eager" />
-      <h1>JustScribe <span class="subtitle">Voice dictation for Mac, entirely on-device</span></h1>
+      <h1>JustScribe <span class="subtitle">Voice dictation and speech to text for Mac, entirely on-device</span></h1>
       <p class="lead">
         Hold a shortcut, speak, and the text is typed into whatever app you are in. No account, no
         subscription, and your voice never leaves your Mac.
@@ -135,7 +138,7 @@ const structuredData = {
     </section>
 
     <section id="what">
-      <h2>What it does</h2>
+      <h2>Dictate in any Mac app</h2>
       <ul>
         <li><strong>Dictate anywhere.</strong> A global shortcut works in every app: editors, browsers, chat, the terminal. The text goes where your cursor is.</li>
         <li><strong>Hold to record.</strong> Text appears while you speak. When you let go, JustScribe transcribes the whole recording once more for accuracy.</li>
@@ -147,7 +150,7 @@ const structuredData = {
     </section>
 
     <section id="start">
-      <h2>Quick start</h2>
+      <h2>Start dictating in a minute</h2>
       <ol>
         <li><strong>Install.</strong> Open the disk image and drag JustScribe into Applications.</li>
         <li><strong>Pick a model.</strong> On first launch, download a transcription model. Parakeet v3 is the recommended one.</li>
@@ -158,7 +161,7 @@ const structuredData = {
     </section>
 
     <section id="models">
-      <h2>Models</h2>
+      <h2>On-device speech-to-text models</h2>
       <p>Models are downloaded on demand and stored on your Mac. Pick one in Settings; you can switch at any time.</p>
       <div class="table-scroll">
         <table>
@@ -180,10 +183,37 @@ const structuredData = {
         Grammar correction is off by default. It can use the model built into macOS when Apple Intelligence is
         enabled (no download), or Llama 3.1 8B (~4.6 GB download, about 5 GB of memory while loaded).
       </p>
+      <div class="shots">
+        <figure>
+          <Image src={settingsShot} widths={[332, 664]} sizes="(max-width: 480px) 100vw, 332px"
+            alt="JustScribe settings window: the transcription model set to Parakeet v3, and microphones listed in priority order" />
+          <figcaption>Pick a model and order your microphones.</figcaption>
+        </figure>
+        <figure>
+          <Image src={modelsShot} widths={[332, 664]} sizes="(max-width: 480px) 100vw, 332px"
+            alt="JustScribe model list: Parakeet v3 marked recommended, Parakeet English, and Whisper Base, Large v3, Medium, Small and Tiny with their download sizes" />
+          <figcaption>Models download on demand and stay on your Mac.</figcaption>
+        </figure>
+      </div>
+      <p>
+        More in the guides: <a href="/guides/offline-speech-to-text-mac">offline speech to text on Mac</a> and
+        <a href="/guides/grammar-correction">dictation with grammar correction</a>.
+      </p>
+    </section>
+
+    <section id="compare">
+      <h2>How JustScribe compares</h2>
+      <p>JustScribe does one thing, dictation, and does it free and on your Mac. Side by side with the alternatives:</p>
+      <ul class="links">
+        <li><a href="/wispr-flow-alternative">JustScribe as a free Wispr Flow alternative</a></li>
+        <li><a href="/superwhisper-alternative">JustScribe as a free Superwhisper alternative</a></li>
+        <li><a href="/macwhisper-alternative">JustScribe as a MacWhisper alternative for dictation</a></li>
+        <li><a href="/vs-apple-dictation">JustScribe vs the dictation built into macOS</a></li>
+      </ul>
     </section>
 
     <section id="app-store">
-      <h2>Coming from the App Store version</h2>
+      <h2>Moving from the Mac App Store version</h2>
       <p>
         JustScribe is no longer distributed through the Mac App Store. Download it here and drag it into
         Applications, replacing the old copy. Your models and settings are kept.
@@ -198,7 +228,7 @@ const structuredData = {
     </section>
 
     <section id="faq">
-      <h2>Questions</h2>
+      <h2>JustScribe FAQ</h2>
       <dl class="faq">
         {faq.map(({ q, a }) => (
           <div>
@@ -210,7 +240,7 @@ const structuredData = {
     </section>
 
     <section id="source">
-      <h2>Source and license</h2>
+      <h2>Open source and free</h2>
       <p>
         JustScribe is open source under the <a href={`${repo}/blob/main/LICENSE`}>GNU General Public License v3.0</a>.
         The code is on <a href={repo}>GitHub</a>; bug reports and feature requests go to
@@ -218,19 +248,26 @@ const structuredData = {
         <code>app/justscribe.xcodeproj</code> in Xcode and run the <strong>justscribe</strong> scheme.
       </p>
       <p class="muted">
-        <a href="https://quassum.com/apps/justscribe/privacy">Privacy policy</a> ·
-        <a href="https://quassum.com/terms">Terms</a> ·
+        <a href="/privacy">Privacy policy</a> ·
+        <a href="/terms">Terms</a> ·
+        <a href="/support">Support</a> ·
         <a href="https://github.com/sponsors/bring-shrubbery">Sponsor the project</a>
       </p>
     </section>
+
+    <section id="credits">
+      <h2>Credits</h2>
+      <p>
+        JustScribe is built by <a href="https://github.com/bring-shrubbery">Antoni Silvestrovic</a> at
+        <a href="https://quassum.com">Quassum</a>, on the work of these open-source projects:
+      </p>
+      <ul>
+        <li><a href="https://github.com/FluidInference/FluidAudio">FluidAudio</a> and NVIDIA's Parakeet models, and <a href="https://github.com/argmaxinc/WhisperKit">WhisperKit</a> and OpenAI's Whisper models, for speech recognition.</li>
+        <li><a href="https://github.com/ml-explore/mlx-swift">MLX Swift</a> and Meta's Llama 3.1, for the optional grammar correction.</li>
+        <li><a href="https://github.com/sindresorhus/KeyboardShortcuts">KeyboardShortcuts</a>, <a href="https://github.com/sindresorhus/LaunchAtLogin-Modern">LaunchAtLogin</a> and <a href="https://github.com/MrKai77/DynamicNotchKit">DynamicNotchKit</a>, for the shortcut, launch at login and the notch indicator.</li>
+        <li><a href="https://sparkle-project.org">Sparkle</a>, for updates.</li>
+      </ul>
+    </section>
   </main>
-  <footer>
-    <div class="inner">
-      <span>JustScribe</span>
-      <a href={repo}>GitHub</a>
-      <a href={`${repo}/releases`}>Releases</a>
-      <a href="https://quassum.com/apps/justscribe/privacy">Privacy</a>
-      <a href="https://quassum.com">Quassum</a>
-    </div>
-  </footer>
+  <Footer />
 </Base>

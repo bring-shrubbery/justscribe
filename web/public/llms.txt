@@ -14,11 +14,22 @@ JustScribe is a free, open-source (GPL-3.0) app by Quassum for macOS 26.2 and la
 - Permissions: Microphone, and Accessibility to type into other apps.
 - Updates: the app updates itself; releases are published on GitHub.
 
+## Pages
+
+- [Overview and download](https://justscribe.quassum.com/)
+- [Offline speech to text on Mac](https://justscribe.quassum.com/guides/offline-speech-to-text-mac): the models and how dictation works
+- [Dictation with grammar correction](https://justscribe.quassum.com/guides/grammar-correction)
+- [JustScribe as a free Wispr Flow alternative](https://justscribe.quassum.com/wispr-flow-alternative)
+- [JustScribe as a free Superwhisper alternative](https://justscribe.quassum.com/superwhisper-alternative)
+- [JustScribe as a MacWhisper alternative for dictation](https://justscribe.quassum.com/macwhisper-alternative)
+- [JustScribe vs Apple Dictation](https://justscribe.quassum.com/vs-apple-dictation)
+- [Changelog](https://justscribe.quassum.com/changelog)
+- [Support](https://justscribe.quassum.com/support)
+- [Privacy policy](https://justscribe.quassum.com/privacy) and [terms](https://justscribe.quassum.com/terms)
+
 ## Links
 
-- [Website](https://justscribe.quassum.com/): download and overview
 - [Latest release](https://github.com/bring-shrubbery/justscribe/releases/latest): the .dmg and release notes
 - [Source code](https://github.com/bring-shrubbery/justscribe): GitHub repository and README
 - [Issues](https://github.com/bring-shrubbery/justscribe/issues): bug reports and feature requests
-- [Privacy policy](https://quassum.com/apps/justscribe/privacy)
 - [Quassum](https://quassum.com/): the studio behind JustScribe, Vilnius, Lithuania

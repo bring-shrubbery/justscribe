@@ -1,0 +1,96 @@
+---
+import Base from './Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Download from '../components/Download.astro';
+import { latestRelease } from '../lib/release';
+import { servedPath } from '../lib/url';
+
+/** The layout of every Markdown page: its frontmatter is the page's metadata. */
+interface Props {
+  frontmatter: {
+    /** The <title>: under 60 characters, the search phrase first. */
+    title: string;
+    /** The meta description: one or two sentences, 70 to 160 characters. */
+    description: string;
+    /** The page's h1. */
+    heading: string;
+    /** ISO date the content was last checked, shown on the page and used in the sitemap. */
+    updated: string;
+    /** Show the download control after the content (default true). */
+    download?: boolean;
+    /** Questions rendered as a section and as FAQPage structured data. */
+    faq?: { q: string; a: string }[];
+  };
+}
+const { title, description, heading, updated, download = true, faq = [] } = Astro.props.frontmatter;
+const site = 'https://justscribe.quassum.com';
+const url = new URL(servedPath(Astro.url.pathname), Astro.site).href;
+const release = download ? await latestRelease(import.meta.env.GITHUB_TOKEN) : null;
+const updatedLabel = new Date(`${updated}T00:00:00Z`).toLocaleDateString('en-GB', {
+  day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+});
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': `${url}#page`,
+      url,
+      name: title,
+      description,
+      dateModified: updated,
+      isPartOf: { '@id': `${site}/#website` },
+      about: { '@id': `${site}/#app` },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'JustScribe', item: `${site}/` },
+        { '@type': 'ListItem', position: 2, name: heading, item: url },
+      ],
+    },
+    ...(faq.length > 0
+      ? [{
+          '@type': 'FAQPage',
+          '@id': `${url}#faq`,
+          mainEntity: faq.map(({ q, a }) => ({
+            '@type': 'Question',
+            name: q,
+            acceptedAnswer: { '@type': 'Answer', text: a },
+          })),
+        }]
+      : []),
+  ],
+};
+---
+<Base title={title} description={description} structuredData={structuredData}>
+  <main>
+    <Header />
+    <article class="prose">
+      <h1>{heading}</h1>
+      <p class="updated">Updated <time datetime={updated}>{updatedLabel}</time></p>
+      <slot />
+      {faq.length > 0 && (
+        <h2 id="faq">Questions</h2>
+        <dl class="faq">
+          {faq.map(({ q, a }) => (
+            <div>
+              <dt>{q}</dt>
+              <dd>{a}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {download && (
+        <div class="cta">
+          <h2>Get JustScribe</h2>
+          <p>Free and open source. No account, no subscription, and your voice never leaves your Mac.</p>
+          <Download release={release} />
+        </div>
+      )}
+    </article>
+  </main>
+  <Footer />
+</Base>

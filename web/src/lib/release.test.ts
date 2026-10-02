@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fetchLatestRelease, formatMegabytes, releaseFrom, latestReleaseAPI } from './release';
+import { fetchLatestRelease, fetchReleases, formatMegabytes, noteBlocks, releaseFrom, releasesFrom, latestReleaseAPI, releasesAPI } from './release';
 
 const v100 = {
   tag_name: 'v1.0.0',
@@ -103,5 +103,76 @@ describe('formatMegabytes', () => {
     expect(formatMegabytes(4326140)).toBe('4.3 MB');
     expect(formatMegabytes(950000)).toBe('1.0 MB');
     expect(formatMegabytes(12345678)).toBe('12.3 MB');
+  });
+});
+
+describe('noteBlocks', () => {
+  it('groups list items and keeps paragraphs, as plain text', () => {
+    expect(noteBlocks('Intro line.\n\n- First **bold** item\n- A [link](https://example.invalid) and `code`\n\nAfter.')).toEqual([
+      { kind: 'paragraph', text: 'Intro line.' },
+      { kind: 'list', items: ['First bold item', 'A link and code'] },
+      { kind: 'paragraph', text: 'After.' },
+    ]);
+  });
+
+  it('drops the generated full-changelog line and blank items', () => {
+    expect(noteBlocks('- One\n- \n\n**Full changelog**: https://github.com/x/y/compare/a...b')).toEqual([
+      { kind: 'list', items: ['One'] },
+    ]);
+  });
+
+  it('never passes markup through: angle brackets stay text', () => {
+    expect(noteBlocks('- Add a <script>alert(1)</script> helper')).toEqual([
+      { kind: 'list', items: ['Add a <script>alert(1)</script> helper'] },
+    ]);
+  });
+
+  it('is empty for an empty body', () => {
+    expect(noteBlocks('')).toEqual([]);
+  });
+});
+
+const list = [
+  { tag_name: 'v1.3.0', html_url: 'https://example.invalid/v1.3.0', published_at: '2026-10-01T20:58:31Z', body: '- First' },
+  { tag_name: 'v1.3.1', html_url: 'https://example.invalid/v1.3.1', published_at: '2026-10-05T10:00:00Z', body: '- Second' },
+  { tag_name: 'v1.4.0-beta', html_url: 'https://example.invalid/beta', published_at: '2026-10-06T10:00:00Z', body: '', prerelease: true },
+  { tag_name: 'v9.9.9', html_url: 'https://example.invalid/draft', published_at: '2026-10-07T10:00:00Z', body: '', draft: true },
+  { tag_name: 'no-date', html_url: 'https://example.invalid/x' },
+];
+
+describe('releasesFrom', () => {
+  it('lists published releases newest first, without drafts, prereleases or malformed entries', () => {
+    expect(releasesFrom(list).map((r) => r.version)).toEqual(['v1.3.1', 'v1.3.0']);
+    expect(releasesFrom(list)[1]).toEqual({
+      version: 'v1.3.0',
+      publishedAt: '2026-10-01T20:58:31Z',
+      notesURL: 'https://example.invalid/v1.3.0',
+      notes: [{ kind: 'list', items: ['First'] }],
+    });
+  });
+
+  it('is empty for a body that is not a list', () => {
+    expect(releasesFrom(null)).toEqual([]);
+    expect(releasesFrom({ message: 'rate limited' })).toEqual([]);
+  });
+});
+
+describe('fetchReleases', () => {
+  it('asks the releases API and returns the list', async () => {
+    let url = '';
+    const spy: typeof fetch = async (input) => {
+      url = String(input);
+      return new Response(JSON.stringify(list), { status: 200 });
+    };
+    expect((await fetchReleases(spy)).length).toBe(2);
+    expect(url).toBe(releasesAPI);
+  });
+
+  it('is empty on a non-2xx status, a thrown request, or a body that is not json', async () => {
+    expect(await fetchReleases(respond(403, { message: 'rate limited' }))).toEqual([]);
+    const failing: typeof fetch = async () => { throw new Error('offline'); };
+    expect(await fetchReleases(failing)).toEqual([]);
+    const html: typeof fetch = async () => new Response('<html>', { status: 200 });
+    expect(await fetchReleases(html)).toEqual([]);
   });
 });

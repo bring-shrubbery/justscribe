@@ -1,0 +1,15 @@
+---
+import { Image } from 'astro:assets';
+import icon from '../assets/icon.png';
+---
+<header class="site-header">
+  <a class="brand" href="/">
+    <Image src={icon} width={28} height={28} densities={[1, 2]} alt="" />
+    <span>JustScribe</span>
+  </a>
+  <nav aria-label="Site">
+    <a href="/download">Download</a>
+    <a href="/changelog">Changelog</a>
+    <a href="https://github.com/bring-shrubbery/justscribe">GitHub</a>
+  </nav>
+</header>

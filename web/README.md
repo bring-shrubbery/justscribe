@@ -1,8 +1,21 @@
 # JustScribe website
 
-The one-page site at https://justscribe.quassum.com: an Astro static site that mirrors
-the repository README, offers the latest release for download, and owns the URLs the app
-depends on (`/appcast.xml` redirects to the release feed on GitHub).
+The site at https://justscribe.quassum.com: an Astro static site that offers the latest
+release for download and owns the URLs the app depends on. `/appcast.xml` redirects to the
+release feed on GitHub, and the app's Settings link to `/privacy`, `/terms`, `/support` and
+`/#credits`, so those paths must keep working.
+
+## Pages
+
+- `src/pages/index.astro`: the home page.
+- `src/pages/*.md` and `src/pages/guides/*.md`: every other page is a Markdown file whose
+  frontmatter is its metadata (`title` under 60 characters, `description` of 70 to 160,
+  `heading`, `updated`, optional `faq` and `download: false`), rendered by
+  `src/layouts/Page.astro`. To add a page, add a file, then link it from
+  `src/components/Footer.astro` and `public/llms.txt`.
+- `src/pages/changelog.astro`: generated from GitHub releases at build time.
+- The comparison pages state facts about other products. Each names its sources and the month
+  they were checked; re-check them, and bump `updated`, when you touch the page.
 
 ## Develop
 
@@ -13,6 +26,7 @@ npm run dev        # http://localhost:4321
 npm run check      # astro check (types)
 npm test           # vitest
 npm run build      # writes dist/
+npm run check:dist # links, titles, descriptions, canonicals, structured data, sitemap
 npm run preview    # serves dist/ (without the _redirects rules)
 ```
 
@@ -30,8 +44,11 @@ set up:
 ```sh
 cd web
 npx wrangler login     # once per machine
-npm run build && npx wrangler deploy
+npm run deploy         # build, check dist/, deploy, then tell IndexNow which pages exist
 ```
+
+IndexNow is how Bing and the search engines that share it learn about new or changed pages
+within minutes. `public/<key>.txt` proves we may submit for this host; the key is not a secret.
 
 The custom domain is part of `wrangler.jsonc` (`routes`), so a deploy creates the DNS record
 and certificate itself; the `quassum.com` zone must be on the same account.
@@ -42,7 +59,7 @@ To have Cloudflare build the site on its own, connect the repository once in the
    `bring-shrubbery/justscribe`. The Worker's name must match `name` in `wrangler.jsonc`, or
    Cloudflare's autofix opens a pull request to rename it.
 2. Build configuration: root directory `web`, build command `npm run build`, deploy command
-   `npx wrangler deploy`, production branch `main`. Leave non-production branch builds off.
+   `npx wrangler deploy && node scripts/indexnow.mjs`, production branch `main`. Leave non-production branch builds off.
    Under *Build watch paths*, include `web/*` so pushes that do not touch the site skip the
    build.
 3. Optionally add a build environment variable `GITHUB_TOKEN` (see above).

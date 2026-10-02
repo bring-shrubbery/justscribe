@@ -61,8 +61,8 @@ You can change the shortcut, model, microphone order, and behavior in Settings.
 ## 🙈 Support
 
 - Website: [https://justscribe.quassum.com](https://justscribe.quassum.com)
-- Privacy Policy: [https://quassum.com/apps/justscribe/privacy](https://quassum.com/apps/justscribe/privacy)
-- Terms: [https://quassum.com/terms](https://quassum.com/terms)
+- Privacy Policy: [https://justscribe.quassum.com/privacy](https://justscribe.quassum.com/privacy)
+- Terms: [https://justscribe.quassum.com/terms](https://justscribe.quassum.com/terms)
 
 ## 💀 Contributing
 

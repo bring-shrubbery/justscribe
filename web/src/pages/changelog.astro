@@ -1,0 +1,70 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { fetchReleases } from '../lib/release';
+
+// Every published release, read once at build time; the release workflow rebuilds the site.
+const releases = await fetchReleases(fetch, import.meta.env.GITHUB_TOKEN);
+const repo = 'https://github.com/bring-shrubbery/justscribe';
+const site = 'https://justscribe.quassum.com';
+const title = 'JustScribe Changelog: What Changed in Each Version';
+const description =
+  'Release notes for every version of JustScribe, the free on-device dictation app for Mac. Installed copies update themselves.';
+const date = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': `${site}/changelog#page`,
+      url: `${site}/changelog`,
+      name: title,
+      description,
+      isPartOf: { '@id': `${site}/#website` },
+      about: { '@id': `${site}/#app` },
+      ...(releases[0] ? { dateModified: releases[0].publishedAt } : {}),
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'JustScribe', item: `${site}/` },
+        { '@type': 'ListItem', position: 2, name: 'Changelog', item: `${site}/changelog` },
+      ],
+    },
+  ],
+};
+---
+<Base title={title} description={description} structuredData={structuredData}>
+  <main>
+    <Header />
+    <article class="prose">
+      <h1>JustScribe changelog</h1>
+      <p class="updated">
+        JustScribe updates itself. Every version is also on <a href={`${repo}/releases`}>GitHub Releases</a>.
+      </p>
+      {releases.length === 0 && (
+        <p>The release list could not be loaded just now. See <a href={`${repo}/releases`}>GitHub Releases</a> for every version.</p>
+      )}
+      {releases.map((release) => (
+        <section class="release" id={release.version}>
+          <h2>JustScribe {release.version}</h2>
+          <p class="date">
+            <time datetime={release.publishedAt}>{date(release.publishedAt)}</time> ·
+            <a href={release.notesURL}>Downloads and details</a>
+          </p>
+          {release.notes.map((block) =>
+            block.kind === 'list' ? (
+              <ul>{block.items.map((item) => <li>{item}</li>)}</ul>
+            ) : (
+              <p>{block.text}</p>
+            ),
+          )}
+        </section>
+      ))}
+    </article>
+  </main>
+  <Footer />
+</Base>

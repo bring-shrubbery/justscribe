@@ -203,12 +203,12 @@ v1.3.1 exists:
   it has downloaded v1.3.1 in the background (or trigger a check), quit it,
   relaunch, and confirm it is 1.3.1.
 
-Only then remove the app from sale in App Store Connect and point
-quassum.com/apps/justscribe at the new site. The app's Settings link to
-`quassum.com/apps/justscribe#credits`, `#support` and
-`quassum.com/apps/justscribe/privacy`; the redirect must keep those resolving
-(the new site has no `credits` or `support` anchors, so they need somewhere to
-land), or released copies show dead links.
+Only then remove the app from sale in App Store Connect and take down
+quassum.com/apps/justscribe. From v1.3.1 the app's Settings link to
+`/privacy`, `/terms`, `/support` and `/#credits` on justscribe.quassum.com
+(see `web/README.md`). v1.3.0 and the App Store builds still link to the old
+quassum.com pages; those links go dead when that page is removed, which only
+matters for copies that have not updated.
 
 ## CI
 
