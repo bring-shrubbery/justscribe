@@ -53,6 +53,7 @@ final class FileTranscriptionWindowController: NSObject, NSWindowDelegate {
             window.setFrameAutosaveName("FileTranscriptionWindow")
             self.window = window
         }
+        model.prepareSpeakerModelsIfNeeded()
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
@@ -70,7 +71,8 @@ final class FileTranscriptionWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        // Nothing is kept: closing the window discards the transcript.
-        model.reset()
+        // Nothing is kept: closing the window discards the transcript, and stops a job the
+        // user agreed to stop.
+        model.discard()
     }
 }

@@ -23,11 +23,32 @@ import Foundation
 import Observation
 import UniformTypeIdentifiers
 
+/// The speaker models as the window needs them: whether they are ready, the download's
+/// progress, and the speaker pass itself. `SpeakerDiarizationService` in the app.
+protocol SpeakerModelProviding: SpeakerTurnProviding {
+    var isReady: Bool { get }
+    var downloadProgress: Double? { get }
+    func prepare() async throws
+}
+
+extension SpeakerDiarizationService: SpeakerModelProviding {}
+
 /// The state behind the Transcribe File window: the options, the current job, and the
 /// actions on its result. Nothing here outlives the window.
 @Observable
 final class FileTranscriptionModel {
     static let identifySpeakersKey = "fileTranscription.identifySpeakers"
+
+    enum Notice {
+        static let speakerDownloadFailed = "Couldn't download the speaker model. Check your connection and try again"
+        static let unreadableDrop = "JustScribe can't read this file"
+        static func saveFailed(_ reason: String) -> String { "Couldn't save the transcript: \(reason)" }
+    }
+
+    nonisolated enum SpeakerCountHint {
+        static let normal = "Leave empty to detect, or enter 1 to 10."
+        static let invalid = "Not a number from 1 to 10 — speakers will be detected"
+    }
 
     /// What the status line under the file name shows.
     enum Status: Equatable {
@@ -41,8 +62,8 @@ final class FileTranscriptionModel {
     var identifySpeakers: Bool {
         didSet {
             guard identifySpeakers != oldValue else { return }
-            UserDefaults.standard.set(identifySpeakers, forKey: Self.identifySpeakersKey)
-            if identifySpeakers { prepareSpeakerModels() }
+            defaults.set(identifySpeakers, forKey: Self.identifySpeakersKey)
+            prepareSpeakerModelsIfNeeded()
         }
     }
     /// The number of speakers as typed; empty means "work it out".
@@ -51,18 +72,30 @@ final class FileTranscriptionModel {
     /// A sentence to show under the options: a failed download, or a file that was refused.
     private(set) var notice: String?
 
-    let diarization: SpeakerDiarizationService
+    let diarization: any SpeakerModelProviding
     private let transcriber: any TimedTranscribing
     private let dictation: any DictationActivity
+    private let defaults: UserDefaults
+    private let openSource: @Sendable (URL) async throws -> any FileAudioSource
+    private let pollInterval: Duration
+    /// The file whose security scope this model opened; closed once the file is done with.
+    private var scopedURL: URL?
 
     init(
         transcriber: any TimedTranscribing, dictation: any DictationActivity,
-        diarization: SpeakerDiarizationService = .shared
+        diarization: any SpeakerModelProviding = SpeakerDiarizationService.shared,
+        defaults: UserDefaults = .standard,
+        openSource: @escaping @Sendable (URL) async throws -> any FileAudioSource = { try await AudioFileDecoder.open($0) },
+        pollInterval: Duration = .milliseconds(200)
     ) {
         self.transcriber = transcriber
         self.dictation = dictation
         self.diarization = diarization
-        identifySpeakers = UserDefaults.standard.bool(forKey: Self.identifySpeakersKey)
+        self.defaults = defaults
+        self.openSource = openSource
+        self.pollInterval = pollInterval
+        identifySpeakers = defaults.bool(forKey: Self.identifySpeakersKey)
+        prepareSpeakerModelsIfNeeded()
     }
 
     var hasModel: Bool { transcriber.isModelLoaded }
@@ -74,6 +107,14 @@ final class FileTranscriptionModel {
             return .exactly(count)
         }
         return .detect
+    }
+
+    /// The caption under the speaker count: a count that is neither empty nor 1…10 is
+    /// ignored, and says so.
+    nonisolated static func speakerCountHint(for countText: String) -> String {
+        let isBlank = countText.trimmingCharacters(in: .whitespaces).isEmpty
+        let isIgnored = !isBlank && speakerRequest(identify: true, countText: countText) == .detect
+        return isIgnored ? SpeakerCountHint.invalid : SpeakerCountHint.normal
     }
 
     nonisolated static func saveName(for url: URL) -> String {
@@ -108,9 +149,19 @@ final class FileTranscriptionModel {
     }
 
     /// Starts transcribing `url`, with speakers as the options say. The URL is used as
-    /// given: the sandbox's access to a chosen or dropped file is tied to that URL.
+    /// given: the sandbox's access to a chosen or dropped file is tied to that URL. Ignored
+    /// while a job runs.
     func open(_ url: URL) {
+        guard job?.isRunning != true else { return }
+        releaseFileAccess()
+        // A file importer's URL is security-scoped; a dropped one is not, and returns false.
+        if url.startAccessingSecurityScopedResource() { scopedURL = url }
         start(url, speakers: speakerRequest)
+    }
+
+    /// A dropped item that did not give a file URL.
+    func refuseDrop() {
+        notice = Notice.unreadableDrop
     }
 
     /// Runs the same file again without the speaker pass, after that pass failed.
@@ -122,10 +173,11 @@ final class FileTranscriptionModel {
     private func start(_ url: URL, speakers: SpeakerRequest) {
         guard job?.isRunning != true else { return }
         notice = nil
-        let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
+        let language = defaults.string(forKey: AppSettings.selectedLanguageKey)
         let job = FileTranscriptionJob(
             url: url, language: language, speakers: speakers,
-            transcriber: transcriber, dictation: dictation, speakerProvider: diarization)
+            transcriber: transcriber, dictation: dictation, speakerProvider: diarization,
+            openSource: openSource, pollInterval: pollInterval)
         self.job = job
         job.start()
     }
@@ -134,11 +186,26 @@ final class FileTranscriptionModel {
         job?.cancel()
     }
 
-    /// Back to the drop zone; the transcript is gone.
+    /// Back to the drop zone; the transcript is gone. Ignored while a job runs.
     func reset() {
         guard job?.isRunning != true else { return }
         job = nil
         notice = nil
+        releaseFileAccess()
+    }
+
+    /// Back to the drop zone at once, stopping a running job. The job finishes its chunk in
+    /// flight on its own and then ends; nothing of it reaches the window again.
+    func discard() {
+        job?.cancel()
+        job = nil
+        notice = nil
+        releaseFileAccess()
+    }
+
+    private func releaseFileAccess() {
+        scopedURL?.stopAccessingSecurityScopedResource()
+        scopedURL = nil
     }
 
     func copy() {
@@ -156,18 +223,20 @@ final class FileTranscriptionModel {
         do {
             try job.text.write(to: destination, atomically: true, encoding: .utf8)
         } catch {
-            notice = "Couldn't save the transcript: \(error.localizedDescription)"
+            notice = Notice.saveFailed(error.localizedDescription)
         }
     }
 
-    private func prepareSpeakerModels() {
-        guard !diarization.isReady else { return }
+    /// Fetches the speaker models when speakers are on and the models are not ready, so the
+    /// download happens here, with its own progress and failure, rather than inside a job.
+    func prepareSpeakerModelsIfNeeded() {
+        guard identifySpeakers, !diarization.isReady, diarization.downloadProgress == nil else { return }
         notice = nil
         Task {
             do {
                 try await diarization.prepare()
             } catch {
-                notice = "Couldn't download the speaker model. Check your connection and try again"
+                notice = Notice.speakerDownloadFailed
                 identifySpeakers = false
             }
         }

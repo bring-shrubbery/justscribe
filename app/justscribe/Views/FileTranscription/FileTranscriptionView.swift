@@ -27,6 +27,8 @@ struct FileTranscriptionView: View {
 
     @State private var isChoosingFile = false
     @State private var isDropTargeted = false
+    /// Whether the transcript is scrolled to (or near) its end; only then does it follow new text.
+    @State private var isAtTranscriptEnd = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -40,11 +42,7 @@ struct FileTranscriptionView: View {
         .frame(minWidth: 480, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(nsColor: .windowBackgroundColor))
         .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.audio, .movie]) { result in
-            guard case .success(let url) = result else { return }
-            // The importer's URL is security-scoped. Access is never given back: the job may
-            // read the file until it ends, and the grant lasts only as long as the process.
-            _ = url.startAccessingSecurityScopedResource()
-            model.open(url)
+            if case .success(let url) = result { model.open(url) }
         }
     }
 
@@ -73,8 +71,9 @@ struct FileTranscriptionView: View {
                 guard model.hasModel, let provider = providers.first else { return false }
                 // The dropped file's URL as the drag gave it, which the sandbox has granted.
                 _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    guard let url else { return }
-                    Task { @MainActor in model.open(url) }
+                    Task { @MainActor in
+                        if let url { model.open(url) } else { model.refuseDrop() }
+                    }
                 }
                 return true
             }
@@ -122,7 +121,7 @@ struct FileTranscriptionView: View {
                     TextField("Detect", text: $model.speakerCountText)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 70)
-                    Text("Leave empty to detect, or enter 1 to 10.")
+                    Text(FileTranscriptionModel.speakerCountHint(for: model.speakerCountText))
                         .font(.caption).foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -192,8 +191,13 @@ struct FileTranscriptionView: View {
             .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: .separatorColor)))
             .clipShape(RoundedRectangle(cornerRadius: 8))
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.visibleRect.maxY >= geometry.contentSize.height - 40
+            } action: { _, isAtEnd in
+                isAtTranscriptEnd = isAtEnd
+            }
             .onChange(of: job.paragraphs.last?.text) {
-                if job.isRunning { proxy.scrollTo("end", anchor: .bottom) }
+                if job.isRunning, isAtTranscriptEnd { proxy.scrollTo("end", anchor: .bottom) }
             }
         }
     }

@@ -361,6 +361,19 @@ struct FileTranscriptionJobTests {
         #expect(finished.phase == .finished)
     }
 
+    @Test func aCancelRightAfterStartIsNotLost() async {
+        let transcriber = FakeTranscriber()
+        let job = makeJob(seconds: 7, transcriber: transcriber)
+        job.start()
+        job.cancel()
+        #expect(job.isCancelling)
+        #expect(job.isRunning)
+        #expect(await waitUntil { !job.isRunning })
+        #expect(job.phase == .cancelled)
+        #expect(transcriber.calls == 0)
+        #expect(!job.isCancelling)
+    }
+
     @Test func runningAFinishedJobAgainChangesNothing() async {
         let transcriber = FakeTranscriber()
         let job = makeJob(seconds: 7, transcriber: transcriber)

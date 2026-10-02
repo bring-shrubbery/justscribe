@@ -22,8 +22,198 @@ import Foundation
 import Testing
 @testable import justscribe
 
+/// Seven seconds of steady tone: one chunk.
+private final class ShortSource: FileAudioSource, @unchecked Sendable {
+    let duration = 7.0
+    private var remaining = 7
+    func next() async throws -> [Float]? {
+        guard remaining > 0 else { return nil }
+        remaining -= 1
+        return (0..<16_000).map { $0 % 2 == 0 ? 0.5 : -0.5 }
+    }
+}
+
+@MainActor
+private final class FakeTranscriber: TimedTranscribing {
+    var isModelLoaded = true
+    var modelGeneration = 1
+    var calls = 0
+    func transcribeTimed(_ buffer: [Float], language: String?) async throws -> [TimedWord] {
+        calls += 1
+        return [TimedWord(text: " hello.", start: 1, end: 2)]
+    }
+}
+
+@MainActor
+private final class FakeDictation: DictationActivity {
+    var isDictating = false
+}
+
+@MainActor
+private final class FakeSpeakerModels: SpeakerModelProviding {
+    var isReady = true
+    var downloadProgress: Double?
+    var prepareCalls = 0
+    var prepareError: Error?
+    var turnsCalls = 0
+    var turnsError: Error?
+    struct Boom: Error {}
+
+    func prepare() async throws {
+        prepareCalls += 1
+        if let prepareError { throw prepareError }
+        isReady = true
+    }
+
+    func turns(for url: URL, speakerCount: Int?) async throws -> [SpeakerTurn] {
+        turnsCalls += 1
+        if let turnsError { throw turnsError }
+        return []
+    }
+}
+
 @MainActor
 struct FileTranscriptionModelTests {
+    private let url = URL(fileURLWithPath: "/tmp/interview.m4a")
+    private let transcriber = FakeTranscriber()
+    private let dictation = FakeDictation()
+    private let speakers = FakeSpeakerModels()
+    /// A throwaway domain: the test host shares the app's bundle ID and so its defaults.
+    private let defaults = UserDefaults(suiteName: "FileTranscriptionModelTests.\(UUID().uuidString)")!
+
+    private func makeModel() -> FileTranscriptionModel {
+        FileTranscriptionModel(
+            transcriber: transcriber, dictation: dictation, diarization: speakers, defaults: defaults,
+            openSource: { _ in ShortSource() }, pollInterval: .milliseconds(5))
+    }
+
+    /// Polls until `condition` holds or two seconds pass; false on timeout.
+    private func waitUntil(_ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !condition() {
+            if ContinuousClock.now > deadline { return false }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        return true
+    }
+
+    // MARK: - Jobs
+
+    @Test func openingWhileAJobRunsIsIgnored() async {
+        dictation.isDictating = true
+        let model = makeModel()
+        model.open(url)
+        let first = model.job
+        #expect(await waitUntil { first?.phase == .pausedForDictation(0) })
+        model.open(URL(fileURLWithPath: "/tmp/other.m4a"))
+        #expect(model.job === first)
+        dictation.isDictating = false
+        #expect(await waitUntil { first?.phase == .finished })
+    }
+
+    @Test func resetWaitsForTheJobToEnd() async {
+        dictation.isDictating = true
+        let model = makeModel()
+        model.open(url)
+        let job = model.job
+        #expect(await waitUntil { job?.phase == .pausedForDictation(0) })
+        model.reset()
+        #expect(model.job === job)
+        dictation.isDictating = false
+        #expect(await waitUntil { job?.phase == .finished })
+        model.reset()
+        #expect(model.job == nil)
+    }
+
+    @Test func discardDropsARunningJobAtOnceAndTheJobEndsCancelled() async {
+        dictation.isDictating = true
+        let model = makeModel()
+        model.open(url)
+        let job = model.job
+        #expect(await waitUntil { job?.phase == .pausedForDictation(0) })
+        model.discard()
+        #expect(model.job == nil)
+        #expect(await waitUntil { job?.phase == .cancelled })
+        #expect(transcriber.calls == 0)
+    }
+
+    @Test func discardRightAfterOpenStillStopsTheJob() async {
+        let model = makeModel()
+        model.open(url)
+        let job = model.job
+        model.discard()
+        #expect(model.job == nil)
+        #expect(await waitUntil { job?.phase == .cancelled })
+        #expect(transcriber.calls == 0)
+    }
+
+    @Test func retryingWithoutSpeakersRunsTheSameFileWithNoSpeakerPass() async {
+        speakers.turnsError = FakeSpeakerModels.Boom()
+        let model = makeModel()
+        model.identifySpeakers = true
+        model.open(url)
+        let failed = model.job
+        #expect(await waitUntil { failed?.phase == .failed(FileTranscriptionJob.Message.speakersFailed) })
+        #expect(speakers.turnsCalls == 1)
+
+        model.retryWithoutSpeakers()
+        let retry = model.job
+        #expect(retry !== failed)
+        #expect(retry?.url == url)
+        #expect(await waitUntil { retry?.phase == .finished })
+        #expect(speakers.turnsCalls == 1)
+        #expect(transcriber.calls == 1)
+    }
+
+    // MARK: - Speaker models
+
+    @Test func aFailedDownloadSaysSoAndTurnsSpeakersOff() async {
+        speakers.isReady = false
+        speakers.prepareError = FakeSpeakerModels.Boom()
+        let model = makeModel()
+        model.identifySpeakers = true
+        #expect(await waitUntil { model.notice != nil })
+        #expect(model.notice == FileTranscriptionModel.Notice.speakerDownloadFailed)
+        #expect(!model.identifySpeakers)
+        #expect(!defaults.bool(forKey: FileTranscriptionModel.identifySpeakersKey))
+    }
+
+    @Test func speakersAlreadyOnFetchTheModelsWhenTheModelIsMade() async {
+        defaults.set(true, forKey: FileTranscriptionModel.identifySpeakersKey)
+        speakers.isReady = false
+        let model = makeModel()
+        #expect(model.identifySpeakers)
+        #expect(await waitUntil { speakers.prepareCalls == 1 })
+        model.prepareSpeakerModelsIfNeeded()
+        try? await Task.sleep(for: .milliseconds(20))
+        #expect(speakers.prepareCalls == 1)
+    }
+
+    @Test func readyOrSwitchedOffSpeakerModelsAreNotFetched() async {
+        let model = makeModel()
+        model.prepareSpeakerModelsIfNeeded()
+        speakers.isReady = true
+        model.identifySpeakers = true
+        try? await Task.sleep(for: .milliseconds(20))
+        #expect(speakers.prepareCalls == 0)
+    }
+
+    @Test func anUnreadableDropSaysSo() {
+        let model = makeModel()
+        model.refuseDrop()
+        #expect(model.notice == FileTranscriptionModel.Notice.unreadableDrop)
+    }
+
+    @Test func theCountHintFlagsACountThatWillBeIgnored() {
+        for text in ["", "  ", "1", " 10 "] {
+            #expect(FileTranscriptionModel.speakerCountHint(for: text) == FileTranscriptionModel.SpeakerCountHint.normal)
+        }
+        for text in ["0", "11", "-2", "two", "2.5"] {
+            #expect(FileTranscriptionModel.speakerCountHint(for: text) == FileTranscriptionModel.SpeakerCountHint.invalid)
+        }
+    }
+
+    // MARK: - Pure rules
 
     @Test func speakersOffMeansNoSpeakerPass() {
         #expect(FileTranscriptionModel.speakerRequest(identify: false, countText: "3") == .none)

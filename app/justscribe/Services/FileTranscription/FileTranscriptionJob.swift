@@ -72,8 +72,8 @@ final class FileTranscriptionJob {
     private(set) var isDurationKnown = false
     var text: String { TranscriptBuilder.text(paragraphs) }
 
-    /// From the moment `run()` begins (opening the file included) until a final phase.
-    var isRunning: Bool { hasStarted && !isFinal }
+    /// From `start()` (or `run()`, called directly) until a final phase.
+    var isRunning: Bool { (hasStarted || task != nil) && !isFinal }
 
     private var isFinal: Bool {
         switch phase {
@@ -119,6 +119,7 @@ final class FileTranscriptionJob {
     }
 
     /// Stops after the chunk in flight; the text so far stays. Does nothing unless running.
+    /// A cancel between `start()` and the task's first turn ends the run before it opens the file.
     func cancel() {
         guard isRunning else { return }
         isCancelling = true
@@ -127,6 +128,10 @@ final class FileTranscriptionJob {
     func run() async {
         guard phase == .idle, !hasStarted else { return }
         hasStarted = true
+        if shouldStop {
+            phase = .cancelled
+            return
+        }
         guard transcriber.isModelLoaded else {
             phase = .failed(Message.noModel)
             return
