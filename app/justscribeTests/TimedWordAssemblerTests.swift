@@ -57,7 +57,31 @@ struct TimedWordAssemblerTests {
         #expect(words.map(\.text) == [" a", " b"])
     }
 
+    @Test func aChunkStartingWithPunctuationGetsNoLeadingSpace() {
+        let words = TimedWordAssembler.words(fromTokens: [token(",", 0, 0.1), token(" and", 0.2, 0.4)])
+        #expect(words == [token(",", 0, 0.1), token(" and", 0.2, 0.4)])
+        #expect(TimedWordAssembler.words(fromTokens: [token("...", 0, 0.1)]).map(\.text) == ["..."])
+    }
+
     // MARK: - Padding short audio
+
+    @Test func theMinimumsAreOneSecondForParakeetAndTwoForWhisper() {
+        #expect(TimedWordAssembler.parakeetMinimumSamples == 16_000)
+        #expect(TimedWordAssembler.whisperMinimumSamples == 32_000)
+    }
+
+    @Test func aOneSecondBufferIsPaddedToTwoSecondsForWhisper() {
+        let oneSecond = [Float](repeating: 0.1, count: 16_000)
+        let padded = TimedWordAssembler.paddedToMinimum(oneSecond, minimum: TimedWordAssembler.whisperMinimumSamples)
+        #expect(padded.count == 32_000)
+        #expect(Array(padded.prefix(16_000)) == oneSecond)
+        #expect(padded.dropFirst(16_000).allSatisfy { $0 == 0 })
+    }
+
+    @Test func aBufferOverTwoSecondsIsUnchangedForWhisper() {
+        let longer = [Float](repeating: 0.2, count: 40_000)
+        #expect(TimedWordAssembler.paddedToMinimum(longer, minimum: TimedWordAssembler.whisperMinimumSamples) == longer)
+    }
 
     @Test func aShortBufferIsPaddedWithZerosToOneSecond() {
         let padded = TimedWordAssembler.paddedToMinimum([0.5, -0.25, 0.75])

@@ -406,7 +406,10 @@ final class TranscriptionService {
                 if let language, !language.isEmpty { options.language = language }
                 options.wordTimestamps = true
                 options.skipSpecialTokens = true
-                let results = try await whisperKit.transcribe(audioArray: buffer, decodeOptions: options)
+                // Whisper silently decodes nothing from a second or less, and a file's last chunk
+                // can be that short.
+                let padded = TimedWordAssembler.paddedToMinimum(buffer, minimum: TimedWordAssembler.whisperMinimumSamples)
+                let results = try await whisperKit.transcribe(audioArray: padded, decodeOptions: options)
                 return results.flatMap(\.segments).flatMap { segment -> [TimedWord] in
                     if let words = segment.words, !words.isEmpty {
                         return words.map { TimedWord(text: $0.word, start: Double($0.start), end: Double($0.end)) }
@@ -417,7 +420,7 @@ final class TranscriptionService {
             case .fluidAudio:
                 guard let asrManager else { throw TranscriptionError.modelNotLoaded }
                 // Parakeet rejects audio under 0.3 s, and a file's last chunk can be shorter.
-                let padded = TimedWordAssembler.paddedToMinimum(buffer)
+                let padded = TimedWordAssembler.paddedToMinimum(buffer, minimum: TimedWordAssembler.parakeetMinimumSamples)
                 var decoderState = try TdtDecoderState()
                 let result = try await asrManager.transcribe(padded, decoderState: &decoderState)
                 if let timings = result.tokenTimings, !timings.isEmpty {

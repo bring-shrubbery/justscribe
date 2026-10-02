@@ -30,7 +30,9 @@ nonisolated enum TimedWordAssembler {
             let text = token.text.replacingOccurrences(of: "▁", with: " ")
             if text.isEmpty { continue }
             if text.hasPrefix(" ") || words.isEmpty {
-                words.append(TimedWord(text: text.hasPrefix(" ") ? text : " " + text, start: token.start, end: token.end))
+                // A chunk's first word gets a space before it, except punctuation ("word ,").
+                let needsSpace = !text.hasPrefix(" ") && !text.allSatisfy(\.isPunctuation)
+                words.append(TimedWord(text: needsSpace ? " " + text : text, start: token.start, end: token.end))
             } else {
                 words[words.count - 1].text += text
                 words[words.count - 1].end = token.end
@@ -39,10 +41,15 @@ nonisolated enum TimedWordAssembler {
         return words
     }
 
-    /// Pads `samples` with trailing silence up to `minimum` samples. Parakeet rejects audio
-    /// under 0.3 s, and a file's last chunk can be that short; silence at the end does not
-    /// move the times of the words before it.
-    static func paddedToMinimum(_ samples: [Float], minimum: Int = 16_000) -> [Float] {
+    /// One second: Parakeet rejects audio under 0.3 s.
+    static let parakeetMinimumSamples = 16_000
+    /// Two seconds: Whisper decodes nothing, and reports no error, for one second or less.
+    static let whisperMinimumSamples = 32_000
+
+    /// Pads `samples` with trailing silence up to `minimum` samples, as a file's last chunk
+    /// can be too short for the model; silence at the end does not move the times of the
+    /// words before it.
+    static func paddedToMinimum(_ samples: [Float], minimum: Int = parakeetMinimumSamples) -> [Float] {
         guard samples.count < minimum else { return samples }
         return samples + [Float](repeating: 0, count: minimum - samples.count)
     }
