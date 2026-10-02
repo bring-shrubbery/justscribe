@@ -23,19 +23,30 @@ unauthenticated rate limit; Workers Builds share egress addresses, so set it the
 
 ## Deploy (Cloudflare Workers Builds)
 
-One-time setup in the Cloudflare dashboard:
+The Worker `justscribe-web` exists (account Quassum MB) and was first deployed by hand on
+2026-10-02. To deploy by hand again, for example after a release while the deploy hook is not
+set up:
 
-1. **Workers & Pages → Create → Import a repository** → `bring-shrubbery/justscribe`.
-   Name the Worker `justscribe-web` — it must match `name` in `wrangler.jsonc`, or
+```sh
+cd web
+npx wrangler login     # once per machine
+npm run build && npx wrangler deploy
+```
+
+The custom domain is part of `wrangler.jsonc` (`routes`), so a deploy creates the DNS record
+and certificate itself; the `quassum.com` zone must be on the same account.
+
+To have Cloudflare build the site on its own, connect the repository once in the dashboard:
+
+1. **Workers & Pages → `justscribe-web` → Settings → Builds → Connect** →
+   `bring-shrubbery/justscribe`. The Worker's name must match `name` in `wrangler.jsonc`, or
    Cloudflare's autofix opens a pull request to rename it.
 2. Build configuration: root directory `web`, build command `npm run build`, deploy command
    `npx wrangler deploy`, production branch `main`. Leave non-production branch builds off.
    Under *Build watch paths*, include `web/*` so pushes that do not touch the site skip the
    build.
 3. Optionally add a build environment variable `GITHUB_TOKEN` (see above).
-4. **Settings → Domains & Routes → Add → Custom domain** → `justscribe.quassum.com`
-   (the `quassum.com` zone must be on this account).
-5. **Settings → Builds → Deploy Hooks → Create** for branch `main`, then in the repository:
+4. **Settings → Builds → Deploy Hooks → Create** for branch `main`, then in the repository:
    `gh secret set CF_DEPLOY_HOOK_URL` and paste the hook URL. The release workflow POSTs it
    after every app release so the download button shows the new version.
 

@@ -4,5 +4,7 @@
   "compatibility_date": "2026-10-01",
   // The site is served at the custom domain only; a deploy would otherwise re-enable workers.dev.
   "workers_dev": false,
+  // The Worker owns the hostname: a deploy creates the DNS record and certificate in the quassum.com zone.
+  "routes": [{ "pattern": "justscribe.quassum.com", "custom_domain": true }],
   "assets": { "directory": "./dist", "not_found_handling": "404-page" }
 }
