@@ -148,7 +148,8 @@ final class FileTranscriptionJob {
         do {
             source = try await openSource(url)
         } catch let error as AudioFileError {
-            phase = .failed(error.message)
+            // A discard releases the file's access, so a pending cancel can surface as an error.
+            phase = shouldStop ? .cancelled : .failed(error.message)
             return
         } catch {
             phase = shouldStop ? .cancelled : .failed(AudioFileError.notReadable.message)
@@ -163,6 +164,8 @@ final class FileTranscriptionJob {
 
         var turns: [SpeakerTurn] = []
         if speakers != .none {
+            // The pass cannot pause once started, so it does not start during a dictation.
+            guard await waitWhileDictating(fraction: 0) else { return }
             phase = .identifyingSpeakers
             do {
                 let count: Int? = if case .exactly(let number) = speakers { number } else { nil }
@@ -192,14 +195,7 @@ final class FileTranscriptionJob {
 
         /// Transcribes one chunk; false when the job has ended (its phase says why).
         func transcribe(_ chunk: AudioChunk) async -> Bool {
-            while dictation.isDictating, !shouldStop {
-                phase = .pausedForDictation(fraction)
-                try? await Task.sleep(for: pollInterval)
-            }
-            if shouldStop {
-                phase = .cancelled
-                return false
-            }
+            guard await waitWhileDictating(fraction: fraction) else { return false }
             guard !modelChanged else {
                 phase = .failed(Message.modelChanged)
                 return false
@@ -242,7 +238,7 @@ final class FileTranscriptionJob {
                 }
             }
         } catch let error as AudioFileError {
-            phase = .failed(error.message)
+            phase = shouldStop ? .cancelled : .failed(error.message)
             return
         } catch {
             phase = shouldStop ? .cancelled : .failed(AudioFileError.notReadable.message)
@@ -252,6 +248,21 @@ final class FileTranscriptionJob {
             guard await transcribe(last) else { return }
         }
         phase = paragraphs.isEmpty ? .failed(Message.noSpeech) : .finished
+    }
+
+    /// Waits while dictation is active; false when the job was stopped meanwhile, which ends
+    /// it as cancelled.
+    private func waitWhileDictating(fraction: Double) async -> Bool {
+        while dictation.isDictating, !shouldStop {
+            // Set only on a change: the view is invalidated by every assignment.
+            if phase != .pausedForDictation(fraction) { phase = .pausedForDictation(fraction) }
+            try? await Task.sleep(for: pollInterval)
+        }
+        if shouldStop {
+            phase = .cancelled
+            return false
+        }
+        return true
     }
 
     @concurrent

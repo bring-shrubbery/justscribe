@@ -45,6 +45,26 @@ private final class FakeSource: FileAudioSource, @unchecked Sendable {
     }
 }
 
+/// A file that cannot be read: it runs `beforeThrowing` on the main actor, then throws.
+private final class UnreadableSource: FileAudioSource, @unchecked Sendable {
+    let duration = 7.0
+    private let beforeThrowing: @MainActor @Sendable () -> Void
+    init(beforeThrowing: @escaping @MainActor @Sendable () -> Void) {
+        self.beforeThrowing = beforeThrowing
+    }
+    func next() async throws -> [Float]? {
+        await beforeThrowing()
+        throw AudioFileError.notReadable
+    }
+}
+
+/// Lets a source or an opener reach the job it was made for.
+@MainActor
+private final class JobBox {
+    var job: FileTranscriptionJob?
+    func cancel() { job?.cancel() }
+}
+
 @MainActor
 private final class FakeTranscriber: TimedTranscribing {
     var isModelLoaded = true
@@ -325,6 +345,56 @@ struct FileTranscriptionJobTests {
         #expect(job.phase == .failed(AudioFileError.notReadable.message))
         #expect(transcriber.calls == 1)
         #expect(job.paragraphs.count == 1)
+    }
+
+    @Test func aReadErrorDuringAPendingCancelEndsCancelled() async {
+        let box = JobBox()
+        let job = makeJob(seconds: 0, open: { _ in UnreadableSource { box.cancel() } })
+        box.job = job
+        await job.run()
+        #expect(job.phase == .cancelled)
+    }
+
+    @Test func anOpenErrorDuringAPendingCancelEndsCancelled() async {
+        let box = JobBox()
+        let job = makeJob(seconds: 0, open: { _ in
+            await box.cancel()
+            throw AudioFileError.notReadable
+        })
+        box.job = job
+        await job.run()
+        #expect(job.phase == .cancelled)
+    }
+
+    @Test func theSpeakerPassWaitsForDictationToEnd() async {
+        let transcriber = FakeTranscriber()
+        let dictation = FakeDictation()
+        dictation.isDictating = true
+        let provider = FakeSpeakers()
+        let job = makeJob(seconds: 7, speakers: .detect, transcriber: transcriber, dictation: dictation, provider: provider)
+        let running = Task { await job.run() }
+        #expect(await waitUntil { job.phase == .pausedForDictation(0) })
+        #expect(provider.requested == nil)
+        dictation.isDictating = false
+        await running.value
+        #expect(provider.requested == .some(nil))
+        #expect(transcriber.calls == 1)
+        #expect(job.phase == .finished)
+    }
+
+    @Test func cancellingWhileTheSpeakerPassWaitsForDictationSkipsThePass() async {
+        let transcriber = FakeTranscriber()
+        let dictation = FakeDictation()
+        dictation.isDictating = true
+        let provider = FakeSpeakers()
+        let job = makeJob(seconds: 7, speakers: .detect, transcriber: transcriber, dictation: dictation, provider: provider)
+        let running = Task { await job.run() }
+        #expect(await waitUntil { job.phase == .pausedForDictation(0) })
+        job.cancel()
+        await running.value
+        #expect(job.phase == .cancelled)
+        #expect(provider.requested == nil)
+        #expect(transcriber.calls == 0)
     }
 
     @Test func theModelUnloadedDuringAPauseSaysTheModelChanged() async {
