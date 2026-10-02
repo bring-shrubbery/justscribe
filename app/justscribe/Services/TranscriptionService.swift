@@ -50,6 +50,12 @@ final class TranscriptionService {
     private var isStreamingActive = false
     private(set) var currentStreamingText: String = ""
 
+    /// Counts every model load and unload, so a long-running caller can tell the model changed.
+    private(set) var modelGeneration = 0
+
+    /// Serialises every use of the speech model (dictation and file chunks).
+    private let gate = InferenceGate()
+
     enum TranscriptionState: Equatable {
         case idle
         case loadingModel
@@ -150,6 +156,7 @@ final class TranscriptionService {
     }
 
     func unloadModel() {
+        modelGeneration += 1
         whisperKit = nil
         asrManager = nil
         asrModels = nil
@@ -341,37 +348,80 @@ final class TranscriptionService {
     }
 
     private func transcribeWithWhisperKit(buffer: [Float], language: String?) async throws -> String {
-        guard let whisperKit = whisperKit else {
-            throw TranscriptionError.modelNotLoaded
-        }
+        try await gate.run {
+            guard let whisperKit = whisperKit else {
+                throw TranscriptionError.modelNotLoaded
+            }
 
-        var options = DecodingOptions()
-        if let language = language, !language.isEmpty {
-            options.language = language
-        }
+            var options = DecodingOptions()
+            if let language = language, !language.isEmpty {
+                options.language = language
+            }
 
-        let results = try await whisperKit.transcribe(audioArray: buffer, decodeOptions: options)
-        return results.map { $0.text }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            let results = try await whisperKit.transcribe(audioArray: buffer, decodeOptions: options)
+            return results.map { $0.text }.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
     }
 
     private func transcribeWithFluidAudio(buffer: [Float]) async throws -> String {
-        guard let asrManager = asrManager else {
-            throw TranscriptionError.modelNotLoaded
+        try await gate.run {
+            guard let asrManager = asrManager else {
+                throw TranscriptionError.modelNotLoaded
+            }
+
+            print("FluidAudio transcribe - buffer size: \(buffer.count), duration: \(Double(buffer.count) / 16000.0)s")
+
+            // Check audio levels
+            let maxLevel = buffer.max() ?? 0
+            let minLevel = buffer.min() ?? 0
+            let rms = sqrt(buffer.map { $0 * $0 }.reduce(0, +) / Float(max(buffer.count, 1)))
+            print("FluidAudio audio levels - max: \(maxLevel), min: \(minLevel), RMS: \(rms)")
+
+            var decoderState = try TdtDecoderState()
+            let result = try await asrManager.transcribe(buffer, decoderState: &decoderState)
+            print("FluidAudio raw result text: '\(result.text)'")
+
+            return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+    }
 
-        print("FluidAudio transcribe - buffer size: \(buffer.count), duration: \(Double(buffer.count) / 16000.0)s")
+    // MARK: - Timed transcription (file transcription)
 
-        // Check audio levels
-        let maxLevel = buffer.max() ?? 0
-        let minLevel = buffer.min() ?? 0
-        let rms = sqrt(buffer.map { $0 * $0 }.reduce(0, +) / Float(max(buffer.count, 1)))
-        print("FluidAudio audio levels - max: \(maxLevel), min: \(minLevel), RMS: \(rms)")
-
-        var decoderState = try TdtDecoderState()
-        let result = try await asrManager.transcribe(buffer, decoderState: &decoderState)
-        print("FluidAudio raw result text: '\(result.text)'")
-
-        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Transcribes `buffer` and returns its words with times relative to the buffer's start.
+    /// Unlike the dictation paths it leaves `state` and `currentTranscription` alone.
+    func transcribeTimed(_ buffer: [Float], language: String?) async throws -> [TimedWord] {
+        try await gate.run {
+            switch loadedProvider {
+            case .whisperKit:
+                guard let whisperKit else { throw TranscriptionError.modelNotLoaded }
+                var options = DecodingOptions()
+                if let language, !language.isEmpty { options.language = language }
+                options.wordTimestamps = true
+                options.skipSpecialTokens = true
+                let results = try await whisperKit.transcribe(audioArray: buffer, decodeOptions: options)
+                return results.flatMap(\.segments).flatMap { segment -> [TimedWord] in
+                    if let words = segment.words, !words.isEmpty {
+                        return words.map { TimedWord(text: $0.word, start: Double($0.start), end: Double($0.end)) }
+                    }
+                    let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return text.isEmpty ? [] : [TimedWord(text: " " + text, start: Double(segment.start), end: Double(segment.end))]
+                }
+            case .fluidAudio:
+                guard let asrManager else { throw TranscriptionError.modelNotLoaded }
+                // Parakeet rejects audio under 0.3 s, and a file's last chunk can be shorter.
+                let padded = TimedWordAssembler.paddedToMinimum(buffer)
+                var decoderState = try TdtDecoderState()
+                let result = try await asrManager.transcribe(padded, decoderState: &decoderState)
+                if let timings = result.tokenTimings, !timings.isEmpty {
+                    return TimedWordAssembler.words(
+                        fromTokens: timings.map { TimedWord(text: $0.token, start: $0.startTime, end: $0.endTime) })
+                }
+                let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                return text.isEmpty ? [] : [TimedWord(text: " " + text, start: 0, end: Double(buffer.count) / 16_000)]
+            case nil:
+                throw TranscriptionError.modelNotLoaded
+            }
+        }
     }
 
     // MARK: - Model Info
@@ -409,3 +459,12 @@ final class TranscriptionService {
         }
     }
 }
+
+/// What a file job needs from the speech model; a protocol so tests can stand in for it.
+protocol TimedTranscribing: AnyObject {
+    var isModelLoaded: Bool { get }
+    var modelGeneration: Int { get }
+    func transcribeTimed(_ buffer: [Float], language: String?) async throws -> [TimedWord]
+}
+
+extension TranscriptionService: TimedTranscribing {}
