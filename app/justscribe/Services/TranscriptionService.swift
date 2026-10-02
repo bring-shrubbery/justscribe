@@ -240,10 +240,15 @@ final class TranscriptionService {
             var lastProcessedSampleCount = 0
             print("Streaming task started")
 
-            while await self?.isStreamingActive == true {
+            // A cancelled task stops even if a newer session has set `isStreamingActive` again.
+            while !Task.isCancelled, await self?.isStreamingActive == true {
                 print("Streaming loop iteration, waiting \(chunkInterval)s...")
                 // Wait for the chunk interval
-                try? await Task.sleep(for: .seconds(chunkInterval))
+                do {
+                    try await Task.sleep(for: .seconds(chunkInterval))
+                } catch {
+                    break
+                }
 
                 guard await self?.isStreamingActive == true else {
                     print("Streaming no longer active, breaking loop")
@@ -280,6 +285,9 @@ final class TranscriptionService {
                     }
 
                     lastProcessedSampleCount = audioBuffer.count
+                } catch is CancellationError {
+                    // Cancelled while waiting for the model (see `InferenceGate`).
+                    break
                 } catch {
                     print("Streaming transcription error: \(error)")
                 }
