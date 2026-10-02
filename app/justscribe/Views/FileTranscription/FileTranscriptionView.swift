@@ -44,6 +44,16 @@ struct FileTranscriptionView: View {
         .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.audio, .movie]) { result in
             if case .success(let url) = result { model.open(url) }
         }
+        // A new job starts at the top of an empty transcript, so it follows new text.
+        .onChange(of: model.job.map { ObjectIdentifier($0) }) {
+            isAtTranscriptEnd = true
+        }
+    }
+
+    /// Whether a file can be started: a model is loaded and the speaker model is not still
+    /// downloading, which a job would otherwise wait on under "Identifying speakers…".
+    private var canStart: Bool {
+        model.hasModel && model.diarization.downloadProgress == nil
     }
 
     // MARK: - Before a file is chosen
@@ -58,7 +68,7 @@ struct FileTranscriptionView: View {
                     .font(.headline)
                 Button("Choose File…") { isChoosingFile = true }
                     .buttonStyle(.pill)
-                    .disabled(!model.hasModel)
+                    .disabled(!canStart)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
@@ -68,7 +78,7 @@ struct FileTranscriptionView: View {
                         style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
             )
             .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-                guard model.hasModel, let provider = providers.first else { return false }
+                guard canStart, let provider = providers.first else { return false }
                 // The dropped file's URL as the drag gave it, which the sandbox has granted.
                 _ = provider.loadObject(ofClass: URL.self) { url, _ in
                     Task { @MainActor in

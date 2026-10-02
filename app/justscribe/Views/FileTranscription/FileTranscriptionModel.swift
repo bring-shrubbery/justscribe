@@ -48,6 +48,7 @@ final class FileTranscriptionModel {
     nonisolated enum SpeakerCountHint {
         static let normal = "Leave empty to detect, or enter 1 to 10."
         static let invalid = "Not a number from 1 to 10 — speakers will be detected"
+        static let single = "One speaker — no labels are added"
     }
 
     /// What the status line under the file name shows.
@@ -101,20 +102,24 @@ final class FileTranscriptionModel {
     var hasModel: Bool { transcriber.isModelLoaded }
     var speakerRequest: SpeakerRequest { Self.speakerRequest(identify: identifySpeakers, countText: speakerCountText) }
 
+    /// One speaker means no pass: the transcript shows labels only for two or more.
     nonisolated static func speakerRequest(identify: Bool, countText: String) -> SpeakerRequest {
         guard identify else { return .none }
         if let count = Int(countText.trimmingCharacters(in: .whitespaces)), (1...10).contains(count) {
-            return .exactly(count)
+            return count == 1 ? .none : .exactly(count)
         }
         return .detect
     }
 
     /// The caption under the speaker count: a count that is neither empty nor 1…10 is
-    /// ignored, and says so.
+    /// ignored, and says so; a count of 1 adds no labels, and says so.
     nonisolated static func speakerCountHint(for countText: String) -> String {
-        let isBlank = countText.trimmingCharacters(in: .whitespaces).isEmpty
-        let isIgnored = !isBlank && speakerRequest(identify: true, countText: countText) == .detect
-        return isIgnored ? SpeakerCountHint.invalid : SpeakerCountHint.normal
+        guard !countText.trimmingCharacters(in: .whitespaces).isEmpty else { return SpeakerCountHint.normal }
+        switch speakerRequest(identify: true, countText: countText) {
+        case .none: return SpeakerCountHint.single
+        case .detect: return SpeakerCountHint.invalid
+        case .exactly: return SpeakerCountHint.normal
+        }
     }
 
     nonisolated static func saveName(for url: URL) -> String {

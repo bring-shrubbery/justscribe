@@ -72,14 +72,24 @@ private final class FakeSpeakerModels: SpeakerModelProviding {
     }
 }
 
+/// A class, so each test's throwaway defaults domain is removed when the test ends.
 @MainActor
-struct FileTranscriptionModelTests {
+final class FileTranscriptionModelTests {
     private let url = URL(fileURLWithPath: "/tmp/interview.m4a")
     private let transcriber = FakeTranscriber()
     private let dictation = FakeDictation()
     private let speakers = FakeSpeakerModels()
     /// A throwaway domain: the test host shares the app's bundle ID and so its defaults.
-    private let defaults = UserDefaults(suiteName: "FileTranscriptionModelTests.\(UUID().uuidString)")!
+    private let suiteName = "FileTranscriptionModelTests.\(UUID().uuidString)"
+    private let defaults: UserDefaults
+
+    init() {
+        defaults = UserDefaults(suiteName: suiteName)!
+    }
+
+    deinit {
+        defaults.removePersistentDomain(forName: suiteName)
+    }
 
     private func makeModel() -> FileTranscriptionModel {
         FileTranscriptionModel(
@@ -205,12 +215,19 @@ struct FileTranscriptionModelTests {
     }
 
     @Test func theCountHintFlagsACountThatWillBeIgnored() {
-        for text in ["", "  ", "1", " 10 "] {
+        for text in ["", "  ", "2", " 10 "] {
             #expect(FileTranscriptionModel.speakerCountHint(for: text) == FileTranscriptionModel.SpeakerCountHint.normal)
         }
         for text in ["0", "11", "-2", "two", "2.5"] {
             #expect(FileTranscriptionModel.speakerCountHint(for: text) == FileTranscriptionModel.SpeakerCountHint.invalid)
         }
+    }
+
+    @Test func theCountHintSaysOneSpeakerGetsNoLabels() {
+        for text in ["1", " 1 "] {
+            #expect(FileTranscriptionModel.speakerCountHint(for: text) == FileTranscriptionModel.SpeakerCountHint.single)
+        }
+        #expect(FileTranscriptionModel.SpeakerCountHint.single == "One speaker — no labels are added")
     }
 
     // MARK: - Pure rules
@@ -224,9 +241,14 @@ struct FileTranscriptionModelTests {
         #expect(FileTranscriptionModel.speakerRequest(identify: true, countText: "  ") == .detect)
     }
 
-    @Test func aCountFromOneToTenIsExact() {
-        #expect(FileTranscriptionModel.speakerRequest(identify: true, countText: "1") == .exactly(1))
+    @Test func aCountFromTwoToTenIsExact() {
+        #expect(FileTranscriptionModel.speakerRequest(identify: true, countText: "2") == .exactly(2))
         #expect(FileTranscriptionModel.speakerRequest(identify: true, countText: " 10 ") == .exactly(10))
+    }
+
+    @Test func aCountOfOneMeansNoSpeakerPass() {
+        #expect(FileTranscriptionModel.speakerRequest(identify: true, countText: "1") == .none)
+        #expect(FileTranscriptionModel.speakerRequest(identify: true, countText: " 1 ") == .none)
     }
 
     @Test func anythingElseFallsBackToDetect() {

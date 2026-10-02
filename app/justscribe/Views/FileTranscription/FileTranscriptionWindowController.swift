@@ -66,6 +66,9 @@ final class FileTranscriptionWindowController: NSObject, NSWindowDelegate {
         alert.addButton(withTitle: "Stop")
         alert.addButton(withTitle: "Keep Transcribing")
         guard alert.runModal() == .alertFirstButtonReturn else { return false }
+        // A job that ended while the alert was up has a final transcript the alert did not
+        // mean; keep the window open with it.
+        guard model.job?.isRunning == true else { return false }
         model.cancel()
         return true
     }
