@@ -127,5 +127,48 @@ struct TranscriptBuilderTests {
         #expect(partial.count == 2 && full.count == 2)
         #expect(partial[0] == full[0])
         #expect(partial[1].speaker == 2)   // labelled from the turns, though only speaker 1 had spoken before
+        #expect(partial[1].start == full[1].start)
+        #expect(full[1].text.hasPrefix(partial[1].text))
+    }
+
+    @Test func aTurnThatWinsNoWordsLeavesNoGapInTheNumbers() {
+        let turns = [
+            SpeakerTurn(speaker: "X", start: 0, end: 0.3),
+            SpeakerTurn(speaker: "A", start: 0.5, end: 4),
+            SpeakerTurn(speaker: "B", start: 4.5, end: 8),
+        ]
+        let result = TranscriptBuilder.paragraphs(
+            words: words([(" Hello", 1, 1.5), (" Hi", 5, 5.5)]), turns: turns)
+        #expect(result.map(\.speaker) == [1, 2])
+    }
+
+    @Test func aSentenceEndBeforeAClosingQuoteBreaksAfterSixtySeconds() {
+        let items = (0..<80).map { (($0 == 64) ? " end.\"" : " word", Double($0), Double($0) + 0.9) }
+        let result = TranscriptBuilder.paragraphs(words: words(items), turns: [])
+        #expect(result.count == 2)
+        #expect(result[1].start == 65)
+    }
+
+    @Test func anIdeographicFullStopBreaksAfterSixtySeconds() {
+        let items = (0..<80).map { (($0 == 64) ? "終わり。" : "言葉", Double($0), Double($0) + 0.9) }
+        let result = TranscriptBuilder.paragraphs(words: words(items), turns: [])
+        #expect(result.count == 2)
+        #expect(result[1].start == 65)
+    }
+
+    @Test func aPunctuationOnlyPieceStaysWithTheParagraphBeforeIt() {
+        let turns = [SpeakerTurn(speaker: "A", start: 0, end: 2), SpeakerTurn(speaker: "B", start: 2, end: 5)]
+        // The "." falls in B's turn, but belongs to A's sentence.
+        let result = TranscriptBuilder.paragraphs(
+            words: words([(" Hi", 0.5, 1.8), (".", 2.0, 2.1), (" Yes", 3, 3.5)]), turns: turns)
+        #expect(result == [
+            TranscriptParagraph(start: 0.5, speaker: 1, text: "Hi."),
+            TranscriptParagraph(start: 3, speaker: 2, text: "Yes"),
+        ])
+    }
+
+    @Test func aNonFiniteTimestampIsZero() {
+        #expect(TranscriptBuilder.timestamp(.nan) == "00:00:00")
+        #expect(TranscriptBuilder.timestamp(.infinity) == "00:00:00")
     }
 }

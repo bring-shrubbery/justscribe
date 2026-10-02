@@ -22,8 +22,13 @@ import Foundation
 
 /// Turns timed words and speaker turns into the paragraphs of a transcript. Pure: no models,
 /// no clock. Safe to call again with more words: paragraphs already produced do not change,
-/// except that the last one may grow, because speaker numbers come from the turns (which
-/// are complete before transcription starts), not from the words seen so far.
+/// except that the last one may grow.
+///
+/// Speaker labels are shown whenever the turns hold two or more speakers, even if every word
+/// so far went to one of them: the turns are complete before transcription starts, so the
+/// decision cannot flip while words stream in. Numbers are given in order of the first word
+/// each speaker is assigned, so a turn that wins no words leaves no gap, and numbers already
+/// given never change as words are appended.
 nonisolated enum TranscriptBuilder {
     /// A silence this long between two words starts a new paragraph.
     static let pauseBreak = 1.5
@@ -32,31 +37,41 @@ nonisolated enum TranscriptBuilder {
     /// A paragraph never runs longer than this.
     static let hardLimit = 90.0
 
+    private static let sentenceEnds: Set<Character> = [".", "?", "!", "。", "？", "！"]
+    /// Closing quotes and brackets that may follow a sentence end.
+    private static let closers: Set<Character> = ["\"", "'", "”", "’", ")", "]", "」", "』"]
+
     static func paragraphs(words: [TimedWord], turns: [SpeakerTurn]) -> [TranscriptParagraph] {
-        let numbers = speakerNumbers(turns)
-        let labelled = numbers.count >= 2
+        let labelled = Set(turns.map(\.speaker)).count >= 2
+        var numbers: [String: Int] = [:]
         var result: [TranscriptParagraph] = []
         var previous: TimedWord?
-        var previousSpeaker: Int?
 
         for word in words where !word.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let speaker = labelled ? speaker(for: word, in: turns).flatMap { numbers[$0] } : nil
-            var startsParagraph = result.isEmpty
-            if let previous, let current = result.last {
-                let length = previous.end - current.start
-                let endsSentence = previous.text.trimmingCharacters(in: .whitespaces).last.map { ".?!".contains($0) } ?? false
-                startsParagraph = speaker != previousSpeaker
-                    || word.start - previous.end >= pauseBreak
-                    || word.end - current.start > hardLimit
-                    || (length >= softLimit && endsSentence)
-            }
-            if startsParagraph {
-                result.append(TranscriptParagraph(start: word.start, speaker: speaker, text: word.text))
-            } else {
+            // Punctuation belongs to the words before it, whichever turn its time falls in.
+            if !result.isEmpty, isPunctuationOnly(word.text) {
                 result[result.count - 1].text += word.text
+            } else {
+                var speaker: Int?
+                if labelled, let label = diarizerLabel(for: word, in: turns) {
+                    speaker = numbers[label] ?? (numbers.count + 1)
+                    numbers[label] = speaker
+                }
+                var startsParagraph = result.isEmpty
+                if let previous, let current = result.last {
+                    let length = previous.end - current.start
+                    startsParagraph = speaker != current.speaker
+                        || word.start - previous.end >= pauseBreak
+                        || word.end - current.start > hardLimit
+                        || (length >= softLimit && endsSentence(previous.text))
+                }
+                if startsParagraph {
+                    result.append(TranscriptParagraph(start: word.start, speaker: speaker, text: word.text))
+                } else {
+                    result[result.count - 1].text += word.text
+                }
             }
             previous = word
-            previousSpeaker = speaker
         }
         return result.map { paragraph in
             var tidy = paragraph
@@ -72,23 +87,25 @@ nonisolated enum TranscriptBuilder {
         }.joined(separator: "\n\n")
     }
 
-    /// `3725.9` → `01:02:05` (rounded down).
+    /// `3725.9` → `01:02:05` (rounded down). Non-finite input gives `00:00:00`.
     static func timestamp(_ seconds: Double) -> String {
+        guard seconds.isFinite else { return "00:00:00" }
         let total = max(0, Int(seconds.rounded(.down)))
         return String(format: "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
     }
 
-    /// The diarizer's labels numbered 1, 2, … in order of first appearance.
-    private static func speakerNumbers(_ turns: [SpeakerTurn]) -> [String: Int] {
-        var numbers: [String: Int] = [:]
-        for turn in turns.sorted(by: { $0.start < $1.start }) where numbers[turn.speaker] == nil {
-            numbers[turn.speaker] = numbers.count + 1
-        }
-        return numbers
+    /// Whether the piece ends a sentence, looking past closing quotes and brackets.
+    private static func endsSentence(_ text: String) -> Bool {
+        let last = text.reversed().first { !$0.isWhitespace && !closers.contains($0) }
+        return last.map { sentenceEnds.contains($0) } ?? false
     }
 
-    /// The turn the word overlaps most; when it overlaps none, the turn nearest in time.
-    private static func speaker(for word: TimedWord, in turns: [SpeakerTurn]) -> String? {
+    private static func isPunctuationOnly(_ text: String) -> Bool {
+        text.allSatisfy { $0.isPunctuation || $0.isWhitespace }
+    }
+
+    /// The label of the turn the word overlaps most; when it overlaps none, the turn nearest in time.
+    private static func diarizerLabel(for word: TimedWord, in turns: [SpeakerTurn]) -> String? {
         var best: (speaker: String, overlap: Double, distance: Double)?
         for turn in turns {
             let overlap = max(0, min(word.end, turn.end) - max(word.start, turn.start))
