@@ -28,6 +28,10 @@ private struct TranscriptionTimeoutError: Error {}
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
+    private lazy var fileTranscription = FileTranscriptionWindowController(
+        model: FileTranscriptionModel(transcriber: TranscriptionService.shared, dictation: self),
+        openSettings: { [weak self] in self?.openSettings() }
+    )
 
     private enum RecordingSessionState { case idle, recording, finalizing }
     private var sessionState: RecordingSessionState = .idle
@@ -431,6 +435,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Start Transcription", action: #selector(startTranscriptionFromMenu), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Transcribe File…", action: #selector(transcribeFileFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: ""))
@@ -451,11 +456,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func transcribeFileFromMenu() {
+        fileTranscription.show()
+    }
+
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
 
         // Find and activate the settings window
-        for window in NSApp.windows {
+        for window in NSApp.windows where window.identifier != FileTranscriptionWindowController.windowIdentifier {
             if window.identifier?.rawValue.contains("settings") == true ||
                window.title.contains("JustScribe") ||
                window.contentView != nil {
@@ -509,4 +518,9 @@ extension AppDelegate: NSMenuItemValidation {
         }
         return true
     }
+}
+
+extension AppDelegate: DictationActivity {
+    /// A dictation session, from key down until the final text has been typed.
+    var isDictating: Bool { sessionState != .idle }
 }
