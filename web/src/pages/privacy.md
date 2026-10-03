@@ -3,7 +3,7 @@ layout: ../layouts/Page.astro
 title: "JustScribe Privacy Policy"
 description: "JustScribe transcribes on your Mac and has no servers: your audio and text are never collected. What the app and this website do and do not do with your data."
 heading: "JustScribe Privacy Policy"
-updated: "2026-10-02"
+updated: "2026-10-03"
 download: false
 ---
 
