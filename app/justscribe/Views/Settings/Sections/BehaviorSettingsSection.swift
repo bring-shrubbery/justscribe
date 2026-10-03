@@ -91,9 +91,31 @@ struct BehaviorSettingsSection: View {
 
                 Divider()
 
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "text.insert")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Insert Text By")
+                            .font(.body)
+                        InsertionModePicker(selection: Binding(
+                            get: { settings.textInsertionMode },
+                            set: { settings.textInsertionMode = $0 }
+                        ))
+                        Text(settings.textInsertionMode.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Divider()
+
                 ToggleSettingsRow(
                     title: "Copy to Clipboard",
-                    subtitle: "Automatically copy transcription result",
+                    subtitle: "Keep each transcription on the clipboard afterwards",
                     systemImage: "doc.on.clipboard",
                     isOn: Binding(
                         get: { settings.copyToClipboard },
@@ -151,5 +173,42 @@ struct ToggleSettingsRow: View {
                 .labelsHidden()
                 .toggleStyle(.pill)
         }
+    }
+}
+
+/// Two text segments in the style of the appearance picker.
+private struct InsertionModePicker: View {
+    @Binding var selection: TextInsertionMode
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(TextInsertionMode.allCases, id: \.self) { mode in
+                let isSelected = selection == mode
+                Button {
+                    selection = mode
+                } label: {
+                    Text(mode.displayName)
+                        .font(.callout)
+                        .fontWeight(isSelected ? .semibold : .regular)
+                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 30)
+                        .background {
+                            if isSelected {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color(nsColor: .controlBackgroundColor))
+                                    .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(nsColor: .separatorColor).opacity(0.35))
+        )
     }
 }

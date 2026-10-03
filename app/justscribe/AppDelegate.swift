@@ -165,6 +165,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Tracks how much text has been typed during streaming (for incremental typing)
     private var typedTextLength = 0
+    /// How this session's text reaches the focused app, read once at key down so a change in
+    /// Settings mid-dictation cannot leave half-typed text behind.
+    private var insertionMode = TextInsertionMode.defaultMode
 
     private func setupHotkey() {
         // Key down: start recording and streaming transcription
@@ -261,13 +264,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Reset typed text tracking
         typedTextLength = 0
+        insertionMode = TextInsertionMode.stored(UserDefaults.standard.string(forKey: AppSettings.textInsertionModeKey))
 
         // Get language setting
         let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
 
-        // Set up streaming transcription callback to type text as it's recognized
+        // Set up streaming transcription callback to type text as it's recognized. In paste mode
+        // nothing is typed until the end; streaming still runs because its text is the fallback
+        // when the final pass times out.
         TranscriptionService.shared.onTranscriptionUpdate = { [weak self] text in
-            guard let self = self else { return }
+            guard let self = self, self.insertionMode.insertsWhileSpeaking else { return }
             print("onTranscriptionUpdate called with: '\(text)'")
             print("Previously typed length: \(self.typedTextLength)")
             // Type only the new text (delta)
@@ -340,7 +346,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 
                 // If final transcription is different/longer, type the difference
-                if fullTranscription.count > typedTextLength {
+                if insertionMode.insertsWhileSpeaking && fullTranscription.count > typedTextLength {
                     let newText = String(fullTranscription.dropFirst(typedTextLength))
                     if !newText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         ClipboardService.shared.typeText(newText)
@@ -388,10 +394,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     finalTranscription, language: language
                 )
                 if !corrected.isEmpty && corrected != finalTranscription {
-                    ClipboardService.shared.replaceTypedText(
-                        characterCount: finalTranscription.count,
-                        withText: corrected
-                    )
+                    if insertionMode.insertsWhileSpeaking {
+                        ClipboardService.shared.replaceTypedText(
+                            characterCount: finalTranscription.count,
+                            withText: corrected
+                        )
+                    }
                     finalTranscription = corrected
                 }
             } catch {
@@ -405,8 +413,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ? true
             : UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey)
 
+        // Paste mode: the finished text goes in once, now.
+        switch TextInsertion.finalAction(mode: insertionMode, text: finalTranscription, copyToClipboard: copyToClipboard) {
+        case .paste(let text, let restoreClipboard):
+            ClipboardService.shared.paste(text, restorePrevious: restoreClipboard)
+        case .nothing:
+            break
+        }
+
         let didCopyToClipboard = copyToClipboard && !finalTranscription.isEmpty
-        if didCopyToClipboard {
+        if didCopyToClipboard && !TextInsertion.leavesTextOnClipboard(mode: insertionMode, copyToClipboard: copyToClipboard) {
             ClipboardService.shared.copyToClipboard(finalTranscription)
             print("Copied to clipboard: \(finalTranscription)")
         }

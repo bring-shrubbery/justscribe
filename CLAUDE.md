@@ -47,9 +47,13 @@ window scene. **The real app logic lives in `AppDelegate.swift`**, which orchest
    back to the streamed text) → optional grammar correction, which *replaces* the already-typed text
    via `ClipboardService.replaceTypedText` → optional clipboard copy → reset to `idle`.
 
-Text insertion uses synthetic `CGEvent` Unicode keystrokes posted to `.cgSessionEventTap`, which is
-why Accessibility permission is required. Delta-typing plus `typedTextLength` is load-bearing —
-breaking that bookkeeping causes duplicated or truncated output in the user's target app.
+Text reaches the target app in one of two modes (`Models/TextInsertion.swift`,
+`AppSettings.textInsertionModeKey`, read once at key down): **paste** (the default) does nothing
+while speaking and sends one ⌘V with the finished text at the end; **type** uses synthetic `CGEvent`
+keystrokes posted to `.cgSessionEventTap` as text arrives, then corrects in place. Accessibility
+permission is required for both. In type mode, delta-typing plus `typedTextLength` is load-bearing —
+breaking that bookkeeping causes duplicated or truncated output in the user's target app. Streaming
+transcription runs in both modes: its text is the fallback when the final pass times out.
 
 ### Transcription providers
 

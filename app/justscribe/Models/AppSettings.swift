@@ -70,6 +70,7 @@ final class AppSettings {
     static let showInStatusBarKey = "showInStatusBar"
     static let grammarCorrectionEnabledKey = "grammarCorrectionEnabled"
     static let selectedGrammarModelIDKey = "selectedGrammarModelID"
+    static let textInsertionModeKey = "textInsertionMode"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -95,6 +96,16 @@ final class AppSettings {
     // Shortcut (stored as raw key + modifiers)
     var shortcutKeyCode: UInt16 = 0
     var shortcutModifiers: UInt = 0
+
+    // How dictated text reaches the focused app
+    @Attribute var textInsertionModeRaw: String = TextInsertionMode.defaultMode.rawValue
+    var textInsertionMode: TextInsertionMode {
+        get { TextInsertionMode.stored(textInsertionModeRaw) }
+        set {
+            textInsertionModeRaw = newValue.rawValue
+            UserDefaults.standard.set(newValue.rawValue, forKey: Self.textInsertionModeKey)
+        }
+    }
 
     // Indicator style
     @Attribute var indicatorStyleRaw: String = IndicatorStyle.bubble.rawValue
@@ -191,6 +202,7 @@ final class AppSettings {
         UserDefaults.standard.set(microphonePriority, forKey: Self.microphonePriorityKey)
         UserDefaults.standard.set(bannedMicrophoneIDs, forKey: Self.bannedMicrophoneIDsKey)
         UserDefaults.standard.set(indicatorStyleRaw, forKey: Self.indicatorStyleKey)
+        UserDefaults.standard.set(textInsertionModeRaw, forKey: Self.textInsertionModeKey)
         UserDefaults.standard.set(showInDock, forKey: Self.showInDockKey)
         UserDefaults.standard.set(showInStatusBar, forKey: Self.showInStatusBarKey)
         UserDefaults.standard.set(grammarCorrectionEnabled, forKey: Self.grammarCorrectionEnabledKey)

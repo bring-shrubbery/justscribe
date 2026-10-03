@@ -41,37 +41,6 @@ final class ClipboardService {
         return NSPasteboard.general.string(forType: .string)
     }
 
-    /// Simulates Cmd+V to paste clipboard contents into the focused app
-    func simulatePaste() {
-        print("Simulating Cmd+V paste...")
-
-        // Create key down event for Cmd+V
-        let source = CGEventSource(stateID: .hidSystemState)
-
-        // V key code is 9
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true)
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: false)
-
-        // Add Command modifier
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
-
-        // Post the events
-        keyDown?.post(tap: .cgSessionEventTap)
-        keyUp?.post(tap: .cgSessionEventTap)
-
-        print("Paste simulation completed")
-    }
-
-    /// Copy text to clipboard and paste it into the focused input
-    func copyAndPaste(_ text: String) {
-        copyToClipboard(text)
-        // Small delay to ensure clipboard is updated before pasting
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            self.simulatePaste()
-        }
-    }
-
     /// Type text directly using keyboard events (for real-time typing)
     /// This types text character by character into the focused application
     func typeText(_ text: String) {
@@ -130,7 +99,7 @@ final class ClipboardService {
         if !newText.isEmpty {
             // Use paste instead of typeText to avoid modifier key conflicts
             // (user is holding Ctrl+Shift while we type, which would trigger shortcuts)
-            pasteText(newText)
+            paste(newText, restorePrevious: true)
         }
 
         return fullText.count
@@ -181,48 +150,45 @@ final class ClipboardService {
         usleep(20000) // 20ms
 
         // Paste the corrected text
-        pasteText(newText)
+        paste(newText, restorePrevious: true)
 
         print("replaceTypedText: completed")
     }
 
-    /// Paste text using clipboard (safer than typing when modifiers are held)
-    func pasteText(_ text: String) {
+    /// Puts `text` on the clipboard and pastes it into the focused app with one ⌘V. With
+    /// `restorePrevious`, the clipboard's previous text is put back shortly after the paste;
+    /// only text survives that round trip, so an image or file that was on the clipboard is gone.
+    func paste(_ text: String, restorePrevious: Bool) {
         guard !text.isEmpty else { return }
 
-        print("pasteText: pasting '\(text)' (\(text.count) characters)")
+        print("paste: pasting \(text.count) characters (restore previous: \(restorePrevious))")
 
-        // Save current clipboard content
         let pasteboard = NSPasteboard.general
-        let previousContent = pasteboard.string(forType: .string)
+        let previousContent = restorePrevious ? pasteboard.string(forType: .string) : nil
 
-        // Set new content and paste
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
 
-        // Small delay to ensure clipboard is updated
+        // Give the pasteboard server a moment before the target app reads it.
         usleep(10000) // 10ms
 
-        // Simulate Cmd+V (without other modifiers)
+        // ⌘V with no other modifier, whatever keys the user is still holding.
         let source = CGEventSource(stateID: .hidSystemState)
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true)
         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: false)
-
-        // Only Command modifier, no Control or Shift
         keyDown?.flags = .maskCommand
         keyUp?.flags = .maskCommand
-
         keyDown?.post(tap: .cgSessionEventTap)
         keyUp?.post(tap: .cgSessionEventTap)
 
-        // Restore previous clipboard content after a delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            if let previous = previousContent {
+        // The target app reads the pasteboard when it handles ⌘V; restore after it has had time to.
+        if let previousContent {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 pasteboard.clearContents()
-                pasteboard.setString(previous, forType: .string)
+                pasteboard.setString(previousContent, forType: .string)
             }
         }
 
-        print("pasteText: completed")
+        print("paste: completed")
     }
 }
