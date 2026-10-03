@@ -89,7 +89,10 @@ raw transcript ──► voice commands ──► vocabulary ──► clean-up 
   | send, press enter (at the very end of the text, and after a sentence end — "I'll send" is left alone) | ends the session, inserts the text, then posts a Return keystroke (press mode only; in hold mode the words are removed) |
   | *(spoken punctuation on)* period, full stop, comma, question mark, exclamation mark, exclamation point, colon, semicolon, open quote, close quote, dash | the character, glued to the previous word; quotes glue to the following/preceding word |
 
-- A command is recognised only when it **stands alone**: the token run is
+- "scratch that" / "delete that" are recognised anywhere: a correction is spoken
+  mid-flow ("wrong words scratch that right words"), so no boundary is
+  required (the cost: "I'd scratch that idea" also fires). Every other
+  command is recognised only when it **stands alone**: the token run is
   preceded by the start of the text or a sentence end, **or** followed by the
   end of the text or a sentence end (the model's own punctuation around the
   words counts, e.g. "…done. New line. Next" and "…done, new line, next" both
