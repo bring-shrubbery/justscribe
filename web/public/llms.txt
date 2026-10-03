@@ -12,6 +12,7 @@ JustScribe is a free, open-source (GPL-3.0) app by Quassum for macOS 26.2 and la
 - Transcription models: Parakeet v3 (recommended, multilingual, ~250 MB), Parakeet English (~200 MB), Whisper Tiny, Base, Small, Medium and Large v3 (75 MB to 3 GB). Downloaded on demand.
 - Grammar correction: optional, on-device, through Apple Intelligence or Llama 3.1 8B (~4.6 GB).
 - Permissions: Microphone, and Accessibility to type into other apps.
+- File transcription: drop an audio or video file (m4a, mp3, wav, aiff, caf, flac, mp4, mov, m4v) on the Transcribe File window for a transcript with timestamps and optional speaker labels; copy it or save it as text. Also on-device.
 - Updates: the app updates itself; releases are published on GitHub.
 
 ## Pages
@@ -19,6 +20,7 @@ JustScribe is a free, open-source (GPL-3.0) app by Quassum for macOS 26.2 and la
 - [Overview and download](https://justscribe.quassum.com/)
 - [Offline speech to text on Mac](https://justscribe.quassum.com/guides/offline-speech-to-text-mac): the models and how dictation works
 - [Dictation with grammar correction](https://justscribe.quassum.com/guides/grammar-correction)
+- [Transcribe audio and video files on a Mac](https://justscribe.quassum.com/guides/transcribe-audio-files-mac): timestamps, speaker labels, on-device
 - [JustScribe as a free Wispr Flow alternative](https://justscribe.quassum.com/wispr-flow-alternative)
 - [JustScribe as a free Superwhisper alternative](https://justscribe.quassum.com/superwhisper-alternative)
 - [JustScribe as a MacWhisper alternative for dictation](https://justscribe.quassum.com/macwhisper-alternative)

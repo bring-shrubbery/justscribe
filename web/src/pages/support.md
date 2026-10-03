@@ -3,7 +3,7 @@ layout: ../layouts/Page.astro
 title: "JustScribe Support: Help, Bugs and Contact"
 description: "Get help with JustScribe: fixes for common problems with permissions, models and updates, where to report a bug, and how to contact us."
 heading: "JustScribe support"
-updated: "2026-10-02"
+updated: "2026-10-03"
 download: false
 faq:
   - q: "JustScribe records but no text appears. What is wrong?"
@@ -32,5 +32,6 @@ For anything else, write to [justscribe@quassum.com](mailto:justscribe@quassum.c
 
 - [Offline speech to text on Mac](/guides/offline-speech-to-text-mac): the models and how dictation works.
 - [Dictation with grammar correction](/guides/grammar-correction): turning it on and choosing a model.
+- [Transcribe audio and video files](/guides/transcribe-audio-files-mac): timestamps, speaker labels, what the file formats are.
 - [Changelog](/changelog): what changed in each version.
 - [Privacy policy](/privacy) and [terms](/terms).
