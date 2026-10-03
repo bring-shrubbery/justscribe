@@ -60,6 +60,15 @@ struct TextInsertionTests {
         #expect(TextInsertion.finalAction(mode: .paste, text: "  \n", copyToClipboard: true) == .nothing)
     }
 
+    @Test func withoutAccessibilityTheTextIsOnlyCopiedInEitherMode() {
+        // Keystrokes posted without the Accessibility permission vanish silently, so the text
+        // must reach the user through the clipboard instead, whatever the mode or copy setting.
+        #expect(TextInsertion.finalAction(mode: .paste, text: "Hello there.", copyToClipboard: false, canInsert: false) == .copyOnly("Hello there."))
+        #expect(TextInsertion.finalAction(mode: .type, text: "Hello there.", copyToClipboard: true, canInsert: false) == .copyOnly("Hello there."))
+        #expect(TextInsertion.finalAction(mode: .paste, text: "  ", copyToClipboard: true, canInsert: false) == .nothing)
+        #expect(TextInsertion.finalAction(mode: .paste, text: "Hello there.", copyToClipboard: true, canInsert: true) == .paste("Hello there.", restoreClipboard: false))
+    }
+
     @Test func typingModeNeverPastes() {
         #expect(TextInsertion.finalAction(mode: .type, text: "Hello there.", copyToClipboard: false) == .nothing)
     }

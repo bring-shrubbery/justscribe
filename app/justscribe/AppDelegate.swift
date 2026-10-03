@@ -21,6 +21,7 @@
 //
 
 import AppKit
+import ApplicationServices
 import SwiftUI
 
 private struct TranscriptionTimeoutError: Error {}
@@ -180,6 +181,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var sessionTrigger = RecordingTrigger.defaultTrigger
     private var sessionContext: DictationContext?
     private var stoppedBySafety = false
+    /// The system Accessibility prompt is shown once per launch, the first time a dictation
+    /// cannot be inserted.
+    private var didAskForAccessibility = false
     private var safetyStopTask: Task<Void, Never>?
     private static let safetyStop: Duration = .seconds(600)
 
@@ -493,11 +497,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ? true
             : UserDefaults.standard.bool(forKey: AppSettings.copyToClipboardKey)
 
-        // Paste mode: the finished text goes in once, now.
-        switch TextInsertion.finalAction(mode: insertionMode, text: finalTranscription, copyToClipboard: copyToClipboard) {
+        // Paste mode: the finished text goes in once, now. Without the Accessibility permission
+        // (lost whenever the app's signature changes) posted keystrokes vanish silently, so the
+        // text is copied instead and the user is told why.
+        var insertionBlocked = false
+        switch TextInsertion.finalAction(mode: insertionMode, text: finalTranscription, copyToClipboard: copyToClipboard,
+                                         canInsert: AXIsProcessTrusted()) {
         case .paste(let text, let restoreClipboard):
             // One paste after the whole pipeline; give slow apps half a second to read it before any restore.
             ClipboardService.shared.paste(text, restorePrevious: restoreClipboard, restoreDelay: 0.5)
+        case .copyOnly(let text):
+            insertionBlocked = true
+            ClipboardService.shared.copyToClipboard(text)
+            if !didAskForAccessibility {
+                didAskForAccessibility = true
+                PermissionsService.shared.requestAccessibilityPermission()
+            }
         case .nothing:
             break
         }
@@ -515,7 +530,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Show completed state
-        if !finalTranscription.isEmpty {
+        if insertionBlocked {
+            OverlayManager.shared.showError(message: "Allow Accessibility to insert text — copied to clipboard instead")
+        } else if !finalTranscription.isEmpty {
             if stoppedBySafety {
                 OverlayManager.shared.showError(message: "Stopped after 10 minutes")
             } else {

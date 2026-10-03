@@ -56,13 +56,19 @@ nonisolated enum TextInsertionMode: String, Codable, CaseIterable, Sendable {
 nonisolated enum TextInsertion {
     enum FinalAction: Equatable, Sendable {
         case paste(String, restoreClipboard: Bool)
+        /// The app cannot post keystrokes (no Accessibility permission): the text is copied so the
+        /// user still gets it, whatever the mode or the copy setting.
+        case copyOnly(String)
         case nothing
     }
 
     /// Paste mode pastes non-blank text once; typing mode has already typed it. With "Copy to
-    /// Clipboard" off, the clipboard is put back as it was after the paste.
-    static func finalAction(mode: TextInsertionMode, text: String, copyToClipboard: Bool) -> FinalAction {
-        guard mode == .paste, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .nothing }
+    /// Clipboard" off, the clipboard is put back as it was after the paste. `canInsert` is the
+    /// Accessibility permission: without it every posted keystroke vanishes silently.
+    static func finalAction(mode: TextInsertionMode, text: String, copyToClipboard: Bool, canInsert: Bool = true) -> FinalAction {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .nothing }
+        guard canInsert else { return .copyOnly(text) }
+        guard mode == .paste else { return .nothing }
         return .paste(text, restoreClipboard: !copyToClipboard)
     }
 
