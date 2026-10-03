@@ -71,6 +71,8 @@ final class AppSettings {
     static let grammarCorrectionEnabledKey = "grammarCorrectionEnabled"
     static let selectedGrammarModelIDKey = "selectedGrammarModelID"
     static let textInsertionModeKey = "textInsertionMode"
+    static let historyKeepsTranscriptionsKey = "historyKeepsTranscriptions"
+    static let historyKeepsAudioKey = "historyKeepsAudio"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -104,6 +106,19 @@ final class AppSettings {
         set {
             textInsertionModeRaw = newValue.rawValue
             UserDefaults.standard.set(newValue.rawValue, forKey: Self.textInsertionModeKey)
+        }
+    }
+
+    // History (off by default: nothing is kept unless the user asks)
+    var historyKeepsTranscriptions: Bool = false {
+        didSet {
+            UserDefaults.standard.set(historyKeepsTranscriptions, forKey: Self.historyKeepsTranscriptionsKey)
+            if !historyKeepsTranscriptions && historyKeepsAudio { historyKeepsAudio = false }
+        }
+    }
+    var historyKeepsAudio: Bool = false {
+        didSet {
+            UserDefaults.standard.set(historyKeepsAudio, forKey: Self.historyKeepsAudioKey)
         }
     }
 
@@ -207,5 +222,7 @@ final class AppSettings {
         UserDefaults.standard.set(showInStatusBar, forKey: Self.showInStatusBarKey)
         UserDefaults.standard.set(grammarCorrectionEnabled, forKey: Self.grammarCorrectionEnabledKey)
         UserDefaults.standard.set(selectedGrammarModelID, forKey: Self.selectedGrammarModelIDKey)
+        UserDefaults.standard.set(historyKeepsTranscriptions, forKey: Self.historyKeepsTranscriptionsKey)
+        UserDefaults.standard.set(historyKeepsAudio, forKey: Self.historyKeepsAudioKey)
     }
 }

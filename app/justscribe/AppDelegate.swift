@@ -43,6 +43,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         loadGrammarModelIfEnabled()
         setupNotificationObservers()
         _ = UpdateService.shared // starts Sparkle's scheduled checks
+        HistoryStore.shared.load()
         // A speaker pass cut short by a quit or a crash leaves a copy of a file's audio behind.
         Task(priority: .background) { await SpeakerDiarizationService.shared.cleanUpLeftoverAudio() }
     }
@@ -434,6 +435,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             OverlayManager.shared.showCompleted(copiedToClipboard: didCopyToClipboard)
         } else {
             OverlayManager.shared.showError(message: "No speech detected")
+        }
+
+        // History, when the user turned it on: the final text, and the recording if asked.
+        let keep = HistoryPolicy.shouldKeep(
+            text: finalTranscription,
+            keepTranscriptions: UserDefaults.standard.bool(forKey: AppSettings.historyKeepsTranscriptionsKey),
+            keepAudio: UserDefaults.standard.bool(forKey: AppSettings.historyKeepsAudioKey))
+        if keep.text {
+            // The 16 kHz copy read above for the final pass, taken before clearBuffer() below.
+            let audio = keep.audio ? audioBuffer : nil
+            let duration = AudioCaptureService.shared.recordingDuration
+            let modelID = TranscriptionService.shared.loadedModelID ?? ""
+            let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
+            let text = finalTranscription
+            // The session ends now; the store encodes and writes on its own time.
+            Task { await HistoryStore.shared.add(text: text, durationSeconds: duration, modelID: modelID, language: language, audio: audio) }
         }
 
         // Clear audio buffer

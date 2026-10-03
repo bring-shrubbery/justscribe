@@ -74,6 +74,10 @@ struct SettingsView: View {
 
                         Divider()
 
+                        HistorySettingsSection(settings: settings)
+
+                        Divider()
+
                         SupportSettingsSection()
 
                         Divider()
