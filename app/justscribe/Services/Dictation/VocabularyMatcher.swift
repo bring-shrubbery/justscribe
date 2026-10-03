@@ -30,9 +30,11 @@ nonisolated enum VocabularyMatcher {
         return String(folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
     }
 
-    /// Levenshtein distance.
-    static func editDistance(_ a: String, _ b: String) -> Int {
+    /// Levenshtein distance. With a `limit`, strings whose lengths differ by more than it return
+    /// `limit + 1` at once, without the full table.
+    static func editDistance(_ a: String, _ b: String, limit: Int? = nil) -> Int {
         let a = Array(a), b = Array(b)
+        if let limit, abs(a.count - b.count) > limit { return limit + 1 }
         if a.isEmpty { return b.count }
         if b.isEmpty { return a.count }
         var previous = Array(0...b.count)
@@ -121,31 +123,62 @@ nonisolated enum VocabularyMatcher {
     /// `words` as the model produced them (each may carry its own spaces and punctuation).
     /// Returns the same number of strings; a run that became one entry keeps its text in the
     /// first word and `""` in the rest, so callers can merge times.
+    ///
+    /// Three passes, each locking what it replaced: explicit "heard as" forms, then exact
+    /// spellings of an entry, then sound-alikes. A run never crosses clause punctuation, and
+    /// exact and sound-alike matches need a word the dictionary does not know.
     static func apply(words: [String], entries: [VocabularyEntry], isDictionaryWord: (String) -> Bool) -> [String] {
         guard !words.isEmpty, !entries.isEmpty else { return words }
         var tokens = words.map(Token.init)
+        var keys = tokens.map { key($0.core) }
         var locked = [Bool](repeating: false, count: tokens.count)
+        let prepared = entries.map(PreparedEntry.init)
         let maxRun = 4
+
+        // A slot is only ever looked up while unlocked, and unlocked slots are never rewritten,
+        // so the original cores are the ones to ask about, each at most once.
+        let cores = tokens.map(\.core)
+        var knownWord = [Bool?](repeating: nil, count: tokens.count)
+        func hasNonDictionaryWord(_ range: Range<Int>) -> Bool {
+            for i in range {
+                let isWord: Bool
+                if let known = knownWord[i] { isWord = known } else { isWord = isDictionaryWord(cores[i]); knownWord[i] = isWord }
+                if !isWord { return true }
+            }
+            return false
+        }
+        var phoneticMemo: [String: String] = [:]
+        func phonetic(_ runKey: String) -> String {
+            if let known = phoneticMemo[runKey] { return known }
+            let value = phoneticKey(runKey)
+            phoneticMemo[runKey] = value
+            return value
+        }
 
         // 1. Explicit forms, longest runs first so "swift ui" beats "ui".
         for run in stride(from: maxRun, through: 1, by: -1) {
-            for entry in entries {
-                let forms = entry.heardAs.map(key).filter { !$0.isEmpty }
-                guard !forms.isEmpty else { continue }
-                replaceRuns(of: run, in: &tokens, locked: &locked, with: entry.text) { runKey, _ in forms.contains(runKey) }
+            for entry in prepared where !entry.forms.isEmpty {
+                replaceRuns(of: run, in: &tokens, keys: &keys, locked: &locked, with: entry.text) { runKey, _ in
+                    entry.forms.contains(runKey)
+                }
             }
         }
-        // 2. Sound-alikes: runs of the entry's own word count, containing a non-dictionary word.
-        for entry in entries {
-            let entryWords = entry.text.split(whereSeparator: \.isWhitespace).map { key(String($0)) }.filter { !$0.isEmpty }
-            guard !entryWords.isEmpty else { continue }
-            let entryKey = entryWords.joined()
-            let bound = entryKey.count <= 5 ? 1 : 2
-            let entryPhonetic = phoneticKey(entryKey)
-            replaceRuns(of: entryWords.count, in: &tokens, locked: &locked, with: entry.text) { runKey, runCores in
-                guard runKey != entryKey else { return true }   // already right: keeps the pass idempotent
-                guard runCores.contains(where: { !isDictionaryWord($0) }) else { return false }
-                return editDistance(runKey, entryKey) <= bound || (!entryPhonetic.isEmpty && phoneticKey(runKey) == entryPhonetic)
+        // 2. Exact spellings, longest entries first, so a correct word is never taken by a
+        //    neighbouring entry's sound-alike. Dictionary words keep their own casing.
+        let byLength = prepared.indices.sorted { (prepared[$0].wordCount, -$0) > (prepared[$1].wordCount, -$1) }.map { prepared[$0] }
+        for entry in byLength where entry.wordCount > 0 {
+            replaceRuns(of: entry.wordCount, in: &tokens, keys: &keys, locked: &locked, with: entry.text) { runKey, range in
+                runKey == entry.key && hasNonDictionaryWord(range)
+            }
+        }
+        // 3. Sound-alikes: runs of the entry's own word count, containing a non-dictionary word.
+        for entry in prepared where entry.wordCount > 0 && entry.allowsSoundAlike {
+            replaceRuns(of: entry.wordCount, in: &tokens, keys: &keys, locked: &locked, with: entry.text) { runKey, range in
+                guard runKey != entry.key else { return false }   // a dictionary word spelled like the entry
+                if !entry.digits.isEmpty, digits(of: runKey) != entry.digits { return false }
+                let close = editDistance(runKey, entry.key, limit: entry.bound) <= entry.bound
+                guard close || (!entry.phonetic.isEmpty && phonetic(runKey) == entry.phonetic) else { return false }
+                return hasNonDictionaryWord(range)
             }
         }
         return tokens.map(\.text)
@@ -177,33 +210,72 @@ nonisolated enum VocabularyMatcher {
 
     // MARK: - Private
 
+    private static func digits(of key: String) -> String { key.filter(\.isNumber) }
+
+    /// An entry with everything the passes compare against worked out once.
+    private struct PreparedEntry {
+        let text: String
+        let forms: Set<String>
+        let key: String
+        let wordCount: Int
+        let digits: String
+        let bound: Int
+        /// Keys under three letters ("AI") would match half the language by sound.
+        let allowsSoundAlike: Bool
+        /// Empty when too short to tell words apart.
+        let phonetic: String
+
+        init(_ entry: VocabularyEntry) {
+            text = entry.text
+            forms = Set(entry.heardAs.map(VocabularyMatcher.key).filter { !$0.isEmpty })
+            let words = entry.text.split(whereSeparator: \.isWhitespace).map { VocabularyMatcher.key(String($0)) }.filter { !$0.isEmpty }
+            key = words.joined()
+            wordCount = words.count
+            digits = VocabularyMatcher.digits(of: key)
+            bound = key.count <= 5 ? 1 : 2
+            allowsSoundAlike = key.count >= 3
+            let p = VocabularyMatcher.phoneticKey(key)
+            phonetic = p.count >= 2 ? p : ""
+        }
+    }
+
     private struct Token {
         var leading: String
         var core: String
         var trailing: String
         init(_ s: String) {
             let coreStart = s.firstIndex(where: { $0.isLetter || $0.isNumber }) ?? s.endIndex
-            let coreEnd = s.lastIndex(where: { $0.isLetter || $0.isNumber }).map { s.index(after: $0) } ?? coreStart
-            leading = String(s[..<coreStart]); core = String(s[coreStart..<coreEnd]); trailing = String(s[coreEnd...])
+            var coreEnd = s.lastIndex(where: { $0.isLetter || $0.isNumber }).map { s.index(after: $0) } ?? coreStart
+            // A possessive "'s" is not part of the word: it stays after the replacement.
+            let core = s[coreStart..<coreEnd]
+            for suffix in ["'s", "\u{2019}s", "'S", "\u{2019}S"] where core.count > suffix.count && core.hasSuffix(suffix) {
+                coreEnd = s.index(coreEnd, offsetBy: -suffix.count)
+                break
+            }
+            leading = String(s[..<coreStart]); self.core = String(s[coreStart..<coreEnd]); trailing = String(s[coreEnd...])
         }
         var text: String { leading + core + trailing }
     }
 
+    private static let clauseBreaks: Set<Character> = [".", "?", "!", ",", ";", ":"]
+
     private static func replaceRuns(
-        of length: Int, in tokens: inout [Token], locked: inout [Bool], with replacement: String,
-        where matches: (_ runKey: String, _ runCores: [String]) -> Bool
+        of length: Int, in tokens: inout [Token], keys: inout [String], locked: inout [Bool], with replacement: String,
+        where matches: (_ runKey: String, _ range: Range<Int>) -> Bool
     ) {
         guard length >= 1, tokens.count >= length else { return }
         var i = 0
         while i + length <= tokens.count {
             let range = i..<(i + length)
-            let cores = range.map { tokens[$0].core }
-            if !range.contains(where: { locked[$0] }), !cores.contains(where: \.isEmpty), matches(cores.map(key).joined(), cores) {
+            if !range.contains(where: { locked[$0] || tokens[$0].core.isEmpty }),
+               !range.dropLast().contains(where: { tokens[$0].trailing.contains(where: clauseBreaks.contains) }),
+               matches(range.map { keys[$0] }.joined(), range) {
                 var first = tokens[range.lowerBound]
                 first.core = replacement
                 first.trailing = tokens[range.upperBound - 1].trailing
                 tokens[range.lowerBound] = first
-                for j in range.dropFirst() { tokens[j] = Token(""); locked[j] = true }
+                keys[range.lowerBound] = key(replacement)
+                for j in range.dropFirst() { tokens[j] = Token(""); keys[j] = ""; locked[j] = true }
                 locked[range.lowerBound] = true
                 i += length
             } else {

@@ -97,4 +97,61 @@ struct VocabularyMatcherTests {
         #expect(fix("hello world", []) == "hello world")
         #expect(VocabularyMatcher.apply(words: [], entries: [entry("X")], isDictionaryWord: isWord).isEmpty)
     }
+
+    @Test func aPossessiveSurvivesTheReplacement() {
+        #expect(fix("Antoni's book", [entry("Antoni")]) == "Antoni's book")
+        #expect(fix("antony's book", [entry("Antoni")]) == "Antoni's book")
+        #expect(fix("antony\u{2019}s book", [entry("Antoni")]) == "Antoni\u{2019}s book")
+    }
+
+    @Test func digitsInAnEntryMustBeHeard() {
+        #expect(fix("GPT 4 is out", [entry("GPT-4")]) == "GPT 4 is out")
+        #expect(fix("gpt four is out", [entry("GPT-4")]) == "gpt four is out")
+        #expect(fix("gpt4 is out", [entry("GPT-4")]) == "GPT-4 is out")
+    }
+
+    @Test func aRunNeverCrossesClausePunctuation() {
+        #expect(fix("written in Swift. UI design", [entry("SwiftUI", ["swift ui"])]) == "written in Swift. UI design")
+        #expect(fix("Swift, UI", [entry("SwiftUI", ["swift ui"])]) == "Swift, UI")
+    }
+
+    @Test func anExactSpellingIsSettledBeforeSoundAlikes() {
+        #expect(fix("Antoni", [entry("Antony"), entry("Antoni")]) == "Antoni")
+        let e = [entry("Antony"), entry("Antoni", ["anthony"])]
+        let once = fix("anthony", e)
+        #expect(once == "Antoni")
+        #expect(fix(once, e) == "Antoni")
+    }
+
+    @Test func dictionaryWordsAreNotRecasedByAnExactMatch() {
+        let words: Set<String> = ["linear", "regression", "and", "go"]
+        let out = VocabularyMatcher.apply("linear regression and go", entries: [entry("Linear"), entry("Go")]) { words.contains($0.lowercased()) }
+        #expect(out == "linear regression and go")
+    }
+
+    @Test func veryShortEntriesMatchOnlyByFormOrSpelling() {
+        #expect(fix("ay uh eh", [entry("AI")]) == "ay uh eh")
+        #expect(fix("Al a1", [entry("AI")]) == "Al a1")
+        #expect(fix("ay", [entry("AI", ["ay"])]) == "AI")
+        #expect(fix("ai", [entry("AI")]) == "AI")
+    }
+
+    @Test func eachWordIsLookedUpInTheDictionaryAtMostOnce() {
+        final class Counter { var calls = 0 }
+        let a = ["ka", "lo", "mi", "ra", "tu", "ne", "si", "po"]
+        let b = ["zor", "bex", "quil", "dap", "fen", "gru"]
+        let words: [String] = (0..<300).map { (i: Int) -> String in
+            let syllables: [String] = [a[i % 8], a[(i / 8) % 8], a[(i / 64) % 8]]
+            return " " + syllables.joined()
+        }
+        let entries: [VocabularyEntry] = (0..<200).map { (i: Int) -> VocabularyEntry in
+            let syllables: [String] = [b[i % 6], b[(i / 6) % 6], b[(i / 36) % 6]]
+            return entry(syllables.joined())
+        }
+        let counter = Counter()
+        let out = VocabularyMatcher.apply(words: words, entries: entries) { _ in counter.calls += 1; return false }
+        #expect(out.count == 300)
+        #expect(counter.calls <= 300)
+        #expect(VocabularyMatcher.editDistance("ab", "abcdef", limit: 2) == 3)
+    }
 }
