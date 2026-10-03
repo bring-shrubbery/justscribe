@@ -18,6 +18,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+import AVFoundation
 import Foundation
 import Testing
 @testable import justscribe
@@ -40,11 +41,21 @@ struct HistoryAudioWriterTests {
         let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
         #expect(size > 1_000 && size < 60_000)   // ~38 kB for 3 s (~13 kB AAC audio plus AVAudioFile's fixed ~23.5 kB `free` atom), far from raw 192 kB
 
-        let decoder = try await AudioFileDecoder.open(url)
-        var samples: [Float] = []
-        while let next = try await decoder.next() { samples += next }
+        // Read back through AVAudioFile rather than AudioFileDecoder: on the CI runner's VM a
+        // third concurrent AVAssetReader (the decoder tests run two) deadlocks CoreMedia.
+        let samples = try Self.decode(url)
         #expect(abs(Double(samples.count) - 48_000) < 48_000 * 0.02)
         #expect((samples.map(abs).max() ?? 0) > 0.2)
+    }
+
+    /// The file's samples through AudioToolbox, converted to the file's processing format.
+    private static func decode(_ url: URL) throws -> [Float] {
+        let file = try AVAudioFile(forReading: url)
+        let frames = AVAudioFrameCount(file.length)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frames) else { return [] }
+        try file.read(into: buffer)
+        guard let channel = buffer.floatChannelData?[0] else { return [] }
+        return Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
     }
 
     @Test func emptySamplesAreRefused() async {
