@@ -40,7 +40,8 @@ raw transcript ──► voice commands ──► vocabulary ──► clean-up 
      dictionary word (`NSSpellChecker` with the dictation language, falling
      back to English); it is replaced when its normalised spelling (lower
      case, no diacritics) is within edit distance 1 (≤ 5 letters) or 2 of the
-     entry's, **or** its Double Metaphone primary code equals the entry's.
+     entry's, **or** its phonetic key (Metaphone rules, implemented in the
+     app) equals the entry's.
      Multi-word entries are matched against runs of the same word count.
   3. A replaced word keeps the punctuation attached to it and the spacing
      around it.
@@ -50,8 +51,9 @@ raw transcript ──► voice commands ──► vocabulary ──► clean-up 
   spaces and encoded with WhisperKit's tokenizer, capped at 200 tokens, is set
   as `DecodingOptions.promptTokens` for the final pass and the streaming
   passes. Parakeet has no prompt; it relies on the matcher.
-- The matcher also runs on file transcripts (each paragraph's text) with the
-  same entries. Nothing else about file transcription changes.
+- The matcher also runs on file transcripts: each chunk's words go through it
+  before the paragraphs are rebuilt (a matched run becomes one word spanning
+  the run's time). Nothing else about file transcription changes.
 
 ### Toggle recording
 
@@ -82,9 +84,9 @@ raw transcript ──► voice commands ──► vocabulary ──► clean-up 
   |---|---|
   | new line | line break |
   | new paragraph | blank line |
-  | scratch that, delete that | removes the text from the nearest preceding *break* (end of the last sentence `. ? !`, or the last command's position, or the start) up to the command |
+  | scratch that, delete that | removes the text from the nearest preceding *break* (end of the last sentence `. ? !`, or the last command's position, or the start) up to the command; the sentence end the model placed right before the command is the pause before it, not a break; said again with nothing new since, it removes the previous sentence |
   | stop recording, stop dictation | ends the session (press mode only; in hold mode the words are removed) |
-  | send, press enter (at the very end of the text) | ends the session, inserts the text, then posts a Return keystroke (press mode only; in hold mode the words are removed) |
+  | send, press enter (at the very end of the text, and after a sentence end — "I'll send" is left alone) | ends the session, inserts the text, then posts a Return keystroke (press mode only; in hold mode the words are removed) |
   | *(spoken punctuation on)* period, full stop, comma, question mark, exclamation mark, exclamation point, colon, semicolon, open quote, close quote, dash | the character, glued to the previous word; quotes glue to the following/preceding word |
 
 - A command is recognised only when it **stands alone**: the token run is
@@ -123,9 +125,10 @@ raw transcript ──► voice commands ──► vocabulary ──► clean-up 
 - Both backends wrap the mode's instructions in a fixed frame that keeps the
   output contract: the instructions, then "Apply this to the text that
   follows. Output only the resulting text: no explanations, no quotes, no
-  preamble." The Apple backend keeps one warm session per mode it has used
-  (instructions are part of the session); the MLX backend passes them as the
-  system prompt per request. `GrammarTextChunker` is unchanged.
+  preamble." Both backends already start a fresh session per request (so
+  context never accumulates across dictations); the mode's framed
+  instructions become that session's instructions, and the Apple backend
+  prewarms a session with Default's. `GrammarTextChunker` is unchanged.
 
 ## Components
 
@@ -174,8 +177,8 @@ punctuation, finds stand-alone command runs, applies them left to right
 `static func apply(_ text: String, entries: [VocabularyEntry], isDictionaryWord: (String) -> Bool) -> String`,
 `static func normalized(_ word: String) -> String`,
 `static func editDistance(_ a: String, _ b: String) -> Int` and
-`static func metaphone(_ word: String) -> String` (Double Metaphone primary
-code, implemented here — about 200 lines, no dependency). The dictionary
+`static func phoneticKey(_ word: String) -> String` (Metaphone rules,
+implemented here — under 100 lines, no dependency). The dictionary
 check is injected: production passes `NSSpellChecker.shared` with the
 dictation language; tests pass a set.
 
@@ -213,9 +216,9 @@ missing and keeps it first.
 
 `GrammarBackend.correct(_ text: String, instructions: String, language: String?)`.
 `GrammarCorrectionService.correctGrammar(_:instructions:language:)`.
-`AppleFoundationGrammarBackend`: `sessions: [String: LanguageModelSession]`
-keyed by instructions, at most 4, least recently used dropped.
-`MLXGrammarBackend`: the frame plus instructions as the system prompt.
+`AppleFoundationGrammarBackend`: `LanguageModelSession(instructions: framed)`
+per request, Default's prewarmed. `MLXGrammarBackend`: a `ChatSession` with
+the framed instructions per request over the loaded container.
 
 ### `AppDelegate.swift` (changed)
 
@@ -257,8 +260,10 @@ meaning (the global clean-up switch).
 
 ### File transcription (changed)
 
-`FileTranscriptionJob` applies `VocabularyMatcher` to each paragraph's text
-when building the transcript (entries read once at job start).
+`FileTranscriptionJob` takes `vocabulary: [VocabularyEntry]` (read once when
+the job starts) and applies `VocabularyMatcher.apply(words:)` to each chunk's
+words before rebuilding the paragraphs; absorbed words merge their time into
+the kept one.
 
 ## Error handling
 
