@@ -60,6 +60,8 @@ private struct OverlayExpandedView: View {
             }
             .buttonStyle(.plain)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { manager.onTap?() }
         .frame(height: 40)
     }
 
@@ -146,6 +148,10 @@ final class OverlayManager {
     }
 
     private(set) var state: OverlayState = .idle
+    /// Shown under "Listening..." instead of "Speak now" (press mode, the mode's name).
+    var listeningHint: String?
+    /// Set while a press-to-toggle recording runs: a click on the overlay stops it.
+    var onTap: (() -> Void)?
 
     private init() {}
 
@@ -168,7 +174,7 @@ final class OverlayManager {
     var descriptionText: String? {
         switch state {
         case .idle: return "Press shortcut to start"
-        case .listening: return "Speak now"
+        case .listening: return listeningHint ?? "Speak now"
         case .processing: return "Transcribing audio"
         case .completed(let copiedToClipboard): return copiedToClipboard ? "Copied to clipboard" : nil
         case .error: return nil
@@ -203,6 +209,8 @@ final class OverlayManager {
         Task { await notchToHide?.hide() }
         isVisible = false
         state = .idle
+        listeningHint = nil
+        onTap = nil
     }
 
     func updateState(_ newState: OverlayState) {

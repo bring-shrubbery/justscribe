@@ -48,6 +48,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupNotificationObservers()
         _ = UpdateService.shared // starts Sparkle's scheduled checks
         HistoryStore.shared.load()
+        VocabularyStore.shared.load()
+        ModeStore.shared.load()
         // A speaker pass cut short by a quit or a crash leaves a copy of a file's audio behind.
         Task(priority: .background) { await SpeakerDiarizationService.shared.cleanUpLeftoverAudio() }
     }
@@ -173,6 +175,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// How this session's text reaches the focused app, read once at key down so a change in
     /// Settings mid-dictation cannot leave half-typed text behind.
     private var insertionMode = TextInsertionMode.defaultMode
+    /// Read at key down and kept for the session, so a change in Settings mid-dictation cannot
+    /// orphan a press-mode recording or switch the mode under it.
+    private var sessionTrigger = RecordingTrigger.defaultTrigger
+    private var sessionContext: DictationContext?
+    private var stoppedBySafety = false
+    private var safetyStopTask: Task<Void, Never>?
+    private static let safetyStop: Duration = .seconds(600)
+
+    private lazy var pipeline = DictationPipeline(
+        cleanUp: { text, instructions, language in
+            try await GrammarCorrectionService.shared.correctGrammar(text, instructions: instructions, language: language)
+        },
+        isDictionaryWord: { [weak self] word in
+            DictionaryWords.isWord(word, language: self?.sessionContext?.language)
+        }
+    )
+
+    private static func boolDefault(_ key: String, _ fallback: Bool) -> Bool {
+        UserDefaults.standard.object(forKey: key) == nil ? fallback : UserDefaults.standard.bool(forKey: key)
+    }
 
     private func setupHotkey() {
         // Key down: start recording and streaming transcription
@@ -193,24 +215,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func handleHotkeyDown() {
-        guard sessionState == .idle else {
+        switch sessionState {
+        case .idle:
+            sessionTrigger = RecordingTrigger.stored(UserDefaults.standard.string(forKey: AppSettings.recordingTriggerKey))
+            startRecording()
+        case .recording where sessionTrigger == .pressToToggle:
+            print("Press-to-toggle: stopping")
+            Task { await stopRecordingAndFinalize() }
+        default:
             print("Not idle (state: \(sessionState)), ignoring key down")
-            return
         }
-
-        startRecording()
     }
 
     @MainActor
     private func handleHotkeyUp() {
-        guard sessionState == .recording else {
-            print("Not recording (state: \(sessionState)), ignoring key up")
+        guard sessionState == .recording, sessionTrigger == .hold else {
+            print("Key up ignored (state: \(sessionState), trigger: \(sessionTrigger))")
             return
         }
-
-        Task {
-            await stopRecordingAndFinalize()
-        }
+        Task { await stopRecordingAndFinalize() }
     }
 
     @MainActor
@@ -264,12 +287,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start audio capture BEFORE showing UI so no audio is lost
         AudioCaptureService.shared.startRecording()
 
-        // Show overlay only once we're actually recording
-        OverlayManager.shared.showListening()
-
         // Reset typed text tracking
         typedTextLength = 0
         insertionMode = TextInsertionMode.stored(UserDefaults.standard.string(forKey: AppSettings.textInsertionModeKey))
+        stoppedBySafety = false
+
+        // The app in front decides the mode; everything is read now and kept for the session.
+        let frontApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let mode = ModeStore.shared.mode(forApp: frontApp)
+        sessionContext = DictationContext(
+            voiceCommands: Self.boolDefault(AppSettings.voiceCommandsEnabledKey, true),
+            spokenPunctuation: UserDefaults.standard.bool(forKey: AppSettings.spokenPunctuationEnabledKey),
+            pressToToggle: sessionTrigger == .pressToToggle,
+            vocabulary: VocabularyStore.shared.entries,
+            mode: mode,
+            cleanUpEnabled: UserDefaults.standard.bool(forKey: AppSettings.grammarCorrectionEnabledKey),
+            language: UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey))
+        TranscriptionService.shared.vocabularyPromptText = VocabularyPrompt.text(VocabularyStore.shared.entries)
+
+        var hint: [String] = []
+        if sessionTrigger == .pressToToggle { hint.append("Press the shortcut to stop") }
+        if !mode.isDefault { hint.append(mode.name) }
+        OverlayManager.shared.listeningHint = hint.isEmpty ? nil : hint.joined(separator: " · ")
+        OverlayManager.shared.onTap = sessionTrigger == .pressToToggle ? { [weak self] in self?.handleHotkeyDown() } : nil
+
+        // Show overlay only once we're actually recording
+        OverlayManager.shared.showListening()
+
+        safetyStopTask?.cancel()
+        if sessionTrigger == .pressToToggle {
+            safetyStopTask = Task { [weak self] in
+                try? await Task.sleep(for: Self.safetyStop)
+                guard !Task.isCancelled, let self, self.sessionState == .recording else { return }
+                print("Safety stop after 10 minutes")
+                self.stoppedBySafety = true
+                await self.stopRecordingAndFinalize()
+            }
+        }
 
         // Get language setting
         let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
@@ -278,7 +332,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // nothing is typed until the end; streaming still runs because its text is the fallback
         // when the final pass times out.
         TranscriptionService.shared.onTranscriptionUpdate = { [weak self] text in
-            guard let self = self, self.insertionMode.insertsWhileSpeaking else { return }
+            guard let self else { return }
+            // Only a session-ending command is acted on live; everything else waits for the final text.
+            if let context = self.sessionContext, self.sessionState == .recording,
+               DictationPipeline.terminatingCommand(in: text, context: context) != nil {
+                print("Spoken session command heard; stopping")
+                Task { await self.stopRecordingAndFinalize() }
+                return
+            }
+            guard self.insertionMode.insertsWhileSpeaking else { return }
             print("onTranscriptionUpdate called with: '\(text)'")
             print("Previously typed length: \(self.typedTextLength)")
             // Type only the new text (delta)
@@ -298,7 +360,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func stopRecordingAndFinalize() async {
         print("stopRecordingAndFinalize called")
+        // Several stop requests can be queued (key, overlay click, spoken command, safety stop); only the first runs.
+        guard sessionState == .recording else {
+            print("stopRecordingAndFinalize: not recording (state: \(sessionState)), ignoring")
+            return
+        }
         sessionState = .finalizing
+        safetyStopTask?.cancel()
+        safetyStopTask = nil
+        OverlayManager.shared.onTap = nil
 
         // Stop streaming transcription and get final text
         let streamedText = TranscriptionService.shared.stopStreamingTranscription()
@@ -390,27 +460,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Grammar correction (if enabled and model is loaded)
-        let grammarCorrectionEnabled = UserDefaults.standard.bool(forKey: AppSettings.grammarCorrectionEnabledKey)
-        if grammarCorrectionEnabled && !finalTranscription.isEmpty && GrammarCorrectionService.shared.isModelLoaded {
-            OverlayManager.shared.showProcessing()
-            do {
-                let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
-                let corrected = try await GrammarCorrectionService.shared.correctGrammar(
-                    finalTranscription, instructions: DictationMode.defaultInstructions, language: language
-                )
-                if !corrected.isEmpty && corrected != finalTranscription {
-                    if insertionMode.insertsWhileSpeaking {
-                        ClipboardService.shared.replaceTypedText(
-                            characterCount: finalTranscription.count,
-                            withText: corrected
-                        )
-                    }
-                    finalTranscription = corrected
+        // Commands, vocabulary and clean-up, with the mode the app in front chose at key down.
+        var actions: [DictationAction] = []
+        if let context = sessionContext, !finalTranscription.isEmpty {
+            let needsModel = context.cleanUpEnabled && context.mode.cleanUp && GrammarCorrectionService.shared.isModelLoaded
+            if needsModel { OverlayManager.shared.showProcessing() }
+            var effective = context
+            effective.cleanUpEnabled = needsModel
+            let result = await pipeline.process(finalTranscription, context: effective)
+            actions = result.actions
+            if result.text != finalTranscription {
+                if insertionMode.insertsWhileSpeaking {
+                    ClipboardService.shared.replaceTypedText(characterCount: finalTranscription.count, withText: result.text)
                 }
-            } catch {
-                print("Grammar correction failed: \(error)")
-                // Silently fall back to the raw transcription (already typed, or about to be pasted)
+                finalTranscription = result.text
             }
         }
 
@@ -428,6 +491,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             break
         }
 
+        if actions.contains(.pressReturn), !finalTranscription.isEmpty {
+            // The pasted text must land before Return does.
+            try? await Task.sleep(for: .milliseconds(150))
+            ClipboardService.shared.pressReturn()
+        }
+
         let didCopyToClipboard = copyToClipboard && !finalTranscription.isEmpty
         if didCopyToClipboard && !TextInsertion.leavesTextOnClipboard(mode: insertionMode, copyToClipboard: copyToClipboard) {
             ClipboardService.shared.copyToClipboard(finalTranscription)
@@ -436,7 +505,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Show completed state
         if !finalTranscription.isEmpty {
-            OverlayManager.shared.showCompleted(copiedToClipboard: didCopyToClipboard)
+            if stoppedBySafety {
+                OverlayManager.shared.showError(message: "Stopped after 10 minutes")
+            } else {
+                OverlayManager.shared.showCompleted(copiedToClipboard: didCopyToClipboard)
+            }
         } else {
             OverlayManager.shared.showError(message: "No speech detected")
         }
@@ -462,6 +535,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Reset typed text tracking
         typedTextLength = 0
+        stoppedBySafety = false
+        sessionContext = nil
         sessionState = .idle
     }
 

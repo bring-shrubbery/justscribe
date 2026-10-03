@@ -194,6 +194,17 @@ final class ClipboardService {
 
         print("paste: completed")
     }
+
+    /// One Return keystroke, after a paste that ended with "send".
+    func pressReturn() {
+        let source = CGEventSource(stateID: .hidSystemState)
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Return), keyDown: true)
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Return), keyDown: false)
+        keyDown?.flags = []
+        keyUp?.flags = []
+        keyDown?.post(tap: .cgSessionEventTap)
+        keyUp?.post(tap: .cgSessionEventTap)
+    }
 }
 
 /// What is on a pasteboard, so it can be put back after a paste: every item with every

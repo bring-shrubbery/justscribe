@@ -38,6 +38,9 @@ final class TranscriptionService {
     // WhisperKit
     private var whisperKit: WhisperKit?
 
+    /// The user's vocabulary as Whisper's initial prompt; nil or empty means none. Parakeet ignores it.
+    var vocabularyPromptText: String?
+
     // FluidAudio
     private var asrManager: AsrManager?
     private var asrModels: AsrModels?
@@ -364,6 +367,11 @@ final class TranscriptionService {
             var options = DecodingOptions()
             if let language = language, !language.isEmpty {
                 options.language = language
+            }
+            if let promptText = vocabularyPromptText, !promptText.isEmpty, let tokenizer = whisperKit.tokenizer {
+                let begin = tokenizer.specialTokens.specialTokenBegin
+                let tokens = tokenizer.encode(text: " " + promptText).filter { $0 < begin }
+                if !tokens.isEmpty { options.promptTokens = Array(tokens.prefix(200)) }
             }
 
             let results = try await whisperKit.transcribe(audioArray: buffer, decodeOptions: options)
