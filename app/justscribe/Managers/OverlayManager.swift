@@ -22,7 +22,6 @@
 
 import Foundation
 import SwiftUI
-import DynamicNotchKit
 
 // MARK: - Overlay Content View
 
@@ -120,6 +119,10 @@ final class OverlayManager {
 
     private var notch: DynamicNotch<OverlayExpandedView, EmptyView, EmptyView>?
     private var autoHideTask: Task<Void, Never>?
+    /// The style the current panel was built with; a change needs a new panel.
+    private var shownStyle: OverlayStyle?
+    /// Bumped by every show/hide, so a finished hide only resets state when nothing newer happened.
+    private var hideGeneration = 0
 
     enum OverlayStyle: String, CaseIterable {
         case bubble
@@ -189,15 +192,33 @@ final class OverlayManager {
             currentStyle = style
         }
 
+        // One panel at a time: a second DynamicNotch created while the first is still on screen
+        // (a dictation started inside the completed state's auto-hide window) would never be
+        // hidden and would sit on the screen showing stale text. Reuse the visible one unless the
+        // style changed; otherwise take the old one down before creating the new one.
+        if let existing = notch {
+            if isVisible && shownStyle == currentStyle {
+                hideGeneration += 1
+                Task { await existing.expand() }
+                return
+            }
+            notch = nil
+            hideGeneration += 1
+            Task { await existing.hide() }
+        }
+
         let isNotch = currentStyle == .notch
-        notch = DynamicNotch(
+        let created = DynamicNotch(
             style: currentStyle.dynamicNotchStyle
         ) {
             OverlayExpandedView(manager: OverlayManager.shared, isNotchStyle: isNotch)
         }
+        notch = created
+        shownStyle = currentStyle
+        hideGeneration += 1
 
         Task {
-            await notch?.expand()
+            await created.expand()
         }
         isVisible = true
     }
@@ -205,13 +226,25 @@ final class OverlayManager {
     func hide() {
         autoHideTask?.cancel()
         autoHideTask = nil
-        let notchToHide = self.notch
-        self.notch = nil
-        Task { await notchToHide?.hide() }
         isVisible = false
-        state = .idle
-        listeningHint = nil
         onTap = nil
+        guard let notchToHide = notch else {
+            state = .idle
+            listeningHint = nil
+            return
+        }
+        notch = nil
+        hideGeneration += 1
+        let generation = hideGeneration
+        Task {
+            // Keep the last state on screen while the panel animates out; the idle text would
+            // otherwise flash during the fade. Reset only if nothing was shown in the meantime.
+            await notchToHide.hide()
+            if hideGeneration == generation {
+                state = .idle
+                listeningHint = nil
+            }
+        }
     }
 
     func updateState(_ newState: OverlayState) {
