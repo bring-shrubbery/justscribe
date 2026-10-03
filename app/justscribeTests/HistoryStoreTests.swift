@@ -23,6 +23,7 @@ import Testing
 @testable import justscribe
 
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct HistoryStoreTests {
 
     private func makeDirectory() throws -> URL {

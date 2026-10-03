@@ -17,6 +17,8 @@ jobs:
   app:
     name: Build and test the app
     runs-on: macos-26
+    # A green run takes about six minutes; a hung test must fail the job, not sit for hours.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - name: Select the newest installed Xcode
@@ -49,12 +51,12 @@ jobs:
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM="" \
             test -only-testing:justscribeTests 2>&1 | tee build.log | tail -40
       - name: Show the build errors
-        if: failure()
+        if: ${{ !success() }}
         run: |
           [ -f build.log ] || exit 0
           grep -n -E "error:|Test case '.*' failed|\*\* (BUILD|TEST|ARCHIVE) FAILED \*\*" build.log | head -80 || true
       - name: Keep the build log
-        if: failure()
+        if: ${{ !success() }}
         uses: actions/upload-artifact@v7
         with:
           name: build-log

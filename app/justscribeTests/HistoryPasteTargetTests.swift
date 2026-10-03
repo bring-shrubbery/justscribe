@@ -21,6 +21,7 @@
 import Testing
 @testable import justscribe
 
+@Suite(.timeLimit(.minutes(1)))
 struct HistoryPasteTargetTests {
 
     @Test func pastesIntoTheAppThatWasInFront() {

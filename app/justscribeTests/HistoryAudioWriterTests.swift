@@ -22,6 +22,7 @@ import Foundation
 import Testing
 @testable import justscribe
 
+@Suite(.timeLimit(.minutes(1)))
 struct HistoryAudioWriterTests {
 
     private func tone(seconds: Double) -> [Float] {
