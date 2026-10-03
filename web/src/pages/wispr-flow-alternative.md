@@ -25,7 +25,7 @@ faq:
 | Account | None | Yes |
 | Source code | Open source (GPL-3.0) | Closed |
 | Platforms | Mac (Apple silicon, macOS 26.2 or later) | Mac, Windows, iOS, Android |
-| Text clean-up | Optional on-device grammar, spelling and punctuation correction | Cloud AI editing that adapts to the app you are in |
+| Text clean-up | On-device clean-up with your own instructions per app, plus a vocabulary and voice commands | Cloud AI editing that adapts to the app you are in |
 | Teams, shared dictionaries, meeting notes | No | Yes |
 
 Wispr Flow details are from its [pricing](https://wisprflow.ai/pricing) and [data controls](https://wisprflow.ai/data-controls) pages as of October 2026; check them for current plans and limits.

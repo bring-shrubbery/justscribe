@@ -14,6 +14,7 @@ JustScribe is a free, open-source (GPL-3.0) app by Quassum for macOS 26.2 and la
 - Permissions: Microphone, and Accessibility to type into other apps.
 - File transcription: drop an audio or video file (m4a, mp3, wav, aiff, caf, flac, mp4, mov, m4v) on the Transcribe File window for a transcript with timestamps and optional speaker labels; copy it or save it as text. Also on-device.
 - History: optional and off by default; text and optionally audio kept on the Mac only, deletable at any time.
+- Vocabulary and modes: custom words with 'heard as' forms, voice commands (new line, scratch that, stop recording, send), hold or press-to-toggle recording, clean-up instructions per app; stored on the Mac.
 - Updates: the app updates itself; releases are published on GitHub.
 
 ## Pages

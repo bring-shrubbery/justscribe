@@ -41,7 +41,7 @@ JustScribe uses on-device machine learning models (Parakeet and Whisper) to tran
 
 ## What is stored on your Mac
 
-Your settings, the model files you download and, if you turn on History, the text of your dictations and, optionally, their recordings are stored on your Mac in the App's sandbox container. This data is only accessible to the App, is not synced by us to any service, and is removed when you delete the App's data.
+Your settings, the model files you download, your vocabulary and dictation modes and, if you turn on History, the text of your dictations and, optionally, their recordings are stored on your Mac in the App's sandbox container. This data is only accessible to the App, is not synced by us to any service, and is removed when you delete the App's data.
 
 ## When the App uses the network
 

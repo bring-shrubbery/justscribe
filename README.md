@@ -22,6 +22,7 @@ Native macOS app for fast voice-to-text dictation anywhere on your system. [Down
   - Llama 3.1 8B Instruct (4-bit MLX), downloaded on demand
 - Transcribe audio and video files, with timestamps and optional speaker labels
 - Optional history of your dictations, with or without the recordings (off by default; everything stays on your Mac)
+- A vocabulary for the names and words it must spell right, spoken commands ("new line", "scratch that", "stop recording"), hold-to-record or press-to-toggle, and clean-up modes that follow the app you dictate into
 - Customizable shortcut, including modifier-only shortcuts
 - Microphone priority ordering
 - Recording indicator styles: Floating Bubble or Notch

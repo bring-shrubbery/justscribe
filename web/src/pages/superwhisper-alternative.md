@@ -23,7 +23,7 @@ faq:
 | Source code | Open source (GPL-3.0) | Closed |
 | Where transcription runs | On your Mac only | On your Mac or in the cloud, your choice |
 | Speech models | Parakeet v3, Parakeet English, Whisper Tiny to Large v3 | Local and cloud models |
-| Text clean-up | Grammar, spelling and punctuation correction, on-device | Customisable AI modes using local or cloud language models |
+| Text clean-up | On-device clean-up with your own instructions per app, plus a vocabulary and voice commands | Customisable AI modes using local or cloud language models |
 | File transcription | Yes: audio and video files, with timestamps and speaker labels | Yes (Pro) |
 | Platforms | Mac (Apple silicon, macOS 26.2 or later) | Mac, Windows, iOS, Android |
 
