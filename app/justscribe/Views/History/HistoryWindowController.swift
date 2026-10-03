@@ -55,7 +55,10 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
             let view = HistoryView(
                 store: store, playback: playback,
                 openSettings: openSettings,
-                paste: { [weak self] text in self?.paste(text) ?? HistoryPasteNotice.noTarget })
+                paste: { [weak self] text in
+                    guard let self else { return HistoryPasteNotice.noTarget }
+                    return self.paste(text)
+                })
             let hostingView = NSHostingView(rootView: view)
             hostingView.sizingOptions = [.minSize]
             window.contentView = hostingView
