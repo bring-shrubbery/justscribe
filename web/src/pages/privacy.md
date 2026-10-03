@@ -21,7 +21,7 @@ JustScribe ("the App") is made by Quassum MB, Algirdo 18-11, LT-03218 Vilnius, L
 
 ## What the App does not collect
 
-JustScribe is designed so that we cannot see what you do with it. We do not collect — unless you turn on History, which keeps them on your Mac only (see below):
+JustScribe is designed so that we cannot see what you do with it. We do not collect any of the following. (If you turn on History, the App keeps the text of your dictations, and optionally the audio, on your Mac only; see History below.)
 
 - Audio recordings or voice data
 - Transcribed text
@@ -34,14 +34,14 @@ JustScribe is designed so that we cannot see what you do with it. We do not coll
 
 JustScribe uses on-device machine learning models (Parakeet and Whisper) to transcribe audio. All processing happens on your Mac:
 
-- Audio is held in memory while you record and discarded afterwards. It is not saved to disk.
+- Audio is held in memory while you record and discarded afterwards. It is not saved to disk unless you turn on Keep Audio Recordings in History (see below).
 - Audio is never uploaded. We do not operate transcription servers.
 - Optional grammar correction also runs on your Mac, using either the language model built into macOS (Apple Intelligence) or a Llama model stored on your Mac.
 - Files you transcribe are read where they are and never uploaded. When you ask for speakers to be identified, the App writes a temporary copy of the file's audio inside its own sandbox container and deletes it when the pass ends; if the App was quit or failed meanwhile, the copy is removed the next time the App starts or identifies speakers. The transcript is discarded when you close the window unless you copy or save it.
 
 ## What is stored on your Mac
 
-Your settings, and the model files you download, are stored on your Mac in the App's sandbox container. This data is only accessible to the App, is not synced by us to any service, and is removed when you delete the App's data.
+Your settings, the model files you download and, if you turn on History, the text of your dictations and, optionally, their recordings are stored on your Mac in the App's sandbox container. This data is only accessible to the App, is not synced by us to any service, and is removed when you delete the App's data.
 
 ## When the App uses the network
 
@@ -65,7 +65,7 @@ JustScribe needs Accessibility permission to type the transcribed text into the 
 
 History is off unless you turn it on in Settings → History.
 
-- **Keep Transcriptions** saves the text of each dictation, with the date, its length and the model used.
+- **Keep Transcriptions** saves the text of each dictation, with the date, its length, the model and the language used.
 - **Keep Audio Recordings** also saves the recording as a small audio file. Recordings are removed oldest first once they pass 1 GB.
 
 Everything History keeps is stored inside the App's own container on your Mac. It is never uploaded or synced by the App. **Delete All History** in Settings removes all of it; turning a switch off keeps what already exists until you delete it.
