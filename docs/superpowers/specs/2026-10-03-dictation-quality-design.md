@@ -44,9 +44,20 @@ raw transcript ──► voice commands ──► vocabulary ──► clean-up 
      app) equals the entry's.
      Multi-word entries are matched against runs of the same word count.
   3. A replaced word keeps the punctuation attached to it and the spacing
-     around it.
-- Dictionary words are never replaced by the sound-alike path: "mark" stays
-  "mark" even with "Marc" in the vocabulary; add "mark" as a form to force it.
+     around it; a possessive or plural suffix after an apostrophe ("Antoni's")
+     is kept too. A run never crosses clause punctuation (`. ? ! , ; :`)
+     inside it.
+  4. Exact spellings are settled first: a run whose key equals an entry's key
+     (and contains a non-dictionary word) takes that entry before any
+     sound-alike matching, so the user's own spelling is never overwritten by
+     a similar entry and applying the matcher twice changes nothing.
+  5. Entries whose key is shorter than three letters are matched by their
+     forms only (no sound-alikes); the phonetic test is skipped when the
+     entry's phonetic key has fewer than two characters; an entry containing
+     digits only matches runs with the same digits.
+- Dictionary words are never replaced by the sound-alike path, nor re-cased
+  by an exact match: "mark" stays "mark" even with "Marc" in the vocabulary,
+  and "linear" stays lower-case with "Linear" in it; add a form to force it.
 - **Whisper bias:** entries' `text`, most recently added first, joined with
   spaces and encoded with WhisperKit's tokenizer, capped at 200 tokens, is set
   as `DecodingOptions.promptTokens` for the final pass and the streaming
