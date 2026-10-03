@@ -109,6 +109,18 @@ concatenating the model's own pieces, never by joining with spaces, so languages
 spaces stay intact. The assembler and the fallback paths put a space before a chunk's first word
 (except punctuation), so an unspaced language can get a space at a chunk boundary on those paths.
 
+### History
+
+Off by default. `HistoryStore` (`Services/History/`) owns `Application Support/<bundle id>/History/`:
+`index.json` (atomic writes, ISO 8601 dates) and `audio/<uuid>.m4a` (AAC mono 48 kbit/s from
+`HistoryAudioWriter`, `@concurrent`). `AppDelegate.stopRecordingAndFinalize` asks
+`HistoryPolicy.shouldKeep` with the two UserDefaults keys and hands the finished text and the
+audio buffer to `HistoryStore.shared.add` in a Task; additions are chained so two in flight cannot
+interleave. The audio folder is capped at 1 GB, oldest audio removed first, text kept. A damaged
+index is renamed `index.json.broken`, never overwritten. The History window captures the frontmost
+app on `show()` so "Paste" can activate it and paste through `ClipboardService.paste`. Tests use
+temp directories only: never the real History folder or `UserDefaults.standard`.
+
 ### Settings persistence — dual-write, deliberately
 
 `AppSettings` is a SwiftData `@Model` used by the Settings UI, but every field mirrors itself into

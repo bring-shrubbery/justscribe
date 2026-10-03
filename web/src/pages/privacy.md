@@ -21,7 +21,7 @@ JustScribe ("the App") is made by Quassum MB, Algirdo 18-11, LT-03218 Vilnius, L
 
 ## What the App does not collect
 
-JustScribe is designed so that we cannot see what you do with it. We do not collect:
+JustScribe is designed so that we cannot see what you do with it. We do not collect — unless you turn on History, which keeps them on your Mac only (see below):
 
 - Audio recordings or voice data
 - Transcribed text
@@ -60,6 +60,15 @@ JustScribe needs microphone access to hear what you dictate. It records only whi
 ## Accessibility permission
 
 JustScribe needs Accessibility permission to type the transcribed text into the app you are using. It is used only to insert text at your cursor. It is not used to read the content of other apps or to monitor your keyboard. You can revoke it at any time in System Settings.
+
+## History (optional)
+
+History is off unless you turn it on in Settings → History.
+
+- **Keep Transcriptions** saves the text of each dictation, with the date, its length and the model used.
+- **Keep Audio Recordings** also saves the recording as a small audio file. Recordings are removed oldest first once they pass 1 GB.
+
+Everything History keeps is stored inside the App's own container on your Mac. It is never uploaded or synced by the App. **Delete All History** in Settings removes all of it; turning a switch off keeps what already exists until you delete it.
 
 ## This website
 
