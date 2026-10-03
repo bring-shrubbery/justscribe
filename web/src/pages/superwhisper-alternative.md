@@ -8,7 +8,7 @@ faq:
   - q: "Is JustScribe a free alternative to Superwhisper?"
     a: "Yes. JustScribe is free and open source under the GPL-3.0 licence, and every feature is included: there is no Pro tier. It covers system-wide dictation on a Mac with on-device models and optional grammar correction."
   - q: "What does Superwhisper do that JustScribe does not?"
-    a: "Superwhisper has customisable AI modes that rewrite your speech with large language models, can use cloud models and your own API keys, and is available on Windows, iOS and Android as well. JustScribe does dictation and file transcription on a Mac, with no modes and no cloud."
+    a: "Superwhisper has customisable AI modes that rewrite your speech with large language models, can use cloud models and your own API keys, and is available on Windows, iOS and Android as well. JustScribe runs only on your Mac, with no cloud: it has per-app clean-up modes you write yourself, rather than a library of ready-made ones."
   - q: "Do both work offline?"
     a: "Both can run speech models locally on Apple silicon Macs. JustScribe is local only; Superwhisper offers local and cloud models."
 ---
@@ -46,7 +46,7 @@ Superwhisper details are from [superwhisper.com](https://superwhisper.com) as of
 ## What you get with JustScribe
 
 - A global shortcut that records while you hold it or toggles with a press, including modifier-only shortcuts.
-- Text that appears while you speak, then a second pass over the whole recording when you release the key.
+- Text that appears while you speak, then a second pass over the whole recording when you release the key (or press it again in press-to-toggle mode).
 - A choice of [on-device models](/guides/offline-speech-to-text-mac), from 75 MB to 3 GB.
 - [Transcription of audio and video files](/guides/transcribe-audio-files-mac), with timestamps and optional speaker labels.
 - Optional [grammar correction](/guides/grammar-correction) through Apple Intelligence or a local Llama model.

@@ -55,7 +55,7 @@ The App sends nothing else, and nothing to us directly.
 
 ## Microphone permission
 
-JustScribe needs microphone access to hear what you dictate. It records only while you hold the shortcut, or — in press-to-toggle mode — between one press and the next (or a spoken "stop recording", a click on the indicator, or the automatic stop after 10 minutes), or after you choose Start Transcription in the menu until you stop it. You can revoke the permission at any time in System Settings.
+JustScribe needs microphone access to hear what you dictate. It records only while you hold the shortcut, or — in press-to-toggle mode — between one press and the next (or a spoken "stop recording" or "send", a click on the indicator, or the automatic stop after 10 minutes), or after you choose Start Transcription in the menu until you stop it. You can revoke the permission at any time in System Settings.
 
 ## Accessibility permission
 

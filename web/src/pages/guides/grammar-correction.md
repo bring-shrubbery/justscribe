@@ -20,8 +20,10 @@ It is off by default. Dictation without it is faster, and many people do not nee
 ## Turn it on
 
 1. Open JustScribe's Settings.
-2. Go to **Grammar Correction** and switch it on.
+2. Go to **Clean-up** and switch on **Clean Up Text**.
 3. Choose a model.
+
+The Default mode fixes grammar, spelling and punctuation. You can also add modes with your own instructions and bind each to the apps it should be used in: **Settings → Clean-up → Add Mode…**. Dictation in an app with no mode of its own uses Default.
 
 ## The two models
 
@@ -38,9 +40,9 @@ It is off by default. Dictation without it is faster, and many people do not nee
 
 ## What happens when you dictate
 
-1. You hold the shortcut and speak; text appears as you go.
-2. You release the key; JustScribe transcribes the full recording again and corrects the typed text.
-3. With grammar correction on, the result goes to the language model, and the text in your app is replaced with the corrected version.
+1. You hold the shortcut and speak — or, in press-to-toggle mode, press it once to start; text appears as you go.
+2. You release the key (or press it again in press-to-toggle mode); JustScribe transcribes the full recording again and corrects the typed text.
+3. With clean-up on, the result goes to the language model with the instructions of the mode for the app you are in, and the text in your app is replaced with the corrected version.
 
 Step 3 adds a short pause, longer for long dictations. Very long text is corrected in sentence-sized pieces so nothing is cut off.
 

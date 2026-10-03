@@ -10,7 +10,7 @@ faq:
   - q: "Does JustScribe send my voice to the cloud like Wispr Flow?"
     a: "No. JustScribe transcribes on your Mac with Parakeet or Whisper models, so your audio never leaves the machine. Wispr Flow's own documentation says its transcription always happens in the cloud."
   - q: "What does Wispr Flow do that JustScribe does not?"
-    a: "Wispr Flow runs on Windows, iOS and Android as well as Mac, adapts its formatting to the app you are in, and has team features and a meeting notetaker. JustScribe is Mac only and does one thing: dictation into any app."
+    a: "Wispr Flow runs on Windows, iOS and Android as well as Mac, adapts its formatting to the app you are in, and has team features and a meeting notetaker. JustScribe is Mac only and does all its work on your Mac: transcription and clean-up run on-device, where Wispr Flow sends your voice to the cloud."
 ---
 
 [Wispr Flow](https://wisprflow.ai) made hold-to-talk dictation popular: press a key, speak, and polished text appears wherever your cursor is. JustScribe does the same job on a Mac with two differences that matter to some people. It is free, and it never sends your voice anywhere.

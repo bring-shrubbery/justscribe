@@ -132,7 +132,7 @@ spellings, then sound-alikes; exact and sound-alike matches need a non-dictionar
 `GrammarCorrectionService.correctGrammar(_:instructions:language:)` with the mode's instructions
 inside `GrammarPrompt.frame`. "Scratch that" fires anywhere; "delete that" and the layout and stop
 commands need a clause boundary (`. ? ! , ; :`) on one side; "send" / "press enter" need a boundary before them
-and must come last. "Stop recording" and "send" act only in press-to-toggle mode. A line break
+and must come last. "Stop recording" and "send" are commands only in press-to-toggle mode; in hold mode they are not in the command table and stay in the text as ordinary words. A line break
 spoken at the end is kept, even through clean-up. `AppDelegate` builds a `DictationContext` at key
 down (trigger, frontmost app → `ModeStore.mode(forApp:)`, vocabulary, switches) and keeps it for
 the session; `stopRecordingAndFinalize` calls the pipeline where grammar correction used to run and
