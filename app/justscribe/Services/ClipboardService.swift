@@ -196,19 +196,42 @@ final class ClipboardService {
     }
 }
 
-/// Everything on a pasteboard, so it can be put back after a paste: every item with every
-/// representation it carried. An empty pasteboard restores as empty.
-private struct ClipboardSnapshot {
-    private let items: [[NSPasteboard.PasteboardType: Data]]
+/// What is on a pasteboard, so it can be put back after a paste: every item with every
+/// representation it carries, up to a size cap. Past the cap only the text is kept, so a huge
+/// image or a file promise from another app cannot stall the paste. `dyn.*` types are left
+/// out: the system derives them from the real types on demand. An empty pasteboard restores
+/// as empty.
+struct ClipboardSnapshot {
+    /// The most data a snapshot holds before falling back to text only.
+    static let sizeCap = 16 * 1024 * 1024
 
-    init(of pasteboard: NSPasteboard) {
-        items = (pasteboard.pasteboardItems ?? []).map { item in
+    private(set) var items: [[NSPasteboard.PasteboardType: Data]]
+    /// True when the cap was hit and only text was kept.
+    private(set) var isTextOnly = false
+
+    init(of pasteboard: NSPasteboard, sizeCap: Int = ClipboardSnapshot.sizeCap) {
+        var total = 0
+        var items: [[NSPasteboard.PasteboardType: Data]] = []
+        var capped = false
+        for item in pasteboard.pasteboardItems ?? [] {
             var data: [NSPasteboard.PasteboardType: Data] = [:]
-            for type in item.types {
-                if let value = item.data(forType: type) { data[type] = value }
+            for type in item.types where !type.rawValue.hasPrefix("dyn.") {
+                guard !capped, let value = item.data(forType: type) else { continue }
+                total += value.count
+                if total > sizeCap {
+                    capped = true
+                    break
+                }
+                data[type] = value
             }
-            return data
+            items.append(data)
         }
+        if capped {
+            let text = pasteboard.string(forType: .string)
+            items = text.map { [[.string: Data($0.utf8)]] } ?? []
+            isTextOnly = true
+        }
+        self.items = items
     }
 
     func restore(to pasteboard: NSPasteboard) {
