@@ -40,7 +40,7 @@ Wispr Flow details are from its [pricing](https://wisprflow.ai/pricing) and [dat
 ## When Wispr Flow is the better fit
 
 - You need the same dictation on Windows or on your phone.
-- You want the text rewritten to suit the app, for example a formal tone in email and a casual one in chat. JustScribe corrects grammar and punctuation but does not change your tone.
+- You want your text edited by large cloud language models. JustScribe's clean-up uses only models that run on your Mac.
 - You want team features such as a shared dictionary, or a meeting notetaker.
 - Your Mac is an Intel model. JustScribe needs Apple silicon.
 
@@ -51,4 +51,4 @@ Wispr Flow details are from its [pricing](https://wisprflow.ai/pricing) and [dat
 3. Grant Microphone and Accessibility permission.
 4. Hold `Control` `Shift` `Space` and speak. You can change the shortcut, including to a single modifier key, in Settings.
 
-If you want the tidy-up that cloud tools do, turn on grammar correction in Settings. It runs on your Mac as well: see [dictation with grammar correction](/guides/grammar-correction).
+If you want the tidy-up that cloud tools do, turn on Clean-up in Settings. It runs on your Mac as well: see [dictation with grammar correction](/guides/grammar-correction).

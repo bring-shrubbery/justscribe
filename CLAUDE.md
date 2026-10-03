@@ -131,14 +131,14 @@ spellings, then sound-alikes; exact and sound-alike matches need a non-dictionar
 "'s" is kept, and entries under three letters get no sound-alikes) → clean-up through
 `GrammarCorrectionService.correctGrammar(_:instructions:language:)` with the mode's instructions
 inside `GrammarPrompt.frame`. "Scratch that" fires anywhere; "delete that" and the layout and stop
-commands need a sentence boundary on one side; "send" / "press enter" need a boundary before them
+commands need a clause boundary (`. ? ! , ; :`) on one side; "send" / "press enter" need a boundary before them
 and must come last. "Stop recording" and "send" act only in press-to-toggle mode. A line break
 spoken at the end is kept, even through clean-up. `AppDelegate` builds a `DictationContext` at key
 down (trigger, frontmost app → `ModeStore.mode(forApp:)`, vocabulary, switches) and keeps it for
 the session; `stopRecordingAndFinalize` calls the pipeline where grammar correction used to run and
 applies the result through the existing `replaceTypedText` bookkeeping. `RecordingTrigger` (`hold` /
 `pressToToggle`) is read at key down; press mode ignores key up, stops on the next press, on a
-spoken "stop recording" seen in the streaming text, on an overlay click, and after a 10-minute
+spoken "stop recording" or "send" seen in the streaming text, on an overlay click, and after a 10-minute
 safety stop. A modifier-only shortcut fires only after a short hold (0.15 s), in either mode.
 Whisper gets the vocabulary as `promptTokens` (≤ 200); file transcripts get `VocabularyMatcher`
 too, but no commands or clean-up. Vocabulary and modes live in `vocabulary.json` / `modes.json` in

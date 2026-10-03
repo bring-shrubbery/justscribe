@@ -31,21 +31,21 @@ Superwhisper details are from [superwhisper.com](https://superwhisper.com) as of
 
 ## When JustScribe is the better fit
 
-- **You want dictation, not a toolkit.** There is one mode: what you say is what gets typed, optionally with grammar and punctuation fixed. Nothing to configure beyond a shortcut and a model.
+- **You want dictation, not a toolkit.** JustScribe works with sensible defaults once you have picked a shortcut and a model. Clean-up modes per app, a vocabulary and voice commands are there when you want them.
 - **You do not want to pay for dictation.** Nothing in JustScribe is behind a licence.
 - **You want everything local, with no way to turn that off.** JustScribe has no cloud models and no API-key settings, so audio cannot leave your Mac by mistake.
 - **You value open source.** You can read, build and change the [code](https://github.com/bring-shrubbery/justscribe).
 
 ## When Superwhisper is the better fit
 
-- You want modes that rewrite your speech, such as turning rambling notes into a formatted email, or prompts of your own.
+- You want a larger choice of ready-made modes to build on.
 - You want to use cloud models, or your own API keys, for the best possible accuracy on difficult audio.
 - You need subtitle files or other export formats from a recording; JustScribe saves plain text with timestamps.
 - You use Windows or a phone, or an Intel Mac.
 
 ## What you get with JustScribe
 
-- A global hold-to-record shortcut, including modifier-only shortcuts.
+- A global shortcut that records while you hold it or toggles with a press, including modifier-only shortcuts.
 - Text that appears while you speak, then a second pass over the whole recording when you release the key.
 - A choice of [on-device models](/guides/offline-speech-to-text-mac), from 75 MB to 3 GB.
 - [Transcription of audio and video files](/guides/transcribe-audio-files-mac), with timestamps and optional speaker labels.
