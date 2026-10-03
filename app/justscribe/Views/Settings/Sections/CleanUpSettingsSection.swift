@@ -1,5 +1,5 @@
 //
-//  GrammarCorrectionSettingsSection.swift
+//  CleanUpSettingsSection.swift
 //  justscribe
 //
 //  Copyright (C) 2026 Quassum MB
@@ -21,16 +21,16 @@
 import AppKit
 import SwiftUI
 
-struct GrammarCorrectionSettingsSection: View {
+struct CleanUpSettingsSection: View {
     @Bindable var settings: AppSettings
     private var service: GrammarCorrectionService { GrammarCorrectionService.shared }
 
     var body: some View {
-        SettingsSectionContainer(title: "Grammar Correction") {
+        SettingsSectionContainer(title: "Clean-up") {
             VStack(spacing: 12) {
                 ToggleSettingsRow(
-                    title: "Enable Grammar Correction",
-                    subtitle: "Fix grammar, spelling, and punctuation in transcriptions",
+                    title: "Clean Up Text",
+                    subtitle: "Fix grammar, spelling and punctuation, or follow the instructions of the mode for the app you dictate into",
                     systemImage: "text.badge.checkmark",
                     isOn: Binding(
                         get: { settings.grammarCorrectionEnabled },
@@ -58,6 +58,8 @@ struct GrammarCorrectionSettingsSection: View {
                             MLXGrammarModelRow(model: model, settings: settings)
                         }
                     }
+                    Divider()
+                    ModesList(store: ModeStore.shared)
                 }
             }
         }
@@ -274,5 +276,48 @@ private struct AppleGrammarModelRow: View {
                 .buttonStyle(.pill)
             }
         }
+    }
+}
+
+private struct ModesList: View {
+    let store: ModeStore
+    @State private var editing: DictationMode?
+    @State private var isAdding = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Modes").font(.body)
+                Spacer()
+                Button("Add Mode…") { isAdding = true }.buttonStyle(.pillSmall)
+            }
+            Text("The app in front when you press the shortcut picks the mode; Default covers the rest.")
+                .font(.caption).foregroundStyle(.secondary)
+            if store.fileWasSetAside {
+                Text("A damaged modes file was set aside; modes started again.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(store.modes) { mode in
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(mode.name)
+                        Text(mode.isDefault ? "All other apps" : (mode.appBundleIDs.isEmpty ? "No apps yet" : appNames(mode.appBundleIDs)))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !mode.cleanUp { Text("Raw").font(.caption).foregroundStyle(.secondary) }
+                    Button("Edit") { editing = mode }.buttonStyle(.pillSmall)
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .sheet(item: $editing) { mode in ModeEditor(store: store, mode: mode) }
+        .sheet(isPresented: $isAdding) {
+            ModeEditor(store: store, mode: DictationMode(id: UUID(), name: "", instructions: "", cleanUp: true, appBundleIDs: []), isNew: true)
+        }
+    }
+
+    private func appNames(_ ids: [String]) -> String {
+        ids.map { ModeEditor.displayName(forBundleID: $0) }.joined(separator: ", ")
     }
 }

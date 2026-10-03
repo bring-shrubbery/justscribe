@@ -58,7 +58,11 @@ struct SettingsView: View {
 
                         Divider()
 
-                        GrammarCorrectionSettingsSection(settings: settings)
+                        CleanUpSettingsSection(settings: settings)
+
+                        Divider()
+
+                        VocabularySettingsSection()
 
                         Divider()
 
@@ -70,11 +74,11 @@ struct SettingsView: View {
 
                         Divider()
 
-                        UpdateSettingsSection()
+                        HistorySettingsSection(settings: settings)
 
                         Divider()
 
-                        HistorySettingsSection(settings: settings)
+                        UpdateSettingsSection()
 
                         Divider()
 
