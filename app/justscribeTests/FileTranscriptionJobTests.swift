@@ -487,4 +487,16 @@ struct FileTranscriptionJobTests {
         #expect(job.phase == .cancelled)
         #expect(transcriber.calls == 0)
     }
+
+    @Test func vocabularyMergesAMatchedRunIntoOneTimedWord() {
+        let words = [
+            TimedWord(text: " I", start: 0, end: 0.2), TimedWord(text: " like", start: 0.2, end: 0.5),
+            TimedWord(text: " swift", start: 0.5, end: 0.8), TimedWord(text: " UI.", start: 0.8, end: 1.1),
+        ]
+        let entries = [VocabularyEntry(id: UUID(), text: "SwiftUI", heardAs: ["swift ui"], createdAt: Date())]
+        let out = FileTranscriptionJob.applyVocabulary(words, entries: entries, isDictionaryWord: { _ in true })
+        #expect(out.map(\.text) == [" I", " like", " SwiftUI."])
+        #expect(out[2].start == 0.5 && out[2].end == 1.1)
+        #expect(FileTranscriptionJob.applyVocabulary(words, entries: [], isDictionaryWord: { _ in true }) == words)
+    }
 }

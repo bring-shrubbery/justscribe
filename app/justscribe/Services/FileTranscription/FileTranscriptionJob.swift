@@ -91,6 +91,8 @@ final class FileTranscriptionJob {
     private let transcriber: any TimedTranscribing
     private let dictation: any DictationActivity
     private let speakerProvider: any SpeakerTurnProviding
+    private let vocabulary: [VocabularyEntry]
+    private let isDictionaryWord: (String) -> Bool
     private let openSource: @Sendable (URL) async throws -> any FileAudioSource
     private let pollInterval: Duration
     private var hasStarted = false
@@ -102,6 +104,8 @@ final class FileTranscriptionJob {
         url: URL, language: String?, speakers: SpeakerRequest,
         transcriber: any TimedTranscribing, dictation: any DictationActivity,
         speakerProvider: any SpeakerTurnProviding,
+        vocabulary: [VocabularyEntry] = [],
+        isDictionaryWord: @escaping (String) -> Bool = { DictionaryWords.isWord($0, language: nil) },
         openSource: @escaping @Sendable (URL) async throws -> any FileAudioSource = { try await AudioFileDecoder.open($0) },
         pollInterval: Duration = .milliseconds(200)
     ) {
@@ -111,6 +115,8 @@ final class FileTranscriptionJob {
         self.transcriber = transcriber
         self.dictation = dictation
         self.speakerProvider = speakerProvider
+        self.vocabulary = vocabulary
+        self.isDictionaryWord = isDictionaryWord
         self.openSource = openSource
         self.pollInterval = pollInterval
     }
@@ -203,7 +209,7 @@ final class FileTranscriptionJob {
             phase = .transcribing(fraction)
             do {
                 let chunkWords = try await transcriber.transcribeTimed(chunk.samples, language: language)
-                words += chunkWords.map {
+                words += Self.applyVocabulary(chunkWords, entries: vocabulary, isDictionaryWord: isDictionaryWord).map {
                     TimedWord(text: $0.text, start: $0.start + chunk.startSeconds, end: $0.end + chunk.startSeconds)
                 }
             } catch {
@@ -263,6 +269,22 @@ final class FileTranscriptionJob {
             return false
         }
         return true
+    }
+
+    /// The user's vocabulary applied to a chunk's words; a run that became one entry is one word
+    /// spanning the run's time.
+    nonisolated static func applyVocabulary(_ words: [TimedWord], entries: [VocabularyEntry], isDictionaryWord: (String) -> Bool) -> [TimedWord] {
+        guard !entries.isEmpty, !words.isEmpty else { return words }
+        let fixed = VocabularyMatcher.apply(words: words.map(\.text), entries: entries, isDictionaryWord: isDictionaryWord)
+        var out: [TimedWord] = []
+        for (word, text) in zip(words, fixed) {
+            if text.isEmpty, !word.text.isEmpty, let last = out.indices.last {
+                out[last].end = max(out[last].end, word.end)
+            } else {
+                out.append(TimedWord(text: text, start: word.start, end: word.end))
+            }
+        }
+        return out
     }
 
     @concurrent

@@ -182,6 +182,7 @@ final class FileTranscriptionModel {
         let job = FileTranscriptionJob(
             url: url, language: language, speakers: speakers,
             transcriber: transcriber, dictation: dictation, speakerProvider: diarization,
+            vocabulary: VocabularyStore.shared.entries,
             openSource: openSource, pollInterval: pollInterval)
         self.job = job
         job.start()
