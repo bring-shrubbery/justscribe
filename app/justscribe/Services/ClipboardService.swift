@@ -105,11 +105,10 @@ final class ClipboardService {
         return fullText.count
     }
 
-    /// Delete N characters backward then paste replacement text
-    func replaceTypedText(characterCount: Int, withText newText: String) {
-        guard characterCount > 0, !newText.isEmpty else { return }
-
-        print("replaceTypedText: deleting \(characterCount) chars, replacing with '\(newText.prefix(50))...'")
+    /// Deletes the last `characterCount` characters typed into the focused app (backspaces, or
+    /// select-all and delete past 500 characters).
+    func deleteTypedText(characterCount: Int) {
+        guard characterCount > 0 else { return }
 
         let source = CGEventSource(stateID: .hidSystemState)
 
@@ -148,6 +147,15 @@ final class ClipboardService {
 
         // Small delay for the app to process all deletions
         usleep(20000) // 20ms
+    }
+
+    /// Delete N characters backward then paste replacement text
+    func replaceTypedText(characterCount: Int, withText newText: String) {
+        guard characterCount > 0, !newText.isEmpty else { return }
+
+        print("replaceTypedText: deleting \(characterCount) chars, replacing with '\(newText.prefix(50))...'")
+
+        deleteTypedText(characterCount: characterCount)
 
         // Paste the corrected text
         paste(newText, restorePrevious: true)

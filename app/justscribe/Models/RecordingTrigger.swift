@@ -43,7 +43,7 @@ nonisolated enum RecordingTrigger: String, Codable, CaseIterable, Sendable {
     var detail: String {
         switch self {
         case .hold: "Recording lasts as long as the shortcut is held."
-        case .pressToToggle: "Say \"stop recording\" or press the shortcut again to finish. A recording stops by itself after 10 minutes."
+        case .pressToToggle: "Say \"stop recording\" or press the shortcut again to finish. A recording stops by itself after 10 minutes. Modifier-only shortcuts need to be held for a moment."
         }
     }
 }

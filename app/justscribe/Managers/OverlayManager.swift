@@ -53,7 +53,8 @@ private struct OverlayExpandedView: View {
             Spacer(minLength: 0)
 
             // Close / cancel button
-            Button(action: { manager.hide() }) {
+            // In a press-mode recording the X stops it, rather than hiding a recording that keeps running.
+            Button(action: { if let onTap = manager.onTap { onTap() } else { manager.hide() } }) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 16))
                     .foregroundStyle(secondaryTextColor)

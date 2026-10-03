@@ -321,6 +321,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard !Task.isCancelled, let self, self.sessionState == .recording else { return }
                 print("Safety stop after 10 minutes")
                 self.stoppedBySafety = true
+                // Finalise outside this task's cancellation: the stop cancels `safetyStopTask`, and a
+                // cancelled task would cut the final pass short.
+                self.safetyStopTask = nil
                 await self.stopRecordingAndFinalize()
             }
         }
@@ -425,6 +428,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     let newText = String(fullTranscription.dropFirst(typedTextLength))
                     if !newText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         ClipboardService.shared.typeText(newText)
+                        // What is on screen is now the whole final pass.
+                        typedTextLength = fullTranscription.count
                     }
                 }
 
@@ -470,8 +475,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let result = await pipeline.process(finalTranscription, context: effective)
             actions = result.actions
             if result.text != finalTranscription {
+                // Type mode: `typedTextLength` is what is on screen, which may differ from the final text.
                 if insertionMode.insertsWhileSpeaking {
-                    ClipboardService.shared.replaceTypedText(characterCount: finalTranscription.count, withText: result.text)
+                    if result.text.isEmpty {
+                        ClipboardService.shared.deleteTypedText(characterCount: typedTextLength)
+                    } else {
+                        ClipboardService.shared.replaceTypedText(characterCount: typedTextLength, withText: result.text)
+                    }
+                    typedTextLength = result.text.count
                 }
                 finalTranscription = result.text
             }
