@@ -156,18 +156,20 @@ final class ClipboardService {
     }
 
     /// Puts `text` on the clipboard and pastes it into the focused app with one ⌘V. With
-    /// `restorePrevious`, the clipboard's previous text is put back shortly after the paste;
-    /// only text survives that round trip, so an image or file that was on the clipboard is gone.
-    func paste(_ text: String, restorePrevious: Bool) {
+    /// `restorePrevious`, whatever was on the clipboard before (text, an image, a file…) is put
+    /// back `restoreDelay` later, unless something else was copied in the meantime. The delay
+    /// is the time the target app gets to read the pasteboard before it changes under it.
+    func paste(_ text: String, restorePrevious: Bool, restoreDelay: TimeInterval = 0.2) {
         guard !text.isEmpty else { return }
 
         print("paste: pasting \(text.count) characters (restore previous: \(restorePrevious))")
 
         let pasteboard = NSPasteboard.general
-        let previousContent = restorePrevious ? pasteboard.string(forType: .string) : nil
+        let previous = restorePrevious ? ClipboardSnapshot(of: pasteboard) : nil
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        let ours = pasteboard.changeCount
 
         // Give the pasteboard server a moment before the target app reads it.
         usleep(10000) // 10ms
@@ -181,14 +183,43 @@ final class ClipboardService {
         keyDown?.post(tap: .cgSessionEventTap)
         keyUp?.post(tap: .cgSessionEventTap)
 
-        // The target app reads the pasteboard when it handles ⌘V; restore after it has had time to.
-        if let previousContent {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                pasteboard.clearContents()
-                pasteboard.setString(previousContent, forType: .string)
+        // The target app reads the pasteboard when it handles ⌘V; restore after it has had time to,
+        // and only if the clipboard still holds our text (the user may have copied something since).
+        if let previous {
+            DispatchQueue.main.asyncAfter(deadline: .now() + restoreDelay) {
+                guard pasteboard.changeCount == ours else { return }
+                previous.restore(to: pasteboard)
             }
         }
 
         print("paste: completed")
+    }
+}
+
+/// Everything on a pasteboard, so it can be put back after a paste: every item with every
+/// representation it carried. An empty pasteboard restores as empty.
+private struct ClipboardSnapshot {
+    private let items: [[NSPasteboard.PasteboardType: Data]]
+
+    init(of pasteboard: NSPasteboard) {
+        items = (pasteboard.pasteboardItems ?? []).map { item in
+            var data: [NSPasteboard.PasteboardType: Data] = [:]
+            for type in item.types {
+                if let value = item.data(forType: type) { data[type] = value }
+            }
+            return data
+        }
+    }
+
+    func restore(to pasteboard: NSPasteboard) {
+        pasteboard.clearContents()
+        let restored = items.map { data in
+            let item = NSPasteboardItem()
+            for (type, value) in data { item.setData(value, forType: type) }
+            return item
+        }
+        if !restored.isEmpty {
+            pasteboard.writeObjects(restored)
+        }
     }
 }

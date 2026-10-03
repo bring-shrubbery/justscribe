@@ -46,7 +46,7 @@ nonisolated enum TextInsertionMode: String, Codable, CaseIterable, Sendable {
 
     var detail: String {
         switch self {
-        case .paste: "One clean insertion when you release the key. Works in fields that handle typed keystrokes badly; apps that intercept ⌘V may not take it."
+        case .paste: "One clean insertion when you release the key. Works in fields that handle typed keystrokes badly; apps that intercept ⌘V may not take it. With Copy to Clipboard off, your previous clipboard is put back afterwards."
         case .type: "Text appears as you speak and is corrected in place. Use this where pasting does not work."
         }
     }

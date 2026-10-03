@@ -353,7 +353,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
 
-                finalTranscription = fullTranscription
+                // A blank final pass must not throw away text that streaming already recognised.
+                finalTranscription = fullTranscription.isEmpty ? streamedText : fullTranscription
                 print("Final transcription: \(finalTranscription)")
             } catch is TranscriptionTimeoutError {
                 print("Final transcription timed out")
@@ -404,7 +405,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             } catch {
                 print("Grammar correction failed: \(error)")
-                // Silently fall back to raw transcription (already typed)
+                // Silently fall back to the raw transcription (already typed, or about to be pasted)
             }
         }
 
@@ -416,7 +417,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Paste mode: the finished text goes in once, now.
         switch TextInsertion.finalAction(mode: insertionMode, text: finalTranscription, copyToClipboard: copyToClipboard) {
         case .paste(let text, let restoreClipboard):
-            ClipboardService.shared.paste(text, restorePrevious: restoreClipboard)
+            // One paste after the whole pipeline; give slow apps half a second to read it before any restore.
+            ClipboardService.shared.paste(text, restorePrevious: restoreClipboard, restoreDelay: 0.5)
         case .nothing:
             break
         }
