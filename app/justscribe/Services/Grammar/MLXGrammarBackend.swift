@@ -29,12 +29,6 @@ final class MLXGrammarBackend: GrammarBackend {
 
     let modelID = GrammarCorrectionModel.llama3_1_8b_4bit.id
 
-    private static let systemPrompt = """
-        You are a grammar correction assistant. Fix grammar, spelling, and punctuation errors \
-        in the following text. Preserve the original meaning and tone. Output ONLY the corrected \
-        text with no explanations, no quotes, and no additional formatting.
-        """
-
     private static let requestTimeout: Duration = .seconds(30)
 
     private(set) var isReady = false
@@ -98,7 +92,7 @@ final class MLXGrammarBackend: GrammarBackend {
         modelContainer = container
         chatSession = ChatSession(
             container,
-            instructions: Self.systemPrompt,
+            instructions: GrammarPrompt.frame(DictationMode.defaultInstructions),
             generateParameters: GenerateParameters(maxTokens: 2048, temperature: 0.1)
         )
         isReady = true
@@ -136,13 +130,16 @@ final class MLXGrammarBackend: GrammarBackend {
 
     // MARK: - Correction
 
-    func correct(_ text: String, language: String?) async throws -> String {
-        guard let session = chatSession else {
-            throw GrammarBackendError.notReady
-        }
+    func correct(_ text: String, instructions: String, language: String?) async throws -> String {
+        guard chatSession != nil, let container = modelContainer else { throw GrammarBackendError.notReady }
 
-        // Clear previous conversation to avoid context buildup
-        session.clear()
+        // A fresh session per request carries this request's instructions and keeps
+        // context from accumulating across dictations.
+        let session = ChatSession(
+            container,
+            instructions: GrammarPrompt.frame(instructions),
+            generateParameters: GenerateParameters(maxTokens: 2048, temperature: 0.1)
+        )
 
         let prompt: String
         if let language, !language.isEmpty, language != "en" {

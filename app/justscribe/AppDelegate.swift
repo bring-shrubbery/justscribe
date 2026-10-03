@@ -397,7 +397,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 let language = UserDefaults.standard.string(forKey: AppSettings.selectedLanguageKey)
                 let corrected = try await GrammarCorrectionService.shared.correctGrammar(
-                    finalTranscription, language: language
+                    finalTranscription, instructions: DictationMode.defaultInstructions, language: language
                 )
                 if !corrected.isEmpty && corrected != finalTranscription {
                     if insertionMode.insertsWhileSpeaking {

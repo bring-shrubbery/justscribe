@@ -65,7 +65,7 @@ protocol GrammarBackend: AnyObject {
 
     /// Download if necessary and get ready to correct. `onProgress` receives 0...1.
     func prepare(onProgress: @escaping @MainActor (Double) -> Void) async throws
-    func correct(_ text: String, language: String?) async throws -> String
+    func correct(_ text: String, instructions: String, language: String?) async throws -> String
     func unload()
 }
 

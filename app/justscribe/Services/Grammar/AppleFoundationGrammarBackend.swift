@@ -37,12 +37,6 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
     /// block new recordings for N x requestTimeout.
     private static let totalChunkedTimeout: Duration = .seconds(60)
 
-    private static let instructions = """
-        You are a grammar correction assistant. Fix grammar, spelling, and punctuation errors \
-        in the following text. Preserve the original meaning and tone. Output ONLY the corrected \
-        text with no explanations, no quotes, and no additional formatting.
-        """
-
     /// Apple Intelligence & Siri pane.
     nonisolated static let settingsURL = URL(
         string: "x-apple.systempreferences:com.apple.Siri-Settings.extension"
@@ -94,7 +88,7 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
             )
         }
         // Nothing to download; just warm the model so the first correction isn't slow.
-        let session = makeSession()
+        let session = makeSession(instructions: GrammarPrompt.frame(DictationMode.defaultInstructions))
         session.prewarm()
         warmSession = session
         isReady = true
@@ -108,11 +102,12 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
 
     // MARK: - Correction
 
-    func correct(_ text: String, language: String?) async throws -> String {
+    func correct(_ text: String, instructions: String, language: String?) async throws -> String {
         guard isReady else { throw GrammarBackendError.notReady }
+        let framed = GrammarPrompt.frame(instructions)
 
         if text.count <= Self.singleShotLimit {
-            return try await correctOne(text, language: language)
+            return try await correctOne(text, instructions: framed, language: language)
         }
 
         let deadline = ContinuousClock.now.advanced(by: Self.totalChunkedTimeout)
@@ -131,7 +126,7 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
                 continue
             }
             do {
-                let result = try await correctOne(trimmed, language: language)
+                let result = try await correctOne(trimmed, instructions: framed, language: language)
                 corrected.append(Self.reapplyPadding(from: chunk, to: result))
             } catch {
                 // A refusal or timeout on one chunk shouldn't discard the corrections
@@ -148,11 +143,11 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
 
     // MARK: - Private
 
-    private func makeSession() -> LanguageModelSession {
-        LanguageModelSession(instructions: Self.instructions)
+    private func makeSession(instructions: String) -> LanguageModelSession {
+        LanguageModelSession(instructions: instructions)
     }
 
-    private func correctOne(_ text: String, language: String?) async throws -> String {
+    private func correctOne(_ text: String, instructions: String, language: String?) async throws -> String {
         let prompt: String
         if let language, !language.isEmpty, language != "en" {
             prompt = "Language: \(language). Text: \(text)"
@@ -161,10 +156,15 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
         }
 
         // A fresh session per request keeps context from accumulating across dictations.
-        // The first request after prepare() reuses the prewarmed session; every request
-        // after that builds a new one. Extract `.content` inside the closure: `Response`
-        // is not Sendable, `String` is.
-        let session = warmSession ?? makeSession()
+        // The first request after prepare() reuses the prewarmed session when it asks for
+        // Default's instructions; every other request builds a new one. Extract `.content`
+        // inside the closure: `Response` is not Sendable, `String` is.
+        let session: LanguageModelSession
+        if let warm = warmSession, instructions == GrammarPrompt.frame(DictationMode.defaultInstructions) {
+            session = warm
+        } else {
+            session = makeSession(instructions: instructions)
+        }
         warmSession = nil
         let corrected = try await withGrammarTimeout(Self.requestTimeout) {
             try await session.respond(

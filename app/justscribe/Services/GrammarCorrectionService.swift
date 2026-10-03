@@ -143,16 +143,12 @@ final class GrammarCorrectionService {
 
     // MARK: - Correction
 
-    func correctGrammar(_ text: String, language: String? = nil) async throws -> String {
-        guard let backend = activeBackend else {
-            throw GrammarBackendError.notReady
-        }
-
+    func correctGrammar(_ text: String, instructions: String, language: String? = nil) async throws -> String {
+        guard let backend = activeBackend else { throw GrammarBackendError.notReady }
         isProcessing = true
         defer { isProcessing = false }
-
-        let corrected = try await backend.correct(text, language: language)
-        print("Grammar correction: '\(text)' -> '\(corrected)'")
+        let corrected = try await backend.correct(text, instructions: instructions, language: language)
+        print("Clean-up: '\(text)' -> '\(corrected)'")
         return corrected
     }
 }
