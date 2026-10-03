@@ -25,7 +25,8 @@ import Foundation
 nonisolated enum VoiceCommandProcessor {
 
     private enum Command: Equatable {
-        case newLine, newParagraph, scratch, stop, send
+        /// `anywhere`: "scratch that" fires mid-clause; "delete that" must stand alone ("delete that email").
+        case newLine, newParagraph, scratch(anywhere: Bool), stop, send
         case punctuation(String, glue: Glue)
     }
     private enum Glue: Equatable { case previous, next }
@@ -33,8 +34,8 @@ nonisolated enum VoiceCommandProcessor {
     private static let layoutAndEditing: [([String], Command)] = [
         (["new", "paragraph"], .newParagraph),
         (["new", "line"], .newLine),
-        (["scratch", "that"], .scratch),
-        (["delete", "that"], .scratch),
+        (["scratch", "that"], .scratch(anywhere: true)),
+        (["delete", "that"], .scratch(anywhere: false)),
     ]
     private static let session: [([String], Command)] = [
         (["stop", "recording"], .stop),
@@ -88,6 +89,9 @@ nonisolated enum VoiceCommandProcessor {
         var lastCommandEnd = 0        // index in `out` just after the last command's effect
         var pendingPrefix = ""        // an open quote waiting for the next word
         var actions: [DictationAction] = []
+        func perform(_ action: DictationAction) {   // a repeated command asks once
+            if !actions.contains(action) { actions.append(action) }
+        }
         var i = 0
         while i < all.count {
             if let (phrase, command) = match(at: i, in: all, table: table) {
@@ -99,7 +103,7 @@ nonisolated enum VoiceCommandProcessor {
                 switch command {
                 case .send: qualifies = precededByBreak && end == all.count
                 case .punctuation: qualifies = true      // punctuation words live mid-sentence by nature
-                case .scratch: qualifies = true          // a correction follows the slip at once, mid-clause too
+                case .scratch(let anywhere): qualifies = anywhere || standsAlone   // a correction follows the slip at once
                 default: qualifies = standsAlone
                 }
                 if qualifies {
@@ -116,10 +120,10 @@ nonisolated enum VoiceCommandProcessor {
                         out.removeSubrange(min(breakAt, out.count)...)
                         lastCommandEnd = out.count
                     case .stop:
-                        if sessionCommandsOn { actions.append(.stopRecording) }
+                        if sessionCommandsOn { perform(.stopRecording) }
                         lastCommandEnd = out.count
                     case .send:
-                        if sessionCommandsOn { actions.append(.stopRecording); actions.append(.pressReturn) }
+                        if sessionCommandsOn { perform(.stopRecording); perform(.pressReturn) }
                         lastCommandEnd = out.count
                     case .punctuation(let mark, let glue):
                         switch glue {
@@ -163,19 +167,14 @@ nonisolated enum VoiceCommandProcessor {
     private enum Piece { case word(String), lineBreak(String) }
 
     private static func match(at i: Int, in all: [Token], table: [([String], Command)]) -> ([String], Command)? {
-        for (phrase, command) in table where matches(phrase, at: i, in: all) {
-            // Only the phrase's last word may carry punctuation; "new. line" is two words, not a command.
-            let inner = all[i..<(i + phrase.count - 1)]
-            if inner.contains(where: { !$0.trailing.isEmpty }) { continue }
-            return (phrase, command)
-        }
-        return nil
+        table.first { matches($0.0, at: i, in: all) }
     }
 
     private static func matches(_ phrase: [String], at i: Int, in all: [Token]) -> Bool {
         guard i + phrase.count <= all.count else { return false }
         for (offset, word) in phrase.enumerated() where all[i + offset].lowercased != word { return false }
-        return true
+        // Only the phrase's last word may carry punctuation; "new. line" is two words, not a command.
+        return !all[i..<(i + phrase.count - 1)].contains(where: { !$0.trailing.isEmpty })
     }
 
     /// The position after the last sentence end in `out`; with `ignoringLast`, the final piece's own
@@ -184,7 +183,11 @@ nonisolated enum VoiceCommandProcessor {
         let last = ignoringLast ? out.count - 2 : out.count - 1
         guard last >= 0 else { return 0 }
         for index in stride(from: last, through: 0, by: -1) {
-            if case .word(let w) = out[index], let c = w.last, ".?!".contains(c) { return index + 1 }
+            // The punctuation after the last letter or digit, so `yes."` and `done.)` end a sentence.
+            if case .word(let w) = out[index],
+               w.reversed().prefix(while: { !($0.isLetter || $0.isNumber) }).contains(where: { ".?!".contains($0) }) {
+                return index + 1
+            }
         }
         return 0
     }
@@ -201,7 +204,7 @@ nonisolated enum VoiceCommandProcessor {
                 result += w
             }
         }
-        while result.last == " " || result.last == "\n" { result.removeLast() }
+        while result.last == " " { result.removeLast() }   // a line break spoken at the end is kept
         return result
     }
 }

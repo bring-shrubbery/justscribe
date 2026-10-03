@@ -31,7 +31,7 @@ struct VoiceCommandProcessorTests {
     @Test func newLineAndNewParagraphAtSentenceBoundaries() {
         #expect(run("First point. New line. Second point").text == "First point.\nSecond point")
         #expect(run("Dear Sam, new paragraph, thanks for the file").text == "Dear Sam,\n\nthanks for the file")
-        #expect(run("Done new paragraph").text == "Done")
+        #expect(run("Done new paragraph").text == "Done\n\n")   // a final line break is kept (fix round 1 ruling)
     }
 
     @Test func aCommandInsideAClauseIsLeftAlone() {
@@ -98,5 +98,29 @@ struct VoiceCommandProcessorTests {
         #expect(VoiceCommandProcessor.terminatingCommand(in: "I'll send", sessionCommandsOn: true) == nil)
         #expect(VoiceCommandProcessor.terminatingCommand(in: "Stop recording the show", sessionCommandsOn: true) == nil)
         #expect(VoiceCommandProcessor.terminatingCommand(in: "Thanks. Stop recording", sessionCommandsOn: false) == nil)
+    }
+
+    @Test func deleteThatStandsAloneButScratchThatFiresAnywhere() {
+        #expect(run("Can you delete that email. Thanks").text == "Can you delete that email. Thanks")
+        #expect(run("wrong words scratch that right words").text == "right words")
+        #expect(run("Buy eggs. Delete that").text == "")
+    }
+
+    @Test func aLineBreakSpokenAtTheEndIsKept() {
+        #expect(run("Hello. New line").text == "Hello.\n")
+        #expect(run("Dear Sam, new paragraph").text == "Dear Sam,\n\n")
+    }
+
+    @Test func aClosingQuoteDoesNotHideASentenceEnd() {
+        #expect(run("He said \"yes.\" Then wrong scratch that").text == "He said \"yes.\"")
+    }
+
+    @Test func terminatingCommandIgnoresPunctuationInsideThePhrase() {
+        #expect(VoiceCommandProcessor.terminatingCommand(in: "I will stop. Recording", sessionCommandsOn: true) == nil)
+    }
+
+    @Test func repeatedSessionCommandsAskOnce() {
+        #expect(run("stop recording stop recording").actions == [.stopRecording])
+        #expect(run("Thanks. Send").actions == [.stopRecording, .pressReturn])
     }
 }
