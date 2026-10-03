@@ -130,7 +130,9 @@ nonisolated enum VocabularyMatcher {
     static func apply(words: [String], entries: [VocabularyEntry], isDictionaryWord: (String) -> Bool) -> [String] {
         guard !words.isEmpty, !entries.isEmpty else { return words }
         var tokens = words.map(Token.init)
+        // Keys without and with a possessive "'s" ("mcdonald" / "mcdonalds"); equal for most words.
         var keys = tokens.map { key($0.core) }
+        var fullKeys = tokens.map { key($0.core + $0.possessive) }
         var locked = [Bool](repeating: false, count: tokens.count)
         let prepared = entries.map(PreparedEntry.init)
         let maxRun = 4
@@ -158,7 +160,7 @@ nonisolated enum VocabularyMatcher {
         // 1. Explicit forms, longest runs first so "swift ui" beats "ui".
         for run in stride(from: maxRun, through: 1, by: -1) {
             for entry in prepared where !entry.forms.isEmpty {
-                replaceRuns(of: run, in: &tokens, keys: &keys, locked: &locked, with: entry.text) { runKey, _ in
+                replaceRuns(of: run, in: &tokens, keys: &keys, fullKeys: &fullKeys, locked: &locked, with: entry.text) { runKey, _ in
                     entry.forms.contains(runKey)
                 }
             }
@@ -167,13 +169,18 @@ nonisolated enum VocabularyMatcher {
         //    neighbouring entry's sound-alike. Dictionary words keep their own casing.
         let byLength = prepared.indices.sorted { (prepared[$0].wordCount, -$0) > (prepared[$1].wordCount, -$1) }.map { prepared[$0] }
         for entry in byLength where entry.wordCount > 0 {
-            replaceRuns(of: entry.wordCount, in: &tokens, keys: &keys, locked: &locked, with: entry.text) { runKey, range in
+            replaceRuns(of: entry.wordCount, in: &tokens, keys: &keys, fullKeys: &fullKeys, locked: &locked, with: entry.text) { runKey, range in
                 runKey == entry.key && hasNonDictionaryWord(range)
             }
         }
         // 3. Sound-alikes: runs of the entry's own word count, containing a non-dictionary word.
         for entry in prepared where entry.wordCount > 0 && entry.allowsSoundAlike {
-            replaceRuns(of: entry.wordCount, in: &tokens, keys: &keys, locked: &locked, with: entry.text) { runKey, range in
+            // "antony's" must be heard as "antony" + "'s", not as a word two letters from Antoni;
+            // only an entry that itself ends in "'s" is compared with the suffix put back.
+            replaceRuns(
+                of: entry.wordCount, in: &tokens, keys: &keys, fullKeys: &fullKeys, locked: &locked,
+                with: entry.text, triesPossessive: entry.endsInPossessive
+            ) { runKey, range in
                 guard runKey != entry.key else { return false }   // a dictionary word spelled like the entry
                 if !entry.digits.isEmpty, digits(of: runKey) != entry.digits { return false }
                 let close = editDistance(runKey, entry.key, limit: entry.bound) <= entry.bound
@@ -224,6 +231,8 @@ nonisolated enum VocabularyMatcher {
         let allowsSoundAlike: Bool
         /// Empty when too short to tell words apart.
         let phonetic: String
+        /// "McDonald's": a run's own "'s" is part of the match, not something to add after it.
+        let endsInPossessive: Bool
 
         init(_ entry: VocabularyEntry) {
             text = entry.text
@@ -236,51 +245,69 @@ nonisolated enum VocabularyMatcher {
             allowsSoundAlike = key.count >= 3
             let p = VocabularyMatcher.phoneticKey(key)
             phonetic = p.count >= 2 ? p : ""
+            endsInPossessive = VocabularyMatcher.possessiveSuffixes.contains { entry.text.hasSuffix($0) }
         }
     }
+
+    private static let possessiveSuffixes = ["'s", "\u{2019}s", "'S", "\u{2019}S"]
 
     private struct Token {
         var leading: String
         var core: String
+        /// A possessive "'s" split off the word, so a replacement keeps it ("Antoni's").
+        var possessive: String
         var trailing: String
         init(_ s: String) {
             let coreStart = s.firstIndex(where: { $0.isLetter || $0.isNumber }) ?? s.endIndex
             var coreEnd = s.lastIndex(where: { $0.isLetter || $0.isNumber }).map { s.index(after: $0) } ?? coreStart
             // A possessive "'s" is not part of the word: it stays after the replacement.
             let core = s[coreStart..<coreEnd]
-            for suffix in ["'s", "\u{2019}s", "'S", "\u{2019}S"] where core.count > suffix.count && core.hasSuffix(suffix) {
+            for suffix in VocabularyMatcher.possessiveSuffixes where core.count > suffix.count && core.hasSuffix(suffix) {
                 coreEnd = s.index(coreEnd, offsetBy: -suffix.count)
                 break
             }
-            leading = String(s[..<coreStart]); self.core = String(s[coreStart..<coreEnd]); trailing = String(s[coreEnd...])
+            let wordEnd = s.lastIndex(where: { $0.isLetter || $0.isNumber }).map { s.index(after: $0) } ?? coreStart
+            leading = String(s[..<coreStart]); self.core = String(s[coreStart..<coreEnd])
+            possessive = String(s[coreEnd..<wordEnd]); trailing = String(s[wordEnd...])
         }
-        var text: String { leading + core + trailing }
+        var text: String { leading + core + possessive + trailing }
     }
 
     private static let clauseBreaks: Set<Character> = [".", "?", "!", ",", ";", ":"]
 
+    /// Replaces each unlocked run of `length` tokens that `matches` accepts. With `triesPossessive`,
+    /// a run ending in "'s" is offered first with the suffix as part of its key, and a match that
+    /// way takes the suffix into the replacement; so does a replacement that already ends in "'s".
     private static func replaceRuns(
-        of length: Int, in tokens: inout [Token], keys: inout [String], locked: inout [Bool], with replacement: String,
+        of length: Int, in tokens: inout [Token], keys: inout [String], fullKeys: inout [String], locked: inout [Bool],
+        with replacement: String, triesPossessive: Bool = true,
         where matches: (_ runKey: String, _ range: Range<Int>) -> Bool
     ) {
         guard length >= 1, tokens.count >= length else { return }
+        let replacementKey = key(replacement)
+        let replacementEndsInPossessive = possessiveSuffixes.contains { replacement.hasSuffix($0) }
         var i = 0
         while i + length <= tokens.count {
             let range = i..<(i + length)
-            if !range.contains(where: { locked[$0] || tokens[$0].core.isEmpty }),
-               !range.dropLast().contains(where: { tokens[$0].trailing.contains(where: clauseBreaks.contains) }),
-               matches(range.map { keys[$0] }.joined(), range) {
-                var first = tokens[range.lowerBound]
-                first.core = replacement
-                first.trailing = tokens[range.upperBound - 1].trailing
-                tokens[range.lowerBound] = first
-                keys[range.lowerBound] = key(replacement)
-                for j in range.dropFirst() { tokens[j] = Token(""); keys[j] = ""; locked[j] = true }
-                locked[range.lowerBound] = true
-                i += length
-            } else {
-                i += 1
-            }
+            guard !range.contains(where: { locked[$0] || tokens[$0].core.isEmpty }),
+                  !range.dropLast().contains(where: { tokens[$0].trailing.contains(where: clauseBreaks.contains) })
+            else { i += 1; continue }
+            let last = tokens[range.upperBound - 1]
+            let bareKey = range.map { keys[$0] }.joined()
+            let fullKey = range.map { fullKeys[$0] }.joined()
+            let matchedWithSuffix = triesPossessive && fullKey != bareKey && matches(fullKey, range)
+            guard matchedWithSuffix || matches(bareKey, range) else { i += 1; continue }
+
+            var first = tokens[range.lowerBound]
+            first.core = replacement
+            first.possessive = matchedWithSuffix || replacementEndsInPossessive ? "" : last.possessive
+            first.trailing = last.trailing
+            tokens[range.lowerBound] = first
+            keys[range.lowerBound] = replacementKey
+            fullKeys[range.lowerBound] = replacementKey
+            for j in range.dropFirst() { tokens[j] = Token(""); keys[j] = ""; fullKeys[j] = ""; locked[j] = true }
+            locked[range.lowerBound] = true
+            i += length
         }
     }
 }

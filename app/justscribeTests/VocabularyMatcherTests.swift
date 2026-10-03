@@ -154,4 +154,16 @@ struct VocabularyMatcherTests {
         #expect(counter.calls <= 300)
         #expect(VocabularyMatcher.editDistance("ab", "abcdef", limit: 2) == 3)
     }
+
+    @Test func anEntryEndingInApostropheSKeepsItsSpelling() {
+        let e = [entry("McDonald's")]
+        #expect(fix("we ate at McDonald's", e) == "we ate at McDonald's")
+        #expect(fix("we ate at mcdonald\u{2019}s.", e) == "we ate at McDonald's.")
+        let once = fix("mcdonalds", e)
+        #expect(once == "McDonald's")
+        #expect(fix(once, e) == once)
+        #expect(fix("mcdonald's", [entry("McDonald's", ["mcdonalds"])]) == "McDonald's")
+        #expect(fix("macys and lowes", [entry("Macy's"), entry("Lowe's")]) == "Macy's and Lowe's")
+        #expect(fix("Antoni's and antony's", [entry("Antoni")]) == "Antoni's and Antoni's")
+    }
 }
