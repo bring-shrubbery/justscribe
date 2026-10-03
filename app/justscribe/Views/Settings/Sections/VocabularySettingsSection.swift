@@ -55,7 +55,9 @@ struct VocabularySettingsSection: View {
                             Button("Save") {
                                 var e = entry; e.text = editText; e.heardAs = Self.forms(editForms)
                                 store.update(e); editingID = nil
-                            }.buttonStyle(.pillSmall)
+                            }
+                            .buttonStyle(.pillSmall)
+                            .disabled(editText.trimmingCharacters(in: .whitespaces).isEmpty)
                             Button("Cancel") { editingID = nil }.buttonStyle(.pillSmall)
                         }
                     } else {

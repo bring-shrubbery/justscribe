@@ -183,6 +183,7 @@ final class FileTranscriptionModel {
             url: url, language: language, speakers: speakers,
             transcriber: transcriber, dictation: dictation, speakerProvider: diarization,
             vocabulary: VocabularyStore.shared.entries,
+            isDictionaryWord: { DictionaryWords.isWord($0, language: language) },
             openSource: openSource, pollInterval: pollInterval)
         self.job = job
         job.start()

@@ -78,10 +78,13 @@ nonisolated enum VoiceCommandProcessor {
     }
 
     /// Applies the commands and returns the text with them removed, plus the actions they asked for.
+    /// With no command fired the text comes back as given. In hold mode (`sessionCommandsOn` off)
+    /// the session phrases are ordinary words: "I want to stop recording" stays as said.
     static func apply(_ text: String, commandsOn: Bool, punctuationOn: Bool, sessionCommandsOn: Bool) -> (text: String, actions: [DictationAction]) {
         guard commandsOn else { return (text, []) }
         let all = tokens(text)
-        var table = layoutAndEditing + session
+        var table = layoutAndEditing
+        if sessionCommandsOn { table += session }
         if punctuationOn { table += punctuation }
         table.sort { $0.0.count > $1.0.count }   // longest phrase first
 
@@ -89,6 +92,7 @@ nonisolated enum VoiceCommandProcessor {
         var lastCommandEnd = 0        // index in `out` just after the last command's effect
         var pendingPrefix = ""        // an open quote waiting for the next word
         var actions: [DictationAction] = []
+        var anyFired = false          // with none, the text is returned untouched (no re-spacing)
         func perform(_ action: DictationAction) {   // a repeated command asks once
             if !actions.contains(action) { actions.append(action) }
         }
@@ -107,6 +111,7 @@ nonisolated enum VoiceCommandProcessor {
                 default: qualifies = standsAlone
                 }
                 if qualifies {
+                    anyFired = true
                     switch command {
                     case .newLine:
                         out.append(.lineBreak("\n")); lastCommandEnd = out.count
@@ -120,10 +125,10 @@ nonisolated enum VoiceCommandProcessor {
                         out.removeSubrange(min(breakAt, out.count)...)
                         lastCommandEnd = out.count
                     case .stop:
-                        if sessionCommandsOn { perform(.stopRecording) }
+                        perform(.stopRecording)
                         lastCommandEnd = out.count
                     case .send:
-                        if sessionCommandsOn { perform(.stopRecording); perform(.pressReturn) }
+                        perform(.stopRecording); perform(.pressReturn)
                         lastCommandEnd = out.count
                     case .punctuation(let mark, let glue):
                         switch glue {
@@ -142,6 +147,7 @@ nonisolated enum VoiceCommandProcessor {
             pendingPrefix = ""
             i += 1
         }
+        guard anyFired else { return (text, []) }
         return (render(out), actions)
     }
 

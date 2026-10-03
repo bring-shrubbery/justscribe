@@ -56,8 +56,9 @@ struct VoiceCommandProcessorTests {
         #expect(press.text == "Call me tomorrow.")
         #expect(press.actions == [.stopRecording])
         let hold = run("Call me tomorrow. Stop recording", session: false)
-        #expect(hold.text == "Call me tomorrow.")
+        #expect(hold.text == "Call me tomorrow. Stop recording")   // hold mode: ordinary words
         #expect(hold.actions.isEmpty)
+        #expect(run("I want to stop recording", session: false).text == "I want to stop recording")
     }
 
     @Test func sendNeedsASentenceEndBeforeItAndTheEndAfterIt() {
@@ -67,8 +68,13 @@ struct VoiceCommandProcessorTests {
         #expect(run("Thanks, press enter").actions == [.stopRecording, .pressReturn])
         #expect(run("I'll send").text == "I'll send")
         #expect(run("Send it. Thanks").text == "Send it. Thanks")
-        #expect(run("Thanks. Send", session: false).text == "Thanks.")
+        #expect(run("Thanks. Send", session: false).text == "Thanks. Send")
         #expect(run("Thanks. Send", session: false).actions.isEmpty)
+    }
+
+    @Test func textWithNoCommandComesBackUntouched() {
+        #expect(run("a  b\nc").text == "a  b\nc")
+        #expect(run("a  b\nc").actions.isEmpty)
     }
 
     @Test func spokenPunctuationOnlyWhenOn() {

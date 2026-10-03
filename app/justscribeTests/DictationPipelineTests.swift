@@ -87,10 +87,10 @@ struct DictationPipelineTests {
         #expect(fake.calls.count == 1)   // only the first call reached clean-up
     }
 
-    @Test func holdModeDropsSessionCommandsWithoutActions() async {
+    @Test func holdModeKeepsSessionCommandWordsWithoutActions() async {
         let pipeline = DictationPipeline(cleanUp: { t, _, _ in t }, isDictionaryWord: { _ in true })
         let result = await pipeline.process("Done. Stop recording", context: context(press: false))
-        #expect(result.text == "Done.")
+        #expect(result.text == "Done. Stop recording")
         #expect(result.actions.isEmpty)
     }
 

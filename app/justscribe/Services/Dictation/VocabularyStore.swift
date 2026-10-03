@@ -48,10 +48,12 @@ final class VocabularyStore {
         save()
     }
 
+    /// Replaces the entry with the same id; an entry whose text is blank is ignored, like in `add`.
     func update(_ entry: VocabularyEntry) {
         guard let index = entries.firstIndex(where: { $0.id == entry.id }) else { return }
         var entry = entry
         entry.text = entry.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !entry.text.isEmpty else { return }
         entry.heardAs = Self.cleanForms(entry.heardAs)
         entries[index] = entry
         save()
@@ -62,23 +64,26 @@ final class VocabularyStore {
         save()
     }
 
-    /// One entry per non-empty line: `text` or `text = form, form`. Skips texts already present.
+    /// One entry per non-empty line: `text` or `text = form, form`. Skips texts already present
+    /// and lines with nothing before the `=`. The new entries go first, in the pasted order.
     /// Returns how many were added.
     @discardableResult
     func importLines(_ lines: String) -> Int {
-        var added = 0
-        let existing = Set(entries.map { $0.text.lowercased() })
-        var seen = existing
+        var seen = Set(entries.map { $0.text.lowercased() })
+        var new: [VocabularyEntry] = []
+        let createdAt = Self.now()
         for line in lines.split(whereSeparator: \.isNewline) {
-            let parts = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
             guard let text = parts.first, !text.isEmpty, !seen.contains(text.lowercased()) else { continue }
             let forms = parts.count > 1 ? Self.cleanForms(parts[1].split(separator: ",").map(String.init)) : []
-            entries.insert(VocabularyEntry(id: UUID(), text: text, heardAs: forms, createdAt: Self.now()), at: 0)
+            new.append(VocabularyEntry(id: UUID(), text: text, heardAs: forms, createdAt: createdAt))
             seen.insert(text.lowercased())
-            added += 1
         }
-        if added > 0 { save() }
-        return added
+        guard !new.isEmpty else { return 0 }
+        entries.insert(contentsOf: new, at: 0)
+        save()
+        return new.count
     }
 
     /// Whole seconds: ISO 8601 in the file keeps no fraction, so a finer date would not read

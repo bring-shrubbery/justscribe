@@ -105,43 +105,19 @@ final class ClipboardService {
         return fullText.count
     }
 
-    /// Deletes the last `characterCount` characters typed into the focused app (backspaces, or
-    /// select-all and delete past 500 characters).
+    /// Deletes the last `characterCount` characters typed into the focused app, one backspace
+    /// each. Never select-all: that would also wipe whatever else is in the field.
     func deleteTypedText(characterCount: Int) {
         guard characterCount > 0 else { return }
 
         let source = CGEventSource(stateID: .hidSystemState)
 
-        // Select all typed text using Shift+Home-like approach won't work universally,
-        // so we send individual backspace events
-        // For very long texts, use Cmd+A select-all approach as fallback
-        if characterCount > 500 {
-            // For long texts: select all with Cmd+A then delete
-            // This is a heuristic — works when the field only contains our text
-            if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_A), keyDown: true),
-               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_A), keyDown: false) {
-                keyDown.flags = .maskCommand
-                keyUp.flags = .maskCommand
-                keyDown.post(tap: .cgSessionEventTap)
-                keyUp.post(tap: .cgSessionEventTap)
-                usleep(10000) // 10ms
-            }
-            // Delete the selection
+        for _ in 0..<characterCount {
             if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Delete), keyDown: true),
                let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Delete), keyDown: false) {
                 keyDown.post(tap: .cgSessionEventTap)
                 keyUp.post(tap: .cgSessionEventTap)
-                usleep(5000) // 5ms
-            }
-        } else {
-            // Send backspace events to delete the raw text
-            for _ in 0..<characterCount {
-                if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Delete), keyDown: true),
-                   let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Delete), keyDown: false) {
-                    keyDown.post(tap: .cgSessionEventTap)
-                    keyUp.post(tap: .cgSessionEventTap)
-                    usleep(1000) // 1ms between keystrokes
-                }
+                usleep(1000) // 1ms between keystrokes
             }
         }
 

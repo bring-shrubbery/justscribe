@@ -28,7 +28,6 @@ struct ModeEditor: View {
     @State var mode: DictationMode
     var isNew = false
     @Environment(\.dismiss) private var dismiss
-    @State private var isPickingRunningApp = false
 
     init(store: ModeStore, mode: DictationMode, isNew: Bool = false) {
         self.store = store
@@ -45,6 +44,7 @@ struct ModeEditor: View {
                 .disabled(mode.isDefault)
 
             Toggle("Clean up text", isOn: $mode.cleanUp)
+                .toggleStyle(.pill)
             Text(mode.cleanUp ? "The clean-up model follows these instructions:" : "Text is inserted as dictated, after voice commands and vocabulary.")
                 .font(.caption).foregroundStyle(.secondary)
             TextEditor(text: $mode.instructions)

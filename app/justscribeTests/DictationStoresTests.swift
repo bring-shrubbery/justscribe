@@ -60,10 +60,35 @@ struct DictationStoresTests {
             Antoni
             """)
         #expect(added == 2)   // Antoni already exists
-        #expect(store.entries.map(\.text) == ["SwiftUI", "Quassum", "Antoni"])
-        #expect(store.entries[0].heardAs == ["swift ui", "swift-ui"])
-        store.delete(store.entries[0].id)
+        #expect(store.entries.map(\.text) == ["Quassum", "SwiftUI", "Antoni"])   // pasted order first
+        #expect(store.entries[1].heardAs == ["swift ui", "swift-ui"])
+        store.delete(store.entries[1].id)
         #expect(store.entries.map(\.text) == ["Quassum", "Antoni"])
+        let again = VocabularyStore(fileURL: url); again.load()
+        #expect(again.entries.map(\.text) == ["Quassum", "Antoni"])
+    }
+
+    @Test func importKeepsThePastedOrderAndSkipsAnEmptyText() throws {
+        let url = try tempFile("vocabulary.json"); defer { cleanUp(url) }
+        let store = VocabularyStore(fileURL: url); store.load()
+        store.add(text: "Old", heardAs: [])
+        #expect(store.importLines("A\nB") == 2)
+        #expect(store.entries.map(\.text) == ["A", "B", "Old"])
+        let again = VocabularyStore(fileURL: url); again.load()
+        #expect(again.entries.map(\.text) == ["A", "B", "Old"])
+        #expect(store.importLines("= x") == 0)
+        #expect(store.importLines("  = x, y") == 0)
+        #expect(store.entries.map(\.text) == ["A", "B", "Old"])
+    }
+
+    @Test func updatingAnEntryToBlankTextLeavesItUnchanged() throws {
+        let url = try tempFile("vocabulary.json"); defer { cleanUp(url) }
+        let store = VocabularyStore(fileURL: url); store.load()
+        store.add(text: "Quassum", heardAs: ["kwassum"])
+        var e = store.entries[0]; e.text = "   "; e.heardAs = []
+        store.update(e)
+        #expect(store.entries.map(\.text) == ["Quassum"])
+        #expect(store.entries[0].heardAs == ["kwassum"])
     }
 
     @Test func aDamagedVocabularyFileIsSetAside() throws {
