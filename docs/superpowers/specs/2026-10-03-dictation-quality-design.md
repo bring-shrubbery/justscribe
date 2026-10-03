@@ -89,16 +89,20 @@ raw transcript ──► voice commands ──► vocabulary ──► clean-up 
   | send, press enter (at the very end of the text, and after a sentence end — "I'll send" is left alone) | ends the session, inserts the text, then posts a Return keystroke (press mode only; in hold mode the words are removed) |
   | *(spoken punctuation on)* period, full stop, comma, question mark, exclamation mark, exclamation point, colon, semicolon, open quote, close quote, dash | the character, glued to the previous word; quotes glue to the following/preceding word |
 
-- "scratch that" / "delete that" are recognised anywhere: a correction is spoken
-  mid-flow ("wrong words scratch that right words"), so no boundary is
-  required (the cost: "I'd scratch that idea" also fires). Every other
-  command is recognised only when it **stands alone**: the token run is
+- "scratch that" is recognised anywhere: a correction is spoken mid-flow
+  ("wrong words scratch that right words"), so no boundary is required (the
+  cost: "I'd scratch that idea" also fires). "delete that" is common in
+  ordinary speech ("can you delete that email"), so it follows the stand-alone
+  rule like every other command: the token run is
   preceded by the start of the text or a sentence end, **or** followed by the
   end of the text or a sentence end (the model's own punctuation around the
   words counts, e.g. "…done. New line. Next" and "…done, new line, next" both
   fire; "a new line in the budget" does not). Case-insensitive.
 - Removed commands leave no double spaces; a line break absorbs the spaces
-  before it and a capital letter is not forced after it.
+  before it and a capital letter is not forced after it. A line break spoken
+  at the very end is kept (the cursor lands on the new line); trailing spaces
+  are not. A sentence end followed by a closing quote or bracket still counts
+  as a sentence end for "scratch that".
 - "stop recording" and "send" also act **live**: on each streaming update in
   press mode, if the streamed text ends with one of them, the session stops
   as if the shortcut had been pressed (so roughly two seconds after saying
