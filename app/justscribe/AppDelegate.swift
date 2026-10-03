@@ -49,6 +49,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupNotificationObservers()
         _ = UpdateService.shared // starts Sparkle's scheduled checks
         HistoryStore.shared.load()
+        DiagnosticsLog.shared.load()
         VocabularyStore.shared.load()
         ModeStore.shared.load()
         // A speaker pass cut short by a quit or a crash leaves a copy of a file's audio behind.
@@ -184,6 +185,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// The system Accessibility prompt is shown once per launch, the first time a dictation
     /// cannot be inserted.
     private var didAskForAccessibility = false
+    /// When the current session's recording began (for diagnostics).
+    private var sessionStartedAt = Date()
     private var safetyStopTask: Task<Void, Never>?
     private static let safetyStop: Duration = .seconds(600)
 
@@ -282,6 +285,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func beginRecording() {
         sessionState = .recording
+        sessionStartedAt = Date()
 
         // Select microphone based on saved priority, skipping any the user has blocked
         let priority = UserDefaults.standard.stringArray(forKey: AppSettings.microphonePriorityKey) ?? []
@@ -373,12 +377,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         sessionState = .finalizing
+
+        // Diagnostics: every way this function can end records what the session saw, so a user
+        // can copy the report from Settings when a dictation goes wrong.
+        var diagnostic = SessionDiagnostic(
+            startedAt: sessionStartedAt, trigger: sessionTrigger.rawValue, insertionMode: insertionMode.rawValue,
+            modelID: TranscriptionService.shared.loadedModelID ?? "none",
+            microphone: AudioCaptureService.shared.selectedDevice?.name ?? "none",
+            inputSampleRate: AudioCaptureService.shared.inputSampleRate, channels: AudioCaptureService.shared.inputChannels,
+            samples: 0, rms: 0, streamedCharacters: 0, finalCharacters: 0, finalPassMilliseconds: 0,
+            insertedCharacters: 0, outcome: "")
+        var outcome = "Done"
+        defer { diagnostic.outcome = outcome; DiagnosticsLog.shared.record(diagnostic) }
         safetyStopTask?.cancel()
         safetyStopTask = nil
         OverlayManager.shared.onTap = nil
 
         // Stop streaming transcription and get final text
         let streamedText = TranscriptionService.shared.stopStreamingTranscription()
+        diagnostic.streamedCharacters = streamedText.count
         TranscriptionService.shared.onTranscriptionUpdate = nil
 
         // Stop audio capture
@@ -387,6 +404,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Short-recording guard: skip transcription if < 0.3s
         if AudioCaptureService.shared.recordingDuration < 0.3 {
             print("Recording too short (\(AudioCaptureService.shared.recordingDuration)s), skipping transcription")
+            outcome = "Recording too short"
             OverlayManager.shared.showError(message: "Recording too short")
             AudioCaptureService.shared.clearBuffer()
             typedTextLength = 0
@@ -396,6 +414,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Get audio buffer for final transcription
         let audioBuffer = AudioCaptureService.shared.getAudioBuffer()
+        diagnostic.samples = audioBuffer.count
+        diagnostic.rms = SessionDiagnostic.rms(audioBuffer)
+        let finalPassStarted = ContinuousClock.now
         print("Audio buffer size: \(audioBuffer.count) samples (\(Double(audioBuffer.count) / 16000.0) seconds at 16kHz)")
 
         var finalTranscription = streamedText
@@ -438,11 +459,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 
                 // A blank final pass must not throw away text that streaming already recognised.
+                diagnostic.finalCharacters = fullTranscription.count
+                diagnostic.finalPassMilliseconds = Int((ContinuousClock.now - finalPassStarted) / .milliseconds(1))
                 finalTranscription = fullTranscription.isEmpty ? streamedText : fullTranscription
                 print("Final transcription: \(finalTranscription)")
             } catch is TranscriptionTimeoutError {
                 print("Final transcription timed out")
                 if finalTranscription.isEmpty {
+                    outcome = "Processing took too long"
                     OverlayManager.shared.showError(message: "Processing took too long")
                     AudioCaptureService.shared.clearBuffer()
                     typedTextLength = 0
@@ -453,6 +477,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 print("Final transcription error: \(error)")
                 // Show error and return early if transcription failed and we have no streamed text
                 if finalTranscription.isEmpty {
+                    outcome = "Transcription failed"
                     OverlayManager.shared.showError(message: "Transcription failed")
                     AudioCaptureService.shared.clearBuffer()
                     typedTextLength = 0
@@ -463,6 +488,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } else if finalTranscription.isEmpty {
             // No audio recorded at all
+            outcome = "No audio recorded"
             OverlayManager.shared.showError(message: "No audio recorded")
             typedTextLength = 0
             sessionState = .idle
@@ -523,6 +549,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             ClipboardService.shared.pressReturn()
         }
 
+        diagnostic.insertedCharacters = finalTranscription.count
         let didCopyToClipboard = copyToClipboard && !finalTranscription.isEmpty
         if didCopyToClipboard && !TextInsertion.leavesTextOnClipboard(mode: insertionMode, copyToClipboard: copyToClipboard) {
             ClipboardService.shared.copyToClipboard(finalTranscription)
@@ -531,14 +558,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Show completed state
         if insertionBlocked {
+            outcome = "Copied — Accessibility permission missing"
             OverlayManager.shared.showError(message: "Allow Accessibility to insert text — copied to clipboard instead")
         } else if !finalTranscription.isEmpty {
             if stoppedBySafety {
+                outcome = "Stopped after 10 minutes"
                 OverlayManager.shared.showError(message: "Stopped after 10 minutes")
             } else {
                 OverlayManager.shared.showCompleted(copiedToClipboard: didCopyToClipboard)
             }
         } else {
+            outcome = "No speech detected"
             OverlayManager.shared.showError(message: "No speech detected")
         }
 

@@ -88,6 +88,10 @@ struct SettingsView: View {
 
                         LinksSettingsSection()
 
+                        Divider()
+
+                        DiagnosticsSettingsSection()
+
                         #if DEBUG
                         Divider()
 

@@ -37,7 +37,9 @@ final class AudioCaptureService: NSObject {
     private var captureSession: AVCaptureSession?
     private var audioOutput: AVCaptureAudioDataOutput?
     private var audioBuffer: [Float] = []
-    private var inputSampleRate: Double = 44100
+    /// The device's format as the capture delegate last saw it (for diagnostics).
+    private(set) var inputSampleRate: Double = 44100
+    private(set) var inputChannels: Int = 1
     private var recordingStartTime: Date?
 
     /// Whether the AVCaptureSession is prepared and running (mic hardware active)
@@ -268,6 +270,7 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
             let audioStreamBasicDesc = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)
             if let asbd = audioStreamBasicDesc?.pointee {
                 DispatchQueue.main.async {
+                    self.inputChannels = Int(asbd.mChannelsPerFrame)
                     if self.inputSampleRate != asbd.mSampleRate {
                         self.inputSampleRate = asbd.mSampleRate
                         print("Audio format - Sample rate: \(asbd.mSampleRate), Channels: \(asbd.mChannelsPerFrame), Bits: \(asbd.mBitsPerChannel), Format: \(asbd.mFormatID)")
