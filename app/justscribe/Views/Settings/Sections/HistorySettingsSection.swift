@@ -18,6 +18,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+import AppKit
 import SwiftUI
 
 struct HistorySettingsSection: View {
@@ -67,6 +68,9 @@ struct HistorySettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
+                    Button("Show History…") { (NSApp.delegate as? AppDelegate)?.showHistory() }
+                        .buttonStyle(.pill)
+                        .disabled(store.records.isEmpty)
                     Button("Delete All History…") { isConfirmingDeleteAll = true }
                         .buttonStyle(.pill)
                         .disabled(store.records.isEmpty)

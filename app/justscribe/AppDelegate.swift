@@ -638,6 +638,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         fileTranscription.show()
     }
 
+    /// Opens the History window; Settings → History calls this through the app delegate.
+    func showHistory() {
+        history.show()
+    }
+
     @objc private func showHistoryFromMenu() {
         history.show()
     }
