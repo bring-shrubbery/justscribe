@@ -126,6 +126,30 @@ struct BehaviorSettingsSection: View {
                         }
                     )
                 )
+
+                Divider()
+
+                ToggleSettingsRow(
+                    title: "Voice Commands",
+                    subtitle: "Say \"new line\", \"new paragraph\", \"scratch that\", \"stop recording\" or \"send\" while dictating",
+                    systemImage: "waveform.and.mic",
+                    isOn: Binding(
+                        get: { settings.voiceCommandsEnabled },
+                        set: { settings.voiceCommandsEnabled = $0 }
+                    )
+                )
+
+                ToggleSettingsRow(
+                    title: "Spoken Punctuation",
+                    subtitle: "Say \"period\", \"comma\", \"question mark\", \"open quote\"… to punctuate",
+                    systemImage: "textformat.abc.dottedunderline",
+                    isOn: Binding(
+                        get: { settings.spokenPunctuationEnabled },
+                        set: { settings.spokenPunctuationEnabled = $0 }
+                    )
+                )
+                .disabled(!settings.voiceCommandsEnabled)
+                .opacity(settings.voiceCommandsEnabled ? 1 : 0.5)
             }
         }
     }

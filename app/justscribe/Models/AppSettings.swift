@@ -73,6 +73,9 @@ final class AppSettings {
     static let textInsertionModeKey = "textInsertionMode"
     static let historyKeepsTranscriptionsKey = "historyKeepsTranscriptions"
     static let historyKeepsAudioKey = "historyKeepsAudio"
+    static let recordingTriggerKey = "recordingTrigger"
+    static let voiceCommandsEnabledKey = "voiceCommandsEnabled"
+    static let spokenPunctuationEnabledKey = "spokenPunctuationEnabled"
 
     // Model selection (synced to UserDefaults for AppDelegate access)
     var selectedModelID: String = "" {
@@ -107,6 +110,24 @@ final class AppSettings {
             textInsertionModeRaw = newValue.rawValue
             UserDefaults.standard.set(newValue.rawValue, forKey: Self.textInsertionModeKey)
         }
+    }
+
+    // How the shortcut drives a recording
+    @Attribute var recordingTriggerRaw: String = RecordingTrigger.defaultTrigger.rawValue
+    var recordingTrigger: RecordingTrigger {
+        get { RecordingTrigger.stored(recordingTriggerRaw) }
+        set {
+            recordingTriggerRaw = newValue.rawValue
+            UserDefaults.standard.set(newValue.rawValue, forKey: Self.recordingTriggerKey)
+        }
+    }
+
+    // Voice commands
+    var voiceCommandsEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(voiceCommandsEnabled, forKey: Self.voiceCommandsEnabledKey) }
+    }
+    var spokenPunctuationEnabled: Bool = false {
+        didSet { UserDefaults.standard.set(spokenPunctuationEnabled, forKey: Self.spokenPunctuationEnabledKey) }
     }
 
     // History (off by default: nothing is kept unless the user asks)
@@ -224,5 +245,8 @@ final class AppSettings {
         UserDefaults.standard.set(selectedGrammarModelID, forKey: Self.selectedGrammarModelIDKey)
         UserDefaults.standard.set(historyKeepsTranscriptions, forKey: Self.historyKeepsTranscriptionsKey)
         UserDefaults.standard.set(historyKeepsAudio, forKey: Self.historyKeepsAudioKey)
+        UserDefaults.standard.set(recordingTriggerRaw, forKey: Self.recordingTriggerKey)
+        UserDefaults.standard.set(voiceCommandsEnabled, forKey: Self.voiceCommandsEnabledKey)
+        UserDefaults.standard.set(spokenPunctuationEnabled, forKey: Self.spokenPunctuationEnabledKey)
     }
 }

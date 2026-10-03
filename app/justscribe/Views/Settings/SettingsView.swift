@@ -50,7 +50,7 @@ struct SettingsView: View {
 
                         Divider()
 
-                        ShortcutSettingsSection()
+                        ShortcutSettingsSection(settings: settings)
 
                         Divider()
 

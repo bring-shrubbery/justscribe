@@ -24,6 +24,7 @@ import SwiftUI
 import KeyboardShortcuts
 
 struct ShortcutSettingsSection: View {
+    @Bindable var settings: AppSettings
     @State private var shortcutConfig: ShortcutConfig?
 
     var body: some View {
@@ -72,11 +73,39 @@ struct ShortcutSettingsSection: View {
                         .foregroundStyle(.orange)
                 }
 
+                Divider()
+
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "record.circle")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Recording")
+                            .font(.body)
+                        Picker("", selection: Binding(
+                            get: { settings.recordingTrigger },
+                            set: { settings.recordingTrigger = $0 }
+                        )) {
+                            ForEach(RecordingTrigger.allCases, id: \.self) { trigger in
+                                Text(trigger.title).tag(trigger)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.radioGroup)
+                        Text(settings.recordingTrigger.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 Text("Default: \u{2303}\u{21E7}Space (Control + Shift + Space)")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
 
-                Text("Tip: You can set modifier-only shortcuts like Control + Shift (hold to record, release to stop).")
+                Text("Tip: Modifier-only shortcuts like Control + Shift work too.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
