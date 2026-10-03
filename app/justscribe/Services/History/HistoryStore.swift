@@ -128,8 +128,10 @@ final class HistoryStore {
             }
             return
         }
-        audioBytes = totalAudioBytes()
-        enforceCap()
+        // One walk of the audio folder per addition.
+        let sizes = audioSizes()
+        audioBytes = sizes.values.reduce(0, +)
+        enforceCap(sizes: sizes)
     }
 
     // MARK: - Removing
@@ -138,10 +140,14 @@ final class HistoryStore {
         guard let index = records.firstIndex(where: { $0.id == id }) else { return }
         let record = records.remove(at: index)
         if let name = record.audioFileName {
-            try? FileManager.default.removeItem(at: audioDirectory.appendingPathComponent(name))
+            let path = audioDirectory.appendingPathComponent(name).path
+            let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int) ?? 0
+            do {
+                try FileManager.default.removeItem(atPath: path)
+                audioBytes = max(0, audioBytes - size)
+            } catch {}
         }
         _ = saveIndex()
-        audioBytes = totalAudioBytes()
     }
 
     func deleteAll() {
@@ -186,11 +192,13 @@ final class HistoryStore {
         return removed
     }
 
-    private func enforceCap() {
-        let doomed = Set(Self.audioToRemove(records: records, sizes: audioSizes(), cap: audioCap))
+    /// `sizes` is the audio folder as just walked; `audioBytes` is updated from it without walking again.
+    private func enforceCap(sizes: [String: Int]) {
+        let doomed = Set(Self.audioToRemove(records: records, sizes: sizes, cap: audioCap))
         guard !doomed.isEmpty else { return }
         for name in doomed {
             try? FileManager.default.removeItem(at: audioDirectory.appendingPathComponent(name))
+            audioBytes -= sizes[name] ?? 0
         }
         records = records.map { record in
             var record = record
@@ -198,17 +206,17 @@ final class HistoryStore {
             return record
         }
         _ = saveIndex()
-        audioBytes = totalAudioBytes()
     }
 
     // MARK: - Files
 
+    /// File name to byte count, in one directory listing.
     private func audioSizes() -> [String: Int] {
-        let fm = FileManager.default
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: audioDirectory, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles])) ?? []
         var sizes: [String: Int] = [:]
-        for name in (try? fm.contentsOfDirectory(atPath: audioDirectory.path)) ?? [] {
-            let path = audioDirectory.appendingPathComponent(name).path
-            sizes[name] = (try? fm.attributesOfItem(atPath: path)[.size] as? Int) ?? 0
+        for url in urls {
+            sizes[url.lastPathComponent] = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         }
         return sizes
     }
@@ -222,7 +230,7 @@ final class HistoryStore {
         let index = HistoryIndex(version: HistoryIndex.currentVersion, records: records)
         do {
             let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.outputFormatting = [.sortedKeys]
             encoder.dateEncodingStrategy = .iso8601
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try encoder.encode(index).write(to: indexURL, options: .atomic)

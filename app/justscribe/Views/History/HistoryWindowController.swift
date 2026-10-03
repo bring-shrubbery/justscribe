@@ -19,6 +19,7 @@
 //
 
 import AppKit
+import ApplicationServices
 import SwiftUI
 
 /// The History window: an AppKit window hosting the SwiftUI view, like the Transcribe File
@@ -38,9 +39,10 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
     }
 
     func show() {
-        // Captured before we activate ourselves.
+        // Captured before we activate ourselves. Taken fresh on every open so Paste never goes to
+        // an app from an earlier open; nil when JustScribe itself is in front.
         let front = NSWorkspace.shared.frontmostApplication
-        if front?.bundleIdentifier != Bundle.main.bundleIdentifier { previousApp = front }
+        previousApp = front?.bundleIdentifier == Bundle.main.bundleIdentifier ? nil : front
 
         if window == nil {
             let window = NSWindow(
@@ -52,9 +54,8 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
             window.isReleasedWhenClosed = false
             let view = HistoryView(
                 store: store, playback: playback,
-                isHistoryOn: UserDefaults.standard.bool(forKey: AppSettings.historyKeepsTranscriptionsKey),
                 openSettings: openSettings,
-                paste: { [weak self] text in self?.paste(text) ?? false })
+                paste: { [weak self] text in self?.paste(text) ?? HistoryPasteNotice.noTarget })
             let hostingView = NSHostingView(rootView: view)
             hostingView.sizingOptions = [.minSize]
             window.contentView = hostingView
@@ -62,25 +63,15 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
             window.center()
             window.setFrameAutosaveName("HistoryWindow")
             self.window = window
-        } else {
-            // The switch may have changed since the view was made.
-            refreshView()
         }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
 
-    private func refreshView() {
-        guard let hostingView = window?.contentView as? NSHostingView<HistoryView> else { return }
-        hostingView.rootView = HistoryView(
-            store: store, playback: playback,
-            isHistoryOn: UserDefaults.standard.bool(forKey: AppSettings.historyKeepsTranscriptionsKey),
-            openSettings: openSettings,
-            paste: { [weak self] text in self?.paste(text) ?? false })
-    }
-
-    /// Hides the window, brings the previous app back, and pastes. False when it could only copy.
-    private func paste(_ text: String) -> Bool {
+    /// Hides the window, brings the previous app back, and pastes. Returns nil when it pasted,
+    /// or a notice saying why it could only copy.
+    private func paste(_ text: String) -> String? {
+        playback.stop()
         let decision = HistoryPasteTarget.decide(
             previousApp: previousApp?.bundleIdentifier,
             ownBundleID: Bundle.main.bundleIdentifier ?? "",
@@ -91,19 +82,30 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
         switch decision {
         case .copyOnly:
             ClipboardService.shared.copyToClipboard(text)
-            return false
+            return HistoryPasteNotice.noTarget
         case .paste:
+            // Without Accessibility the synthetic ⌘V is dropped; copy instead and say so.
+            guard AXIsProcessTrusted() else {
+                ClipboardService.shared.copyToClipboard(text)
+                return HistoryPasteNotice.needsAccessibility
+            }
             window?.orderOut(nil)
             previousApp?.activate()
             // Give the other app time to become key before ⌘V lands.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 ClipboardService.shared.paste(text, restorePrevious: !copyToClipboard, restoreDelay: 0.5)
             }
-            return true
+            return nil
         }
     }
 
     func windowWillClose(_ notification: Notification) {
         playback.stop()
     }
+}
+
+/// What the History window says when Paste could only copy.
+enum HistoryPasteNotice {
+    static let noTarget = "Copied — no other app to paste into"
+    static let needsAccessibility = "Copied — Accessibility permission is needed to paste"
 }

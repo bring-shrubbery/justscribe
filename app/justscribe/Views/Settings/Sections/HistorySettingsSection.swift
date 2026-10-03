@@ -77,8 +77,15 @@ struct HistorySettingsSection: View {
             Button("Delete All", role: .destructive) { store.deleteAll() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Delete all \(store.records.count) dictations and their recordings? This cannot be undone.")
+            Text("\(deleteAllQuestion) This cannot be undone.")
         }
+    }
+
+    private var deleteAllQuestion: String {
+        let count = store.records.count
+        return count == 1
+            ? "Delete this dictation and its recording?"
+            : "Delete all \(count) dictations and their recordings?"
     }
 
     private var summary: String {

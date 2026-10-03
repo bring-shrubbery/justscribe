@@ -23,10 +23,13 @@ import SwiftUI
 struct HistoryView: View {
     let store: HistoryStore
     let playback: HistoryPlayback
-    let isHistoryOn: Bool
     let openSettings: () -> Void
-    /// Hides the window and pastes into the app that was in front; returns false when it could only copy.
-    let paste: (String) -> Bool
+    /// Hides the window and pastes into the app that was in front; returns nil when it pasted, or
+    /// a notice saying why it could only copy.
+    let paste: (String) -> String?
+
+    /// Read live so the empty state follows the switch while the window stays open.
+    @AppStorage(AppSettings.historyKeepsTranscriptionsKey) private var isHistoryOn = false
 
     @State private var query = ""
     @State private var selection: UUID?
@@ -131,7 +134,7 @@ struct HistoryView: View {
                     }
                     .buttonStyle(.pill)
                     Button("Paste") {
-                        if !paste(record.text) { notice = "Copied — no other app to paste into" }
+                        notice = paste(record.text)
                     }
                     .buttonStyle(.pill)
                     if let url = store.audioURL(for: record) {

@@ -44,7 +44,12 @@ final class HistoryPlayback: NSObject, AVAudioPlayerDelegate {
         playingURL = nil
     }
 
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { @MainActor in self.stop() }
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        // Only the player that finished is stopped; a newer one started since keeps playing.
+        let finished = ObjectIdentifier(player)
+        Task { @MainActor in
+            guard let current = self.player, ObjectIdentifier(current) == finished else { return }
+            self.stop()
+        }
     }
 }
