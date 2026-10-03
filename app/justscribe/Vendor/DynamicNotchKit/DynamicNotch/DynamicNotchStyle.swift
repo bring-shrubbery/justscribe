@@ -64,12 +64,10 @@ public enum DynamicNotchStyle: Sendable {
         }
     }
 
+    // Vendored change (JustScribe): no bounce. The expanded notch grows down from the top edge
+    // without overshooting and springing back, which read as inflating from its centre.
     var openingAnimation: Animation {
-        if isNotch {
-            .bouncy(duration: 0.4)
-        } else {
-            .snappy(duration: 0.4)
-        }
+        .smooth(duration: 0.35)
     }
 
     var closingAnimation: Animation {

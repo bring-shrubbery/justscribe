@@ -26,7 +26,7 @@ import SwiftUI
 
 private struct TranscriptionTimeoutError: Error {}
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
     private lazy var fileTranscription = FileTranscriptionWindowController(
@@ -50,6 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = UpdateService.shared // starts Sparkle's scheduled checks
         HistoryStore.shared.load()
         DiagnosticsLog.shared.load()
+        refreshPermissionWarning()
         VocabularyStore.shared.load()
         ModeStore.shared.load()
         // A speaker pass cut short by a quit or a crash leaves a copy of a file's audio behind.
@@ -559,6 +560,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Show completed state
         if insertionBlocked {
             outcome = "Copied — Accessibility permission missing"
+            refreshPermissionWarning()
             OverlayManager.shared.showError(message: "Allow Accessibility to insert text — copied to clipboard instead")
         } else if !finalTranscription.isEmpty {
             if stoppedBySafety {
@@ -608,6 +610,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+        menu.delegate = self
         menu.addItem(NSMenuItem(title: "Start Transcription", action: #selector(startTranscriptionFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Transcribe File…", action: #selector(transcribeFileFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "History…", action: #selector(showHistoryFromMenu), keyEquivalent: ""))
@@ -659,6 +662,42 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // A menu-bar app is usually not frontmost; Sparkle's window must not open behind others.
         NSApp.activate(ignoringOtherApps: true)
         UpdateService.shared.checkForUpdates()
+    }
+
+    // MARK: - Permission warning
+
+    private static let permissionWarningTag = 7_001
+
+    /// A missing Accessibility permission silently swallows every inserted keystroke, so the menu
+    /// bar says so: a warning icon, and a menu item that opens the right System Settings pane.
+    private func refreshPermissionWarning() {
+        PermissionsService.shared.checkAccessibilityPermission()
+        let missing = PermissionsService.shared.accessibilityStatus != .granted
+        statusItem?.button?.image = NSImage(
+            systemSymbolName: missing ? "waveform.badge.exclamationmark" : "waveform",
+            accessibilityDescription: missing ? "JustScribe — Accessibility permission needed" : "JustScribe")
+        guard let menu = statusItem?.menu else { return }
+        let existing = menu.item(withTag: Self.permissionWarningTag)
+        if missing, existing == nil {
+            let item = NSMenuItem(title: "Accessibility permission needed — Open System Settings…",
+                                  action: #selector(openAccessibilityFromMenu), keyEquivalent: "")
+            item.tag = Self.permissionWarningTag
+            menu.insertItem(item, at: 0)
+            menu.insertItem(NSMenuItem.separator(), at: 1)
+        } else if !missing, let existing {
+            let index = menu.index(of: existing)
+            menu.removeItem(existing)
+            if index < menu.items.count, menu.items[index].isSeparatorItem { menu.removeItem(at: index) }
+        }
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        refreshPermissionWarning()
+    }
+
+    @objc private func openAccessibilityFromMenu() {
+        PermissionsService.shared.requestAccessibilityPermission()
+        PermissionsService.shared.openAccessibilitySettings()
     }
 
     @objc private func quitApp() {

@@ -146,7 +146,9 @@ struct NotchView<Expanded, CompactLeading, CompactTrailing>: View where Expanded
         HStack(spacing: 0) {
             if dynamicNotch.state == .expanded {
                 dynamicNotch.expandedContent
-                    .transition(.blur(intensity: 10).combined(with: .scale(y: 0.6, anchor: .top)).combined(with: .opacity))
+                    // Vendored change (JustScribe): the shape grows from the top edge; the content
+                    // only fades in, so nothing zooms from the island's centre.
+                    .transition(.opacity)
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: dynamicNotch.notchSize.height) }

@@ -39,6 +39,10 @@ struct SettingsView: View {
 
                 if let settings = settings {
                     VStack(spacing: 24) {
+                        PermissionsSettingsSection()
+
+                        Divider()
+
                         ModelSettingsSection(
                             settings: settings,
                             showingModelDownloadModal: $showingModelDownloadModal
