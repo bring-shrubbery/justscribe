@@ -3,7 +3,7 @@ layout: ../layouts/Page.astro
 title: "JustScribe vs Apple Dictation on Mac: What's Different"
 description: "JustScribe vs the dictation built into macOS: hold-to-talk in any app, a choice of on-device speech models, and optional grammar correction. Free."
 heading: "JustScribe vs the dictation built into macOS"
-updated: "2026-10-02"
+updated: "2026-10-03"
 faq:
   - q: "Why use a dictation app when macOS has Dictation built in?"
     a: "Apple's Dictation is free and already on your Mac, and for short text it is often enough. JustScribe is for people who dictate a lot: you hold a key only while speaking, you choose the speech model, and the text can be grammar-checked on your Mac before it lands."
@@ -23,7 +23,7 @@ Every Mac has Dictation built in: turn it on in System Settings → Keyboard, pr
 | How you start and stop | Hold a shortcut while you speak; release to finish | Press a key to start; it stops when you press again or after 30 seconds of silence |
 | Speech model | Your choice: Parakeet v3, Parakeet English, or Whisper from Tiny to Large v3 | Apple's, not selectable |
 | Where it runs | Always on your Mac | On-device or Apple's servers; Keyboard settings show which |
-| After you finish speaking | A second pass over the whole recording, then optional grammar correction | Text stays as dictated |
+| After you finish speaking | A second pass over the whole recording, then optional grammar correction; the result is pasted in one go (or typed as you speak, your choice) | Text stays as dictated |
 | Punctuation | From the model, plus optional correction | Automatic in supported languages |
 | Edit by voice, voice commands | No | Yes |
 | Source code | Open source (GPL-3.0) | Closed |

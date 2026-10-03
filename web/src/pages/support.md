@@ -7,7 +7,7 @@ updated: "2026-10-03"
 download: false
 faq:
   - q: "JustScribe records but no text appears. What is wrong?"
-    a: "JustScribe types through the Accessibility permission. Open System Settings, Privacy & Security, Accessibility and make sure JustScribe is switched on. If it is on and still nothing is typed, remove JustScribe from the list, add it again, and restart the app. This is usually needed once after moving from the Mac App Store version, because the app is signed differently."
+    a: "JustScribe inserts text through the Accessibility permission. Open System Settings, Privacy & Security, Accessibility and make sure JustScribe is switched on. If it is on and still nothing appears, remove JustScribe from the list, add it again, and restart the app. This is usually needed once after moving from the Mac App Store version, because the app is signed differently. If one particular app ignores the paste, switch Insert Text By to Type as you speak in Settings, Behavior."
   - q: "Nothing happens when I hold the shortcut."
     a: "Check that a transcription model is downloaded and selected in Settings, and that Microphone permission is granted in System Settings, Privacy & Security, Microphone. If another app uses the same shortcut, choose a different one in Settings."
   - q: "How do I update JustScribe?"

@@ -34,7 +34,7 @@ const faq: { q: string; a: string }[] = [
   },
   {
     q: 'Why does it need Accessibility permission?',
-    a: 'JustScribe types the transcribed text into the app you are using by sending keystrokes, which macOS only allows for apps you have granted Accessibility access. Microphone access is needed to hear you.',
+    a: 'JustScribe puts the transcribed text into the app you are using by sending a paste (or, if you choose, by typing it), which macOS only allows for apps you have granted Accessibility access. Microphone access is needed to hear you.',
   },
   {
     q: 'Which languages does it understand?',
@@ -142,7 +142,7 @@ const structuredData = {
       <h2>Dictate in any Mac app</h2>
       <ul>
         <li><strong>Dictate anywhere.</strong> A global shortcut works in every app: editors, browsers, chat, the terminal. The text goes where your cursor is.</li>
-        <li><strong>Hold to record.</strong> Text appears while you speak. When you let go, JustScribe transcribes the whole recording once more for accuracy.</li>
+        <li><strong>Hold to record.</strong> When you let go, JustScribe transcribes the whole recording once more for accuracy and pastes the result into the field you are in, in one go. Prefer to see the words appear as you speak? Switch to typing in Settings.</li>
         <li><strong>Stay on your Mac.</strong> Transcription runs on-device with Parakeet or Whisper models. Nothing is uploaded.</li>
         <li><strong>Fix the grammar, if you like.</strong> Optional on-device correction of grammar, spelling and punctuation, using Apple Intelligence or a local Llama model.</li>
         <li><strong>Make it yours.</strong> Any shortcut, including modifier-only ones; microphone priority order; a floating bubble or a notch indicator; light and dark appearance.</li>
