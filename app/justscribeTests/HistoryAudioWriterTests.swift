@@ -37,7 +37,7 @@ struct HistoryAudioWriterTests {
         defer { try? FileManager.default.removeItem(at: url) }
         try await HistoryAudioWriter.write(samples: tone(seconds: 3), to: url)
         let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
-        #expect(size > 1_000 && size < 60_000)   // AAC at 48 kbit/s: ~18 kB for 3 s, far from raw 192 kB
+        #expect(size > 1_000 && size < 60_000)   // ~38 kB for 3 s (~13 kB AAC audio plus AVAudioFile's fixed ~23.5 kB `free` atom), far from raw 192 kB
 
         let decoder = try await AudioFileDecoder.open(url)
         var samples: [Float] = []

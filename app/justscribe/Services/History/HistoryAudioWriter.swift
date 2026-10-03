@@ -22,7 +22,9 @@ import AVFoundation
 import Foundation
 
 /// Writes a dictation's 16 kHz mono samples as a small AAC file for history. Encoding is
-/// `@concurrent`: it must never run on the main actor.
+/// `@concurrent`: it must never run on the main actor. The file is closed explicitly before
+/// `write` returns; `AVAudioFile.close()` returns void, so a failure while finishing the file
+/// (disk full while writing the `moov` atom) cannot be detected there.
 nonisolated enum HistoryAudioWriter {
     static let sampleRate = 16_000.0
     static let bitRate = 48_000
@@ -56,10 +58,10 @@ nonisolated enum HistoryAudioWriter {
                 try file.write(from: buffer)
                 index += count
             }
+            file.close()
         } catch {
             try? FileManager.default.removeItem(at: url)
             throw error
         }
-        // AVAudioFile finishes the file when it is released; it goes out of scope above.
     }
 }
