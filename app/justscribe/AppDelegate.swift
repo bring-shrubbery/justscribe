@@ -32,6 +32,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         model: FileTranscriptionModel(transcriber: TranscriptionService.shared, dictation: self),
         openSettings: { [weak self] in self?.openSettings() }
     )
+    private lazy var history = HistoryWindowController(
+        store: HistoryStore.shared,
+        openSettings: { [weak self] in self?.openSettings() }
+    )
 
     private enum RecordingSessionState { case idle, recording, finalizing }
     private var sessionState: RecordingSessionState = .idle
@@ -473,6 +477,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Start Transcription", action: #selector(startTranscriptionFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Transcribe File…", action: #selector(transcribeFileFromMenu), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "History…", action: #selector(showHistoryFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: ""))
@@ -497,11 +502,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         fileTranscription.show()
     }
 
+    @objc private func showHistoryFromMenu() {
+        history.show()
+    }
+
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
 
         // Find and activate the settings window
-        for window in NSApp.windows where window.identifier != FileTranscriptionWindowController.windowIdentifier {
+        for window in NSApp.windows where window.identifier != FileTranscriptionWindowController.windowIdentifier
+            && window.identifier != HistoryWindowController.windowIdentifier {
             if window.identifier?.rawValue.contains("settings") == true ||
                window.title.contains("JustScribe") ||
                window.contentView != nil {
