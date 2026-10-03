@@ -96,8 +96,8 @@ raw transcript ──► voice commands ──► vocabulary ──► clean-up 
   | new line | line break |
   | new paragraph | blank line |
   | scratch that, delete that | removes the text from the nearest preceding *break* (end of the last sentence `. ? !`, or the last command's position, or the start) up to the command; the sentence end the model placed right before the command is the pause before it, not a break; said again with nothing new since, it removes the previous sentence |
-  | stop recording, stop dictation | ends the session (press mode only; in hold mode the words are removed) |
-  | send, press enter (at the very end of the text, and after a sentence end — "I'll send" is left alone) | ends the session, inserts the text, then posts a Return keystroke (press mode only; in hold mode the words are removed) |
+  | stop recording, stop dictation | ends the session (press mode only; in hold mode these are ordinary words and stay in the text) |
+  | send, press enter (at the very end of the text, and after a sentence end — "I'll send" is left alone) | ends the session, inserts the text, then posts a Return keystroke (press mode only; in hold mode these are ordinary words and stay in the text) |
   | *(spoken punctuation on)* period, full stop, comma, question mark, exclamation mark, exclamation point, colon, semicolon, open quote, close quote, dash | the character, glued to the previous word; quotes glue to the following/preceding word |
 
 - "scratch that" is recognised anywhere: a correction is spoken mid-flow
