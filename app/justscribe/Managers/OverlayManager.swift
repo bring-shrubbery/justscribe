@@ -260,12 +260,24 @@ final class OverlayManager {
 
         recordingSeconds = 0
         stopRecordingTimer()
-        recordingTimer = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                guard !Task.isCancelled, let self, self.state == .listening else { return }
-                self.recordingSeconds = Int(AudioCaptureService.shared.recordingDuration)
-                self.present()
+        // Only the compact island shows the timer; the card (with a hint) has no use for it.
+        if listeningHint == nil {
+            let start = Date()
+            recordingTimer = Task { [weak self] in
+                var shown = 0
+                while !Task.isCancelled {
+                    // Wake just after the next whole second since `start`, so each tick lands on
+                    // a new value: the display never repeats or skips a second.
+                    let elapsed = Date().timeIntervalSince(start)
+                    let next = Double(shown + 1)
+                    try? await Task.sleep(for: .seconds(max(0, next - elapsed) + 0.01))
+                    guard !Task.isCancelled, let self, self.state == .listening else { return }
+                    let seconds = Int(Date().timeIntervalSince(start))
+                    guard seconds != shown else { continue }
+                    shown = seconds
+                    self.recordingSeconds = seconds
+                    self.present()
+                }
             }
         }
         present()
