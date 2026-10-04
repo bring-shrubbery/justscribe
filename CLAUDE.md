@@ -175,6 +175,11 @@ every installed copy.
   `app/justscribe.xcodeproj/xcshareddata/IDETemplateMacros.plist`). Keep it on new files.
 - Carbon `kVK_*` constants are `Int` in Swift, not `Int32` — don't cast when switching on them.
 - `KeyboardShortcuts.Key(rawValue:)` is **not** optional; optional binding won't compile.
+- The recording indicator is `DynamicLanding` (github.com/bring-shrubbery/dynamic-landing, our own
+  package): `OverlayManager` adapts the app's overlay states to one island per style — compact
+  (waveform + timer) while listening in hold mode, expanded otherwise. Its geometry is pure and
+  tested in the package; if the island ever looks wrong on a screen, the fix is a geometry test
+  there, not a SwiftUI tweak here. The package is a normal SPM dependency in `project.pbxproj`.
 - SourceKit often reports "Cannot find type" for cross-file references in this project; verify with
   an actual `xcodebuild` before chasing it.
 - App is sandboxed (`justscribe.entitlements`: audio-input, network client, user-selected files).
