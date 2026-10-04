@@ -43,7 +43,8 @@ struct justscribeApp: App {
     private let windowWidth: CGFloat = 480
 
     var body: some Scene {
-        WindowGroup("", id: "settings") {
+        // One window: a WindowGroup would offer "New Window" and open copies.
+        Window("JustScribe", id: "settings") {
             SettingsView()
                 .frame(minWidth: windowWidth, maxWidth: windowWidth, minHeight: 600)
                 .navigationTitle("")

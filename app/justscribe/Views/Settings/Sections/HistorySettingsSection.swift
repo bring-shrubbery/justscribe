@@ -68,7 +68,7 @@ struct HistorySettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Show History…") { (NSApp.delegate as? AppDelegate)?.showHistory() }
+                    Button("Show History…") { AppDelegate.shared?.showHistory() }
                         .buttonStyle(.pill)
                         .disabled(store.records.isEmpty)
                     Button("Delete All History…") { isConfirmingDeleteAll = true }

@@ -27,6 +27,10 @@ import SwiftUI
 private struct TranscriptionTimeoutError: Error {}
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    /// The live delegate. `NSApp.delegate` is SwiftUI's adaptor wrapper, not this object, so
+    /// views reach the app through here.
+    private(set) static weak var shared: AppDelegate?
+
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
     private lazy var fileTranscription = FileTranscriptionWindowController(
@@ -42,6 +46,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var sessionState: RecordingSessionState = .idle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDelegate.shared = self
         applySavedVisibilitySettings()
         checkInputMonitoringAndSetupHotkey()
         loadSelectedModel()

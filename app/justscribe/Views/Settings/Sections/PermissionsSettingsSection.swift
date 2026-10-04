@@ -25,9 +25,41 @@ import SwiftUI
 struct PermissionsSettingsSection: View {
     private var permissions: PermissionsService { .shared }
     @State private var refreshTask: Task<Void, Never>?
+    @State private var showsAllRows = false
+
+    private var allGranted: Bool {
+        permissions.microphoneStatus == .granted && permissions.accessibilityStatus == .granted
+            && permissions.inputMonitoringStatus == .granted
+    }
 
     var body: some View {
         SettingsSectionContainer(title: "Permissions") {
+            if allGranted && !showsAllRows {
+                // Everything is in order: one line, with a way to see the details.
+                HStack(spacing: 12) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.body)
+                        .foregroundStyle(Color.green)
+                        .frame(width: 24)
+                    Text("Microphone, Accessibility and Input Monitoring are allowed.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button("Details") { showsAllRows = true }
+                        .buttonStyle(.pillSmall)
+                }
+            } else {
+                rows
+            }
+        }
+        .onAppear { permissions.checkPermissions(); startRefreshing() }
+        .onDisappear { refreshTask?.cancel(); refreshTask = nil }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            permissions.checkPermissions()
+        }
+    }
+
+    private var rows: some View {
             VStack(spacing: 12) {
                 PermissionRow(
                     title: "Microphone",
@@ -52,13 +84,12 @@ struct PermissionsSettingsSection: View {
                     status: permissions.inputMonitoringStatus,
                     fix: { permissions.openInputMonitoringSettings() }
                 )
+                if allGranted {
+                    Button("Hide Details") { showsAllRows = false }
+                        .buttonStyle(.pillSmall)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
-        }
-        .onAppear { permissions.checkPermissions(); startRefreshing() }
-        .onDisappear { refreshTask?.cancel(); refreshTask = nil }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            permissions.checkPermissions()
-        }
     }
 
     /// System Settings changes nothing in-process, so poll gently while this section is visible.
