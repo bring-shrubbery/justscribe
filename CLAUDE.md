@@ -188,5 +188,9 @@ every installed copy.
   `SWIFT_APPROACHABLE_CONCURRENCY`, so a `nonisolated` async function runs on its caller's actor
   unless marked `@concurrent`. Heavy work must be `@concurrent`, in its own actor, or in
   `Task.detached`, or it blocks the main actor and with it the dictation hotkey.
+- Microphones can deliver several channels, each in its own buffer, behind a non-contiguous
+  `CMBlockBuffer`. `AudioCaptureService` reads them through an `AudioBufferList` and
+  `PCMSampleConverter` averages them to one finite sample per frame; reading the block buffer
+  as one run of bytes reads unrelated memory (NaN audio, recordings twice their length).
 - Unit tests run inside the app and share its bundle ID: never write `UserDefaults.standard` from
   a test; inject a throwaway suite instead.

@@ -265,129 +265,21 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        // Get the format description to determine sample rate and format
-        if let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer) {
-            let audioStreamBasicDesc = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)
-            if let asbd = audioStreamBasicDesc?.pointee {
-                DispatchQueue.main.async {
-                    self.inputChannels = Int(asbd.mChannelsPerFrame)
-                    if self.inputSampleRate != asbd.mSampleRate {
-                        self.inputSampleRate = asbd.mSampleRate
-                        print("Audio format - Sample rate: \(asbd.mSampleRate), Channels: \(asbd.mChannelsPerFrame), Bits: \(asbd.mBitsPerChannel), Format: \(asbd.mFormatID)")
-                    }
-                }
+        guard let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer),
+              let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee else { return }
+
+        DispatchQueue.main.async {
+            self.inputChannels = Int(asbd.mChannelsPerFrame)
+            if self.inputSampleRate != asbd.mSampleRate {
+                self.inputSampleRate = asbd.mSampleRate
+                print("Audio format - Sample rate: \(asbd.mSampleRate), Channels: \(asbd.mChannelsPerFrame), Bits: \(asbd.mBitsPerChannel), Format: \(asbd.mFormatID)")
             }
         }
 
-        guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return }
+        guard let channelBuffers = Self.channelBuffers(of: sampleBuffer) else { return }
 
-        var length = 0
-        var dataPointer: UnsafeMutablePointer<Int8>?
-        CMBlockBufferGetDataPointer(blockBuffer, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &dataPointer)
-
-        guard let data = dataPointer else { return }
-
-        // Get format info to determine how to interpret the data
-        var floatSamples: [Float] = []
-
-        if let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer),
-           let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee {
-
-            let formatFlags = asbd.mFormatFlags
-            let isFloat = (formatFlags & kAudioFormatFlagIsFloat) != 0
-            let isSignedInt = (formatFlags & kAudioFormatFlagIsSignedInteger) != 0
-            let bitsPerChannel = asbd.mBitsPerChannel
-            let bytesPerSample = Int(asbd.mBytesPerFrame / asbd.mChannelsPerFrame)
-
-            if isFloat && bitsPerChannel == 32 {
-                // 32-bit float format (common on macOS)
-                let sampleCount = length / 4
-                floatSamples = [Float](repeating: 0, count: sampleCount)
-                data.withMemoryRebound(to: Float.self, capacity: sampleCount) { floatPtr in
-                    for i in 0..<sampleCount {
-                        floatSamples[i] = floatPtr[i]
-                    }
-                }
-            } else if isFloat && bitsPerChannel == 64 {
-                // 64-bit float (rare, but handle it)
-                let sampleCount = length / 8
-                floatSamples = [Float](repeating: 0, count: sampleCount)
-                data.withMemoryRebound(to: Double.self, capacity: sampleCount) { doublePtr in
-                    for i in 0..<sampleCount {
-                        floatSamples[i] = Float(doublePtr[i])
-                    }
-                }
-            } else if bitsPerChannel == 16 {
-                // 16-bit integer format (most common)
-                let sampleCount = length / 2
-                floatSamples = [Float](repeating: 0, count: sampleCount)
-                if isSignedInt {
-                    data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
-                        for i in 0..<sampleCount {
-                            floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
-                        }
-                    }
-                } else {
-                    data.withMemoryRebound(to: UInt16.self, capacity: sampleCount) { uint16Ptr in
-                        for i in 0..<sampleCount {
-                            floatSamples[i] = (Float(uint16Ptr[i]) / Float(UInt16.max)) * 2.0 - 1.0
-                        }
-                    }
-                }
-            } else if bitsPerChannel == 24 {
-                // 24-bit integer (professional audio)
-                let sampleCount = length / 3
-                floatSamples = [Float](repeating: 0, count: sampleCount)
-                for i in 0..<sampleCount {
-                    let offset = i * 3
-                    // Little-endian 24-bit
-                    let b0 = Int32(data[offset]) & 0xFF
-                    let b1 = Int32(data[offset + 1]) & 0xFF
-                    let b2 = Int32(data[offset + 2])
-                    var value = (b2 << 16) | (b1 << 8) | b0
-                    // Sign extend if needed
-                    if isSignedInt && (value & 0x800000) != 0 {
-                        value |= Int32(bitPattern: 0xFF000000)
-                    }
-                    floatSamples[i] = Float(value) / Float(0x7FFFFF)
-                }
-            } else if bitsPerChannel == 32 && !isFloat {
-                // 32-bit integer format
-                let sampleCount = length / 4
-                floatSamples = [Float](repeating: 0, count: sampleCount)
-                if isSignedInt {
-                    data.withMemoryRebound(to: Int32.self, capacity: sampleCount) { int32Ptr in
-                        for i in 0..<sampleCount {
-                            floatSamples[i] = Float(int32Ptr[i]) / Float(Int32.max)
-                        }
-                    }
-                } else {
-                    data.withMemoryRebound(to: UInt32.self, capacity: sampleCount) { uint32Ptr in
-                        for i in 0..<sampleCount {
-                            floatSamples[i] = (Float(uint32Ptr[i]) / Float(UInt32.max)) * 2.0 - 1.0
-                        }
-                    }
-                }
-            } else {
-                // Fallback: assume 16-bit signed PCM
-                let sampleCount = length / 2
-                floatSamples = [Float](repeating: 0, count: sampleCount)
-                data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
-                    for i in 0..<sampleCount {
-                        floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
-                    }
-                }
-            }
-        } else {
-            // Fallback: assume 16-bit signed PCM
-            let sampleCount = length / 2
-            floatSamples = [Float](repeating: 0, count: sampleCount)
-            data.withMemoryRebound(to: Int16.self, capacity: sampleCount) { int16Ptr in
-                for i in 0..<sampleCount {
-                    floatSamples[i] = Float(int16Ptr[i]) / Float(Int16.max)
-                }
-            }
-        }
+        // One sample per frame, channels averaged, non-finite values silenced.
+        let floatSamples = PCMSampleConverter.monoSamples(from: channelBuffers, format: PCMFormat(asbd))
 
         // Calculate audio level
         let rms = sqrt(floatSamples.map { $0 * $0 }.reduce(0, +) / Float(max(floatSamples.count, 1)))
@@ -408,6 +300,37 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
             // Append to buffer
             self.audioBuffer.append(contentsOf: floatSamples)
             self.onAudioBuffer?(floatSamples)
+        }
+    }
+
+    /// The sample buffer's audio as one `Data` per buffer: one per channel when the channels
+    /// arrive separately, otherwise one. Read through an AudioBufferList because the block buffer
+    /// behind a multi-channel capture is not contiguous: reading it as one run of bytes from its
+    /// first pointer runs past the first channel into unrelated memory.
+    nonisolated private static func channelBuffers(of sampleBuffer: CMSampleBuffer) -> [Data]? {
+        var sizeNeeded = 0
+        guard CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer, bufferListSizeNeededOut: &sizeNeeded, bufferListOut: nil, bufferListSize: 0,
+            blockBufferAllocator: nil, blockBufferMemoryAllocator: nil, flags: 0, blockBufferOut: nil
+        ) == noErr, sizeNeeded > 0 else { return nil }
+
+        let raw = UnsafeMutableRawPointer.allocate(byteCount: sizeNeeded,
+                                                   alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { raw.deallocate() }
+        let list = raw.bindMemory(to: AudioBufferList.self, capacity: 1)
+        var blockBuffer: CMBlockBuffer?
+        guard CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer, bufferListSizeNeededOut: nil, bufferListOut: list, bufferListSize: sizeNeeded,
+            blockBufferAllocator: nil, blockBufferMemoryAllocator: nil,
+            flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment, blockBufferOut: &blockBuffer
+        ) == noErr else { return nil }
+
+        // `blockBuffer` keeps the memory alive while the bytes are copied out.
+        return withExtendedLifetime(blockBuffer) {
+            UnsafeMutableAudioBufferListPointer(list).map { buffer in
+                guard let data = buffer.mData else { return Data() }
+                return Data(bytes: data, count: Int(buffer.mDataByteSize))
+            }
         }
     }
 }
