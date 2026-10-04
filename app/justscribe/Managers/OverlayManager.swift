@@ -20,15 +20,15 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+import DynamicLanding
 import Foundation
 import SwiftUI
 
 // MARK: - Overlay Content View
 
-/// Custom expanded content for the DynamicNotch, with a close button.
+/// The expanded card shown in the island, with a close button.
 private struct OverlayExpandedView: View {
     let manager: OverlayManager
-    let isNotchStyle: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -60,18 +60,13 @@ private struct OverlayExpandedView: View {
             }
             .buttonStyle(.plain)
         }
-        .contentShape(Rectangle())
-        .onTapGesture { manager.onTap?() }
+        .frame(minWidth: 220)
         .frame(height: 40)
     }
 
-    private var textColor: Color {
-        isNotchStyle ? .white : .primary
-    }
-
-    private var secondaryTextColor: Color {
-        isNotchStyle ? .white.opacity(0.5) : .secondary
-    }
+    // The island is black in both styles.
+    private var textColor: Color { .white }
+    private var secondaryTextColor: Color { .white.opacity(0.5) }
 
     @ViewBuilder
     private var iconView: some View {
@@ -117,12 +112,13 @@ final class OverlayManager {
     private(set) var isVisible = false
     private(set) var currentStyle: OverlayStyle = .bubble
 
-    private var notch: DynamicNotch<OverlayExpandedView, EmptyView, EmptyView>?
+    private var island: DynamicLanding?
+    /// The style `island` was built with; a change needs a new island.
+    private var islandStyle: OverlayStyle?
     private var autoHideTask: Task<Void, Never>?
-    /// The style the current panel was built with; a change needs a new panel.
-    private var shownStyle: OverlayStyle?
-    /// Bumped by every show/hide, so a finished hide only resets state when nothing newer happened.
-    private var hideGeneration = 0
+    /// Seconds since the recording started, shown in the compact island.
+    private(set) var recordingSeconds = 0
+    private var recordingTimer: Task<Void, Never>?
 
     enum OverlayStyle: String, CaseIterable {
         case bubble
@@ -132,13 +128,6 @@ final class OverlayManager {
             switch self {
             case .bubble: return "Floating Bubble"
             case .notch: return "Notch (Dynamic Island)"
-            }
-        }
-
-        var dynamicNotchStyle: DynamicNotchStyle {
-            switch self {
-            case .bubble: return .floating
-            case .notch: return .notch
             }
         }
     }
@@ -153,6 +142,7 @@ final class OverlayManager {
 
     private(set) var state: OverlayState = .idle
     /// Shown under "Listening..." instead of "Speak now" (press mode, the mode's name).
+    /// Without one, listening shows the compact island instead of the card.
     var listeningHint: String?
     /// Set while a press-to-toggle recording runs: a click on the overlay stops it.
     var onTap: (() -> Void)?
@@ -185,72 +175,72 @@ final class OverlayManager {
         }
     }
 
+    // MARK: - Island
+
+    private func currentIsland() -> DynamicLanding {
+        if let island, islandStyle == currentStyle { return island }
+        Task { [old = island] in await old?.hide() }
+        var config = IslandConfiguration()
+        config.style = currentStyle == .notch ? .automatic : .pill(cornerRadius: 16)
+        config.shadow = .none
+        let created = DynamicLanding(configuration: config)
+        created.onTap = { [weak self] in self?.onTap?() }
+        island = created
+        islandStyle = currentStyle
+        return created
+    }
+
+    /// The expanded card, or the compact waveform-and-timer while listening without a hint.
+    private func present() {
+        let island = currentIsland()
+        isVisible = true
+        if case .listening = state, listeningHint == nil {
+            let seconds = recordingSeconds
+            Task {
+                await island.show(
+                    compactLeading: {
+                        Image(systemName: "waveform").font(.system(size: 14, weight: .semibold))
+                    },
+                    trailing: {
+                        Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
+                            .font(.system(size: 12, weight: .medium).monospacedDigit())
+                    })
+            }
+        } else {
+            Task { await island.show(expanded: { OverlayExpandedView(manager: OverlayManager.shared) }) }
+        }
+    }
+
+    private func stopRecordingTimer() {
+        recordingTimer?.cancel()
+        recordingTimer = nil
+    }
+
     // MARK: - Show / Hide
 
     func show(style: OverlayStyle? = nil) {
         if let style = style {
             currentStyle = style
         }
-
-        // One panel at a time: a second DynamicNotch created while the first is still on screen
-        // (a dictation started inside the completed state's auto-hide window) would never be
-        // hidden and would sit on the screen showing stale text. Reuse the visible one unless the
-        // style changed; otherwise take the old one down before creating the new one.
-        if let existing = notch {
-            if isVisible && shownStyle == currentStyle {
-                hideGeneration += 1
-                Task { await existing.expand() }
-                return
-            }
-            notch = nil
-            hideGeneration += 1
-            Task { await existing.hide() }
-        }
-
-        let isNotch = currentStyle == .notch
-        let created = DynamicNotch(
-            style: currentStyle.dynamicNotchStyle
-        ) {
-            OverlayExpandedView(manager: OverlayManager.shared, isNotchStyle: isNotch)
-        }
-        notch = created
-        shownStyle = currentStyle
-        hideGeneration += 1
-
-        Task {
-            await created.expand()
-        }
-        isVisible = true
+        present()
     }
 
     func hide() {
         autoHideTask?.cancel()
         autoHideTask = nil
+        stopRecordingTimer()
         isVisible = false
         onTap = nil
-        guard let notchToHide = notch else {
-            state = .idle
-            listeningHint = nil
-            return
-        }
-        notch = nil
-        hideGeneration += 1
-        let generation = hideGeneration
+        let islandToHide = island
         Task {
-            // Keep the last state on screen while the panel animates out; the idle text would
-            // otherwise flash during the fade. Reset only if nothing was shown in the meantime.
-            await notchToHide.hide()
-            if hideGeneration == generation {
+            // Keep the last state on screen while the island animates out; the idle text would
+            // otherwise flash during the hide. Reset only if nothing was shown in the meantime.
+            await islandToHide?.hide()
+            if !isVisible {
                 state = .idle
                 listeningHint = nil
             }
         }
-    }
-
-    func updateState(_ newState: OverlayState) {
-        state = newState
-        // The OverlayExpandedView reads `state` reactively via @Observable,
-        // so no manual notchInfo property updates are needed.
     }
 
     // MARK: - Convenience methods
@@ -266,20 +256,31 @@ final class OverlayManager {
         if let styleRaw = UserDefaults.standard.string(forKey: "indicatorStyle"),
            let style = OverlayStyle(rawValue: styleRaw) {
             currentStyle = style
-            print("Using indicator style: \(style.rawValue)")
-        } else {
-            print("No indicator style in UserDefaults, using default: \(currentStyle.rawValue)")
         }
-        show()
+
+        recordingSeconds = 0
+        stopRecordingTimer()
+        recordingTimer = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, let self, self.state == .listening else { return }
+                self.recordingSeconds = Int(AudioCaptureService.shared.recordingDuration)
+                self.present()
+            }
+        }
+        present()
     }
 
     func showProcessing() {
-        updateState(.processing)
+        state = .processing
+        stopRecordingTimer()
+        present()
     }
 
     func showCompleted(copiedToClipboard: Bool) {
         state = .completed(copiedToClipboard: copiedToClipboard)
-        if !isVisible { show() }
+        stopRecordingTimer()
+        present()
 
         // Auto-hide after delay (cancel any previous auto-hide first)
         autoHideTask?.cancel()
@@ -292,7 +293,8 @@ final class OverlayManager {
 
     func showError(message: String) {
         state = .error(message: message)
-        if !isVisible { show() }
+        stopRecordingTimer()
+        present()
 
         // Auto-hide after delay (cancel any previous auto-hide first)
         autoHideTask?.cancel()
