@@ -57,8 +57,9 @@ expanded    ▁▁▁▁▁▁▁╭──────────────�
   island is as wide as the content plus padding, never narrower than the notch, and as tall as
   the inset plus the content.
 - Showing while already showing **morphs**: compact → expanded grows the shape and fades the
-  new content in; expanded → compact shrinks it. Content of the same state replaces in place
-  with a fade. There is never a second panel.
+  new content in; expanded → compact shrinks it. Showing again in the same state updates the
+  content in place without a fade (live content such as a timer keeps its identity). There is
+  never a second panel.
 - `hide()` animates to hidden and then orders the panel out; re-showing during the hide
   animation cancels the hide and morphs forward.
 
