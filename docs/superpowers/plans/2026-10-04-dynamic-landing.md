@@ -147,6 +147,7 @@ struct ScreenMetricsTests {
         #expect(c.compactHeight == 32 && c.expandedTopInset == 8 && c.pillCornerRadius == 16)
         #expect(c.notchCornerRadii.top == 15 && c.notchCornerRadii.bottom == 20)
         #expect(c.shadow == .none && c.hoverBehavior.isEmpty)
+        #expect(c.animationDuration == .milliseconds(350) && c.slotPadding == 8 && c.virtualNotchWidth == 180)
         #expect(c.contentPadding.top == 10 && c.contentPadding.leading == 16 && c.contentPadding.bottom == 12 && c.contentPadding.trailing == 16)
     }
 }
@@ -197,6 +198,8 @@ public struct IslandConfiguration: Sendable {
     public var slotPadding: CGFloat = 8
     /// The notch a forced `.notch` style pretends to have on a notchless screen.
     public var virtualNotchWidth: CGFloat = 180
+    /// How long `show`/`hide` wait for `animation` to finish (SwiftUI exposes no duration).
+    public var animationDuration: Duration = .milliseconds(350)
 
     public init() {}
 }
@@ -341,9 +344,10 @@ struct IslandGeometryTests {
         let leading = try! #require(l.leadingSlot), trailing = try! #require(l.trailingSlot)
         // Island-local coordinates, top-left origin: the notch occupies the middle 200 pt.
         let notchMinX = (l.rect.width - 200) / 2, notchMaxX = notchMinX + 200
-        #expect(leading.maxX <= notchMinX && trailing.minX >= notchMaxX)
+        #expect(leading.maxX == notchMinX - 8 && trailing.minX == notchMaxX + 8)
         #expect(leading.width == slots.leading.width && trailing.width == slots.trailing.width)
         #expect(l.rect.height == 38)
+        #expect(l.rect.width == 200 + 2 * (15 + 40 + 8))   // the wider slot sets both sides
     }
 
     @Test func compactOnAPillIsTwoSlotsWithAGap() {
@@ -361,7 +365,7 @@ struct IslandGeometryTests {
         #expect(rect.minY == 38 + 10)
         #expect(rect.size == content)
         #expect(l.rect.height == 38 + 10 + 64 + 12)
-        #expect(l.rect.width == max(200 + 2 * 15, 260 + 16 + 16) + 2 * 15 - 2 * 15 || l.rect.width >= 260 + 32)
+        #expect(l.rect.width == 260 + 32 + 2 * 15)   // content, padding, and the two top flares
         #expect(abs(rect.midX - l.rect.width / 2) < 0.5)
     }
 
@@ -393,8 +397,6 @@ struct IslandGeometryTests {
     }
 }
 ```
-
-Replace the muddled width assertion in `expandedWrapsTheContentBelowTheNotch` with the precise rule the implementation defines below: `#expect(l.rect.width == 260 + 32 + 2 * 15)` (content plus padding plus the two top flares).
 
 - [ ] **Step 2: Run; it must fail to compile**
 
@@ -467,12 +469,16 @@ public enum IslandGeometry {
         case (.hidden, .pill):
             width = 0; height = 0
         case (.compact, .notch):
+            // Both sides are as wide as the wider slot, so the island stays centred on the notch;
+            // each slot hugs its side of the notch.
             let n = notch!
             height = n.height
-            width = n.width + 2 * radii.top + compactSlotSizes.leading.width + compactSlotSizes.trailing.width + 2 * padding
-            leading = CGRect(x: radii.top + padding, y: 0, width: compactSlotSizes.leading.width, height: height)
-            trailing = CGRect(x: width - radii.top - padding - compactSlotSizes.trailing.width, y: 0,
-                              width: compactSlotSizes.trailing.width, height: height)
+            let side = max(compactSlotSizes.leading.width, compactSlotSizes.trailing.width) + padding
+            width = n.width + 2 * (radii.top + side)
+            let notchMinX = (width - n.width) / 2, notchMaxX = notchMinX + n.width
+            leading = CGRect(x: notchMinX - padding - compactSlotSizes.leading.width, y: 0,
+                             width: compactSlotSizes.leading.width, height: height)
+            trailing = CGRect(x: notchMaxX + padding, y: 0, width: compactSlotSizes.trailing.width, height: height)
         case (.compact, .pill):
             height = max(configuration.compactHeight, metrics.notchSize?.height ?? 0)
             width = compactSlotSizes.leading.width + compactSlotSizes.trailing.width + 3 * padding
@@ -821,7 +827,7 @@ import Testing
 struct DynamicLandingStateTests {
     private func island() -> DynamicLanding {
         let metrics = ScreenMetrics(frame: CGRect(x: 0, y: 0, width: 1512, height: 982), notchSize: CGSize(width: 200, height: 38), menuBarHeight: 38)
-        var c = IslandConfiguration(); c.animation = .linear(duration: 0.01)
+        var c = IslandConfiguration(); c.animation = .linear(duration: 0.01); c.animationDuration = .milliseconds(10)
         return DynamicLanding(configuration: c, metrics: metrics, presentsPanel: false)
     }
 
@@ -857,6 +863,19 @@ struct DynamicLandingStateTests {
         let g = i.model.contentGeneration
         await i.show(expanded: { Text("B") })
         #expect(i.model.contentGeneration == g + 1 && i.state == .expanded)
+    }
+
+    @Test func keepVisibleDelaysTheHideWhileHovering() async {
+        let i = island()
+        i.configuration.hoverBehavior = [.keepVisible]
+        await i.show(expanded: { Text("A") })
+        i.model.isHovering = true
+        let hiding = Task { await i.hide() }
+        try? await Task.sleep(for: .milliseconds(150))
+        #expect(i.state == .expanded)       // still up while hovered
+        i.model.isHovering = false
+        await hiding.value
+        #expect(i.state == .hidden)
     }
 
     @Test func mousePassThroughFollowsThePointer() {
@@ -1046,6 +1065,14 @@ public final class DynamicLanding {
         let mine = generation
         hideTask?.cancel()
         let task = Task { @MainActor in
+            // `.keepVisible`: wait (up to 10 s) while the pointer is over the island.
+            if model.configuration.hoverBehavior.contains(.keepVisible) {
+                var waited = 0
+                while model.isHovering, waited < 100, generation == mine {
+                    try? await Task.sleep(for: .milliseconds(100)); waited += 1
+                }
+                guard generation == mine else { return }
+            }
             withAnimation(model.configuration.animation) { model.setState(.hidden) }
             controller?.refreshMousePassThrough()
             try? await Task.sleep(for: animationDuration)
@@ -1072,17 +1099,15 @@ public final class DynamicLanding {
         try? await Task.sleep(for: animationDuration)
     }
 
-    /// Swift has no public accessor for an Animation's duration; the configuration's default is
-    /// 0.35 s and callers who change it can wait on their own clock.
-    private var animationDuration: Duration { .milliseconds(350) }
+    private var animationDuration: Duration { model.configuration.animationDuration }
 }
 ```
 
-Note for the implementer: the test uses `.linear(duration: 0.01)` and the fixed 350 ms wait makes four tests take ~2 s — acceptable. If you prefer, add `public var animationDuration: Duration = .milliseconds(350)` to `IslandConfiguration` and use it here; then set it to 10 ms in the tests. Do that: it is the honest API.
+`animationDuration` comes from the configuration (Task 1), so the tests run in milliseconds.
 
 - [ ] **Step 6: Run; all tests pass; `swift build` clean**
 
-Run: `swift build 2>&1 | grep -E "error:|warning:" | head; swift test 2>&1 | grep -E "error:|Test run|failed" | tail -3`. Expected: `Test run with 22 tests passed`. Common fixes: `@Observable` with a `public let model` is fine; `withAnimation` on a model mutation animates the view's `.animation(value:)`-observed layout; if `aShowDuringAHideCancelsTheHide` flakes, the `generation` check is what must make it deterministic — fix the logic, not the test.
+Run: `swift build 2>&1 | grep -E "error:|warning:" | head; swift test 2>&1 | grep -E "error:|Test run|failed" | tail -3`. Expected: `Test run with 23 tests passed`. Common fixes: `@Observable` with a `public let model` is fine; `withAnimation` on a model mutation animates the view's `.animation(value:)`-observed layout; if `aShowDuringAHideCancelsTheHide` flakes, the `generation` check is what must make it deterministic — fix the logic, not the test.
 
 - [ ] **Step 7: Commit**
 
