@@ -611,7 +611,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "JustScribe")
+            button.image = Self.statusIcon(warning: false)
         }
 
         let menu = NSMenu()
@@ -674,6 +674,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UpdateService.shared.checkForUpdates()
     }
 
+    /// The app's own pixel waveform as a menu-bar template image; with `warning`, a small
+    /// exclamation badge in the lower-right corner (still a template, so macOS tints both).
+    private static func statusIcon(warning: Bool) -> NSImage? {
+        guard let logo = NSImage(named: "MenuBarIcon") else { return nil }
+        logo.isTemplate = true
+        guard warning,
+              let badge = NSImage(systemSymbolName: "exclamationmark.circle.fill", accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 8, weight: .bold)) else {
+            logo.accessibilityDescription = "JustScribe"
+            return logo
+        }
+        let size = logo.size
+        let composed = NSImage(size: size, flipped: false) { rect in
+            logo.draw(in: rect)
+            let b = NSRect(x: size.width - 8, y: 0, width: 8, height: 8)
+            // Punch a ring so the badge reads against the waveform, then draw it.
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: b.insetBy(dx: -1, dy: -1)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            badge.draw(in: b)
+            return true
+        }
+        composed.isTemplate = true
+        composed.accessibilityDescription = "JustScribe — Accessibility permission needed"
+        return composed
+    }
+
     // MARK: - Permission warning
 
     private static let permissionWarningTag = 7_001
@@ -683,9 +710,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshPermissionWarning() {
         PermissionsService.shared.checkAccessibilityPermission()
         let missing = PermissionsService.shared.accessibilityStatus != .granted
-        statusItem?.button?.image = NSImage(
-            systemSymbolName: missing ? "waveform.badge.exclamationmark" : "waveform",
-            accessibilityDescription: missing ? "JustScribe — Accessibility permission needed" : "JustScribe")
+        statusItem?.button?.image = Self.statusIcon(warning: missing)
         guard let menu = statusItem?.menu else { return }
         let existing = menu.item(withTag: Self.permissionWarningTag)
         if missing, existing == nil {
