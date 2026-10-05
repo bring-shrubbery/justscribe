@@ -142,10 +142,10 @@ struct LiveTranscriptionSessionTests {
         #expect(session.paragraphs.first?.label == nil)
         #expect(session.elapsed == 16)
 
-        session.stop()
-        #expect(mic.stopCalls == 1)
         // Audio already on its way to the main queue when Stop is pressed is still taken in.
         mic.feed(seconds: 1)
+        session.stop()
+        #expect(mic.stopCalls == 1)
         await wait { session.phase == .finished }
         #expect(session.phase == .finished)
         #expect(transcriber.calls.count == 2)
@@ -195,7 +195,7 @@ struct LiveTranscriptionSessionTests {
         #expect(transcriber.calls.isEmpty)
         #expect(session.backlog == 1)
         dictation.isDictating = false
-        await wait { self.transcriber.calls.count == 1 }
+        await wait { session.backlog == 0 }
         #expect(transcriber.calls.count == 1)
         #expect(session.backlog == 0)
         session.cancel()

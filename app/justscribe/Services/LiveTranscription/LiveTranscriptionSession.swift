@@ -294,11 +294,12 @@ final class LiveTranscriptionSession {
             guard !Task.isCancelled else { return }
             turns = found
             // The diarized source's words now go by the turns; the other source keeps its label.
-            streams[diarizedKind]?.words = (streams[diarizedKind]?.words ?? []).map {
+            let unlabelled = (streams[diarizedKind]?.words ?? []).map {
                 var word = $0
                 word.speaker = nil
                 return word
             }
+            streams[diarizedKind]?.words = unlabelled
             await rebuild()
         } catch {
             guard !Task.isCancelled else { return }
