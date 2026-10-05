@@ -19,7 +19,6 @@
 //
 
 import Testing
-import Testing
 @testable import justscribe
 
 struct WaveformLevelsTests {
@@ -30,14 +29,35 @@ struct WaveformLevelsTests {
         #expect(levels.bars == Array(repeating: 0, count: WaveformLevels.barCount))
     }
 
-    @Test func roomNoiseIsBelowTheFloor() {
+    @Test func steadyRoomNoiseStaysFlat() {
         var levels = WaveformLevels()
-        for _ in 0..<10 { levels.push(level: WaveformLevels.noiseFloor - 0.05) }
+        for _ in 0..<40 { levels.push(level: 0.35) }
         #expect(levels.bars.allSatisfy { $0 == 0 })
+    }
+
+    @Test func aQuietMicrophoneStillFillsTheBars() {
+        // Speech that only reaches 0.4 on a mic whose silence sits at 0.25.
+        var levels = WaveformLevels()
+        for _ in 0..<20 { levels.push(level: 0.25) }
+        levels.push(level: 0.4)
+        #expect(levels.bars[2] == 1)
+    }
+
+    @Test func theRangeFollowsTheLoudestRecentSample() {
+        var levels = WaveformLevels()
+        for _ in 0..<20 { levels.push(level: 0.2) }
+        levels.push(level: 0.9)
+        // Half-way between the floor and the peak settles at a half-height bar.
+        for _ in 0..<10 { levels.push(level: 0.55) }
+        #expect(abs(levels.bars[2] - 0.5) < 0.1)
     }
 
     @Test func theNewestLevelIsTheCentreBarAndOlderOnesSpreadOutwards() {
         var levels = WaveformLevels()
+        // Set the range (0.1 to 1) and let the bars fall back, then ramp up.
+        for _ in 0..<20 { levels.push(level: 0.1) }
+        levels.push(level: 1)
+        for _ in 0..<10 { levels.push(level: 0.1) }
         levels.push(level: 0.4)
         levels.push(level: 0.7)
         levels.push(level: 1)
@@ -51,12 +71,13 @@ struct WaveformLevelsTests {
 
     @Test func aBarRisesAtOnceAndFallsGradually() {
         var levels = WaveformLevels()
+        for _ in 0..<20 { levels.push(level: 0.1) }
         levels.push(level: 1)
         #expect(levels.bars[2] == 1)
-        levels.push(level: 0)
+        levels.push(level: 0.1)
         let afterOne = levels.bars[2]
         #expect(afterOne > 0 && afterOne < 1)
-        levels.push(level: 0)
+        levels.push(level: 0.1)
         #expect(levels.bars[2] < afterOne)
     }
 }

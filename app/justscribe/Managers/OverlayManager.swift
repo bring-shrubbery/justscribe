@@ -241,7 +241,10 @@ final class OverlayManager {
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.levelInterval)
                 guard !Task.isCancelled, let self, self.state == .listening else { return }
-                self.waveform.push(level: AudioCaptureService.shared.currentAudioLevel)
+                // Assigned whole, so the change is one the waveform view is sure to observe.
+                var levels = self.waveform
+                levels.push(level: AudioCaptureService.shared.currentAudioLevel)
+                self.waveform = levels
             }
         }
     }

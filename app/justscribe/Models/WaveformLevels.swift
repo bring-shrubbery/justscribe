@@ -24,10 +24,20 @@ import Foundation
 /// The bar heights of the listening waveform: a short, smoothed history of the microphone
 /// level with the newest sample in the centre bar, so the bars pulse with speech instead of
 /// scrolling past.
+///
+/// Microphones differ by tens of decibels in how loud speech comes through, so the bars are not
+/// cut at fixed levels: a running floor (the quietest recent sample) and a running peak (the
+/// loudest, slowly decaying) bracket the range, and a bar's height is where the sample falls
+/// between them. Steady room noise sits on the floor and stays flat; a word reaches the top.
 struct WaveformLevels: Equatable {
     static let barCount = 5
-    /// Below this much of the capture service's 0…1 level (0 at −60 dBFS) is room noise.
-    static let noiseFloor: Float = 0.3
+    /// The least range (in the capture service's 0…1 units, 0.1 ≈ 6 dB) the bars are scaled
+    /// over, so silence is not stretched into a full-height flicker.
+    static let minimumSpan: Float = 0.12
+    /// How far the floor creeps up and the peak sinks per sample (20 samples a second), so the
+    /// range re-adapts within seconds when the room or the microphone changes.
+    static let floorRise: Float = 0.003
+    static let peakFall: Float = 0.004
     /// How much of a bar's height survives a quiet sample: a bar falls slower than it rises,
     /// so a word does not flicker.
     static let decay: Float = 0.7
@@ -35,6 +45,8 @@ struct WaveformLevels: Equatable {
     /// Recent smoothed levels, newest last; one per distinct bar height.
     private(set) var recent: [Float]
     private var smoothed: Float = 0
+    private var floor: Float = 1
+    private var peak: Float = 0
 
     init() {
         recent = Array(repeating: 0, count: Self.barCount / 2 + 1)
@@ -42,9 +54,11 @@ struct WaveformLevels: Equatable {
 
     /// Adds one sample of the capture service's level.
     mutating func push(level: Float) {
-        let aboveFloor = max(0, min(1, (level - Self.noiseFloor) / (1 - Self.noiseFloor)))
-        let cleaned = pow(aboveFloor, 0.7)
-        smoothed = cleaned > smoothed ? cleaned : smoothed * Self.decay + cleaned * (1 - Self.decay)
+        floor = min(level, floor + Self.floorRise)
+        peak = max(level, peak - Self.peakFall)
+        let span = max(peak - floor, Self.minimumSpan)
+        let scaled = max(0, min(1, (level - floor) / span))
+        smoothed = scaled > smoothed ? scaled : smoothed * Self.decay + scaled * (1 - Self.decay)
         recent.removeFirst()
         recent.append(smoothed)
     }
