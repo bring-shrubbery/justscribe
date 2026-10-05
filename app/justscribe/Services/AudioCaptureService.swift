@@ -71,9 +71,9 @@ final class AudioCaptureService: NSObject {
             MicrophoneDevice(from: device, priority: index)
         }
 
-        // Select first available device if none selected
-        if selectedDevice == nil, let first = availableDevices.first {
-            selectedDevice = first
+        // Until a recording picks by priority, prefer a microphone that is not a Bluetooth headset.
+        if selectedDevice == nil {
+            selectedDevice = MicrophoneDevice.preferred(in: availableDevices, priority: [], banned: [])
         }
         #endif
     }
@@ -92,18 +92,13 @@ final class AudioCaptureService: NSObject {
         }
     }
 
+    /// Selects the microphone `MicrophoneDevice.preferred` picks from the saved priority,
+    /// after refreshing the list: a headset connected since the last recording is otherwise
+    /// unknown, or known only as the first device.
     func selectDeviceByPriority(_ priorityList: [String], excluding bannedIDs: [String] = []) {
-        let banned = Set(bannedIDs)
-        for deviceID in priorityList where !banned.contains(deviceID) {
-            if let device = availableDevices.first(where: { $0.id == deviceID && $0.isAvailable }) {
-                selectDevice(device)
-                return
-            }
-        }
-
-        // Fall back to first available unbanned device
-        if let first = availableDevices.first(where: { $0.isAvailable && !banned.contains($0.id) }) {
-            selectDevice(first)
+        refreshDevices()
+        if let device = MicrophoneDevice.preferred(in: availableDevices, priority: priorityList, banned: bannedIDs) {
+            selectDevice(device)
         }
     }
 
@@ -276,7 +271,7 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
             }
         }
 
-        guard let channelBuffers = Self.channelBuffers(of: sampleBuffer) else { return }
+        guard let channelBuffers = PCMSampleConverter.channelBuffers(of: sampleBuffer) else { return }
 
         // One sample per frame, channels averaged, non-finite values silenced.
         let floatSamples = PCMSampleConverter.monoSamples(from: channelBuffers, format: PCMFormat(asbd))
@@ -300,37 +295,6 @@ extension AudioCaptureService: AVCaptureAudioDataOutputSampleBufferDelegate {
             // Append to buffer
             self.audioBuffer.append(contentsOf: floatSamples)
             self.onAudioBuffer?(floatSamples)
-        }
-    }
-
-    /// The sample buffer's audio as one `Data` per buffer: one per channel when the channels
-    /// arrive separately, otherwise one. Read through an AudioBufferList because the block buffer
-    /// behind a multi-channel capture is not contiguous: reading it as one run of bytes from its
-    /// first pointer runs past the first channel into unrelated memory.
-    nonisolated private static func channelBuffers(of sampleBuffer: CMSampleBuffer) -> [Data]? {
-        var sizeNeeded = 0
-        guard CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
-            sampleBuffer, bufferListSizeNeededOut: &sizeNeeded, bufferListOut: nil, bufferListSize: 0,
-            blockBufferAllocator: nil, blockBufferMemoryAllocator: nil, flags: 0, blockBufferOut: nil
-        ) == noErr, sizeNeeded > 0 else { return nil }
-
-        let raw = UnsafeMutableRawPointer.allocate(byteCount: sizeNeeded,
-                                                   alignment: MemoryLayout<AudioBufferList>.alignment)
-        defer { raw.deallocate() }
-        let list = raw.bindMemory(to: AudioBufferList.self, capacity: 1)
-        var blockBuffer: CMBlockBuffer?
-        guard CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
-            sampleBuffer, bufferListSizeNeededOut: nil, bufferListOut: list, bufferListSize: sizeNeeded,
-            blockBufferAllocator: nil, blockBufferMemoryAllocator: nil,
-            flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment, blockBufferOut: &blockBuffer
-        ) == noErr else { return nil }
-
-        // `blockBuffer` keeps the memory alive while the bytes are copied out.
-        return withExtendedLifetime(blockBuffer) {
-            UnsafeMutableAudioBufferListPointer(list).map { buffer in
-                guard let data = buffer.mData else { return Data() }
-                return Data(bytes: data, count: Int(buffer.mDataByteSize))
-            }
         }
     }
 }

@@ -21,6 +21,7 @@
 
 import AVFoundation
 import Foundation
+import CoreMedia
 
 /// The parts of a linear PCM stream description needed to turn its bytes into samples.
 nonisolated struct PCMFormat: Equatable, Sendable {
@@ -112,6 +113,39 @@ nonisolated enum PCMSampleConverter {
                 samples = read(Int16.self) { Float($0) / Float(Int16.max) }
             }
             return samples.map { $0.isFinite ? $0 : 0 }
+        }
+    }
+}
+
+extension PCMSampleConverter {
+    /// The sample buffer's audio as one `Data` per buffer: one per channel when the channels
+    /// arrive separately, otherwise one. Read through an AudioBufferList because the block buffer
+    /// behind a multi-channel capture is not contiguous: reading it as one run of bytes from its
+    /// first pointer runs past the first channel into unrelated memory.
+    static func channelBuffers(of sampleBuffer: CMSampleBuffer) -> [Data]? {
+        var sizeNeeded = 0
+        guard CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer, bufferListSizeNeededOut: &sizeNeeded, bufferListOut: nil, bufferListSize: 0,
+            blockBufferAllocator: nil, blockBufferMemoryAllocator: nil, flags: 0, blockBufferOut: nil
+        ) == noErr, sizeNeeded > 0 else { return nil }
+
+        let raw = UnsafeMutableRawPointer.allocate(byteCount: sizeNeeded,
+                                                   alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { raw.deallocate() }
+        let list = raw.bindMemory(to: AudioBufferList.self, capacity: 1)
+        var blockBuffer: CMBlockBuffer?
+        guard CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer, bufferListSizeNeededOut: nil, bufferListOut: list, bufferListSize: sizeNeeded,
+            blockBufferAllocator: nil, blockBufferMemoryAllocator: nil,
+            flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment, blockBufferOut: &blockBuffer
+        ) == noErr else { return nil }
+
+        // `blockBuffer` keeps the memory alive while the bytes are copied out.
+        return withExtendedLifetime(blockBuffer) {
+            UnsafeMutableAudioBufferListPointer(list).map { buffer in
+                guard let data = buffer.mData else { return Data() }
+                return Data(bytes: data, count: Int(buffer.mDataByteSize))
+            }
         }
     }
 }

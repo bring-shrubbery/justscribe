@@ -49,6 +49,11 @@ struct MicrophoneSettingsSection: View {
                 Text("Drag to reorder, or use the arrows. Blocked microphones are never selected — even if they're at the top of the list.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if orderedMicrophones.contains(where: \.isBluetooth) {
+                    Text("A Bluetooth headset's microphone switches the headset to call quality while you record. JustScribe uses it only when you move it above the others, or when nothing else is available.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 if orderedMicrophones.isEmpty {
                     HStack {
@@ -253,6 +258,10 @@ struct MicrophoneRow: View {
                         .foregroundStyle(.secondary)
                 } else if !microphone.isAvailable {
                     Text("Unavailable")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else if microphone.isBluetooth {
+                    Text("Bluetooth — call quality while recording")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
