@@ -84,8 +84,9 @@ private struct OverlayExpandedView: View {
                 .foregroundStyle(.red)
                 .padding(4)
         case .processing:
-            ProgressView()
-                .controlSize(.small)
+            IslandSpinnerView()
+                .foregroundStyle(textColor)
+                .padding(7)
         case .completed:
             Image(systemName: "checkmark.circle.fill")
                 .resizable()
@@ -99,6 +100,16 @@ private struct OverlayExpandedView: View {
                 .foregroundStyle(.red)
                 .padding(4)
         }
+    }
+}
+
+/// Reads the waveform inside a view body, so the bars follow the microphone level without
+/// the island being shown again.
+private struct ListeningWaveform: View {
+    let manager: OverlayManager
+
+    var body: some View {
+        IslandWaveformView(bars: manager.waveform.bars)
     }
 }
 
@@ -119,6 +130,10 @@ final class OverlayManager {
     /// Seconds since the recording started, shown in the compact island.
     private(set) var recordingSeconds = 0
     private var recordingTimer: Task<Void, Never>?
+    /// The compact island's waveform, fed from the microphone level while listening.
+    private(set) var waveform = WaveformLevels()
+    private var levelTask: Task<Void, Never>?
+    private static let levelInterval: Duration = .milliseconds(50)
 
     enum OverlayStyle: String, CaseIterable {
         case bubble
@@ -199,7 +214,7 @@ final class OverlayManager {
             Task {
                 await island.show(
                     compactLeading: {
-                        Image(systemName: "waveform").font(.system(size: 14, weight: .semibold))
+                        ListeningWaveform(manager: OverlayManager.shared)
                     },
                     trailing: {
                         Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
@@ -211,9 +226,24 @@ final class OverlayManager {
         }
     }
 
-    private func stopRecordingTimer() {
+    private func stopListeningUpdates() {
         recordingTimer?.cancel()
         recordingTimer = nil
+        levelTask?.cancel()
+        levelTask = nil
+    }
+
+    /// Samples the capture service's level into the waveform until listening ends.
+    private func startLevelSampling() {
+        levelTask?.cancel()
+        waveform = WaveformLevels()
+        levelTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.levelInterval)
+                guard !Task.isCancelled, let self, self.state == .listening else { return }
+                self.waveform.push(level: AudioCaptureService.shared.currentAudioLevel)
+            }
+        }
     }
 
     // MARK: - Show / Hide
@@ -228,7 +258,7 @@ final class OverlayManager {
     func hide() {
         autoHideTask?.cancel()
         autoHideTask = nil
-        stopRecordingTimer()
+        stopListeningUpdates()
         isVisible = false
         onTap = nil
         let islandToHide = island
@@ -259,9 +289,11 @@ final class OverlayManager {
         }
 
         recordingSeconds = 0
-        stopRecordingTimer()
-        // Only the compact island shows the timer; the card (with a hint) has no use for it.
+        stopListeningUpdates()
+        // Only the compact island shows the timer and the waveform; the card (with a hint)
+        // has no use for them.
         if listeningHint == nil {
+            startLevelSampling()
             let start = Date()
             recordingTimer = Task { [weak self] in
                 var shown = 0
@@ -285,13 +317,13 @@ final class OverlayManager {
 
     func showProcessing() {
         state = .processing
-        stopRecordingTimer()
+        stopListeningUpdates()
         present()
     }
 
     func showCompleted(copiedToClipboard: Bool) {
         state = .completed(copiedToClipboard: copiedToClipboard)
-        stopRecordingTimer()
+        stopListeningUpdates()
         present()
 
         // Auto-hide after delay (cancel any previous auto-hide first)
@@ -305,7 +337,7 @@ final class OverlayManager {
 
     func showError(message: String) {
         state = .error(message: message)
-        stopRecordingTimer()
+        stopListeningUpdates()
         present()
 
         // Auto-hide after delay (cancel any previous auto-hide first)
