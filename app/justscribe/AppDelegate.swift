@@ -79,10 +79,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Visibility Settings
 
     private func applySavedVisibilitySettings() {
-        // Apply dock visibility (default to true if not set)
-        let showInDock = UserDefaults.standard.object(forKey: AppSettings.showInDockKey) == nil
-            ? true
-            : UserDefaults.standard.bool(forKey: AppSettings.showInDockKey)
+        // A menu bar app: no Dock icon unless asked for. Until Settings has moved an older
+        // record to that default (see `AppSettings.getOrCreate`), its stored value is ignored.
+        let showInDock = UserDefaults.standard.bool(forKey: AppSettings.menuBarOnlyMigrationKey)
+            && UserDefaults.standard.bool(forKey: AppSettings.showInDockKey)
         updateDockVisibility(showInDock: showInDock)
 
         // Apply status bar visibility (default to true if not set)
@@ -163,6 +163,51 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
+    }
+
+    // MARK: - Quitting
+
+    /// Set by the Settings window: reopens it after it has been closed.
+    var openSettingsWindow: (() -> Void)?
+    private var isConfirmingQuit = false
+
+    /// Quitting stops the dictation shortcut, and ⌘Q is easy to hit by habit, so the app asks
+    /// first; "Keep Running" closes the windows instead. A quit that is part of a log out or
+    /// shutdown, or Sparkle relaunching into an update, goes through untouched.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if UpdateService.shared.isInstallingUpdate || Self.isQuittingWithSystem { return .terminateNow }
+        guard !isConfirmingQuit else { return .terminateCancel }
+        isConfirmingQuit = true
+        defer { isConfirmingQuit = false }
+
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Quit JustScribe?"
+        alert.informativeText = "The dictation shortcut only works while JustScribe is running. "
+            + "Keep Running closes its windows and leaves it in the menu bar."
+        alert.addButton(withTitle: "Keep Running")
+        alert.addButton(withTitle: "Quit")
+        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateNow }
+
+        for window in NSApp.windows where window.isVisible && !(window is NSPanel) {
+            window.close()
+        }
+        return .terminateCancel
+    }
+
+    /// Log out, restart and shut down send their quit with a reason attached.
+    private static var isQuittingWithSystem: Bool {
+        guard let reason = NSAppleEventManager.shared().currentAppleEvent?
+            .attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason))?.enumCodeValue else { return false }
+        return [kAELogOut, kAEReallyLogOut, kAEShutDown, kAERestart].contains { OSType($0) == reason }
+    }
+
+    /// Without a Dock icon, opening the app again from Launchpad or Finder is how a user asks
+    /// for its window.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard !flag else { return true }
+        openSettings()
         return false
     }
 
@@ -654,6 +699,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openSettings() {
         NSApp.activate(ignoringOtherApps: true)
+        if let openSettingsWindow {
+            openSettingsWindow()
+            return
+        }
 
         // Find and activate the settings window
         for window in NSApp.windows where window.identifier != FileTranscriptionWindowController.windowIdentifier

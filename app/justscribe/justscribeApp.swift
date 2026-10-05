@@ -26,6 +26,7 @@ import SwiftData
 @main
 struct justscribeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.openWindow) private var openWindow
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -51,6 +52,8 @@ struct justscribeApp: App {
                 .onAppear {
                     // Ensure the app is active and can receive keyboard input
                     NSApp.activate(ignoringOtherApps: true)
+                    // The menu bar and "Keep Running" reopen the window through this.
+                    appDelegate.openSettingsWindow = { openWindow(id: "settings") }
                 }
         }
         .modelContainer(sharedModelContainer)

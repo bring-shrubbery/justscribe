@@ -31,6 +31,9 @@ final class UpdateService {
 
     /// False while a check or an install is under way; "Check for Updates…" is disabled then.
     private(set) var canCheckForUpdates = false
+    /// Set once Sparkle is about to install an update the user asked for now: the quit that
+    /// follows is Sparkle's, so the app's quit confirmation must not hold it up.
+    private(set) var isInstallingUpdate = false
 
     /// Download and install new versions without asking. Sparkle persists the choice itself
     /// (it is not an `AppSettings` field); the default comes from `SUAutomaticallyUpdate`.
@@ -42,6 +45,7 @@ final class UpdateService {
     }
 
     private let controller: SPUStandardUpdaterController
+    private let updaterDelegate: UpdaterDelegate
     @ObservationIgnored private var observation: NSKeyValueObservation?
 
     /// A real updater must not run inside the unit-test host or an Xcode preview: it would
@@ -53,9 +57,12 @@ final class UpdateService {
 
     private init() {
         let start = Self.shouldStartUpdater(environment: ProcessInfo.processInfo.environment)
-        controller = SPUStandardUpdaterController(startingUpdater: start, updaterDelegate: nil, userDriverDelegate: nil)
+        let delegate = UpdaterDelegate()
+        updaterDelegate = delegate
+        controller = SPUStandardUpdaterController(startingUpdater: start, updaterDelegate: delegate, userDriverDelegate: nil)
         automaticallyInstallsUpdates = controller.updater.automaticallyDownloadsUpdates
         canCheckForUpdates = controller.updater.canCheckForUpdates
+        delegate.onWillInstall = { [weak self] in self?.isInstallingUpdate = true }
         // Sparkle drives its updater on the main thread, so the change lands on the main actor.
         observation = controller.updater.observe(\.canCheckForUpdates, options: [.new]) { [weak self] _, change in
             MainActor.assumeIsolated {
@@ -67,5 +74,18 @@ final class UpdateService {
     /// Sparkle reports the outcome itself, including "You're up to date".
     func checkForUpdates() {
         controller.checkForUpdates(nil)
+    }
+}
+
+/// Sparkle calls its delegate on the main thread.
+private final class UpdaterDelegate: NSObject, @preconcurrency SPUUpdaterDelegate {
+    var onWillInstall: (() -> Void)?
+
+    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+        onWillInstall?()
+    }
+
+    func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+        onWillInstall?()
     }
 }

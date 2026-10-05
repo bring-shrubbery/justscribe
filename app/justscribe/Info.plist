@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- A menu bar app: launches without a Dock icon; "Show in Dock" switches the activation policy. -->
+	<key>LSUIElement</key>
+	<true/>
 	<!-- Sparkle. The rest of the Info.plist is generated from build settings and merged with this. -->
 	<key>SUFeedURL</key>
 	<string>https://justscribe.quassum.com/appcast.xml</string>

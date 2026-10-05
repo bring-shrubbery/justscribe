@@ -68,6 +68,8 @@ final class AppSettings {
     static let indicatorStyleKey = "indicatorStyle"
     static let showInDockKey = "showInDock"
     static let showInStatusBarKey = "showInStatusBar"
+    /// Set once an existing settings record has been moved to the menu-bar-only default.
+    static let menuBarOnlyMigrationKey = "movedToMenuBarOnly"
     static let grammarCorrectionEnabledKey = "grammarCorrectionEnabled"
     static let selectedGrammarModelIDKey = "selectedGrammarModelID"
     static let textInsertionModeKey = "textInsertionMode"
@@ -169,7 +171,7 @@ final class AppSettings {
 
     // Behavior toggles
     var launchAtLogin: Bool = false
-    var showInDock: Bool = true {
+    var showInDock: Bool = false {
         didSet {
             UserDefaults.standard.set(showInDock, forKey: Self.showInDockKey)
         }
@@ -220,6 +222,12 @@ final class AppSettings {
             if normalized != settings.selectedGrammarModelID {
                 settings.selectedGrammarModelID = normalized
             }
+            // Older versions showed a Dock icon by default; the app now lives in the menu bar.
+            // Done once, so a Dock icon turned on after this stays on.
+            if !UserDefaults.standard.bool(forKey: Self.menuBarOnlyMigrationKey) {
+                settings.showInDock = false
+                UserDefaults.standard.set(true, forKey: Self.menuBarOnlyMigrationKey)
+            }
             // Sync to UserDefaults (didSet may not fire on SwiftData load)
             settings.syncToUserDefaults()
             return settings
@@ -228,6 +236,7 @@ final class AppSettings {
         let settings = AppSettings()
         context.insert(settings)
         settings.syncToUserDefaults()
+        UserDefaults.standard.set(true, forKey: Self.menuBarOnlyMigrationKey)
         return settings
     }
 
