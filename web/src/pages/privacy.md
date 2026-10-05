@@ -3,7 +3,7 @@ layout: ../layouts/Page.astro
 title: "JustScribe Privacy Policy"
 description: "JustScribe transcribes on your Mac and has no servers: your audio and text are never collected. What the app and this website do and do not do with your data."
 heading: "JustScribe Privacy Policy"
-updated: "2026-10-03"
+updated: "2026-10-05"
 download: false
 ---
 
@@ -38,6 +38,7 @@ JustScribe uses on-device machine learning models (Parakeet and Whisper) to tran
 - Audio is never uploaded. We do not operate transcription servers.
 - Optional grammar correction also runs on your Mac, using either the language model built into macOS (Apple Intelligence) or a Llama model stored on your Mac.
 - Files you transcribe are read where they are and never uploaded. When you ask for speakers to be identified, the App writes a temporary copy of the file's audio inside its own sandbox container and deletes it when the pass ends; if the App was quit or failed meanwhile, the copy is removed the next time the App starts or identifies speakers. The transcript is discarded when you close the window unless you copy or save it.
+- A Live Transcription is transcribed on your Mac as it is recorded. Its audio is kept only for the few seconds the speech model needs, except that when you ask for speakers to be identified the App writes the audio it will identify them in (the system audio when it is recorded, otherwise the microphone) to a temporary file inside its own sandbox container and deletes it when the pass ends. The transcript is discarded when you close the window unless you copy or save it.
 
 ## What is stored on your Mac
 
@@ -55,7 +56,11 @@ The App sends nothing else, and nothing to us directly.
 
 ## Microphone permission
 
-JustScribe needs microphone access to hear what you dictate. It records only while you hold the shortcut, or — in press-to-toggle mode — between one press and the next (or a spoken "stop recording" or "send", a click on the indicator, or the automatic stop after 10 minutes), or after you choose Start Transcription in the menu until you stop it. You can revoke the permission at any time in System Settings.
+JustScribe needs microphone access to hear what you dictate. It records only while you hold the shortcut, or — in press-to-toggle mode — between one press and the next (or a spoken "stop recording" or "send", a click on the indicator, or the automatic stop after 10 minutes), or after you choose Start Dictation in the menu until you stop it, or during a Live Transcription that includes the microphone, from Start Recording until Stop. You can revoke the permission at any time in System Settings.
+
+## System audio recording permission
+
+When you include system audio in a Live Transcription, macOS asks you to allow JustScribe to record the audio other apps play (System Settings → Privacy & Security → Screen & System Audio Recording). The App records it only while such a Live Transcription runs, transcribes it on your Mac like everything else, and does not record your screen. You can revoke the permission at any time in System Settings.
 
 ## Accessibility permission
 
