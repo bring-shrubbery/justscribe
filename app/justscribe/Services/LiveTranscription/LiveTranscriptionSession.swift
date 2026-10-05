@@ -176,10 +176,21 @@ final class LiveTranscriptionSession {
     }
 
     /// Ends the recording; what is still queued is transcribed, then the speaker pass runs if
-    /// one was asked for.
+    /// one was asked for. The sources stop at once; the last of their audio, already on its way
+    /// to the main queue, is taken in before the chunkers are flushed.
     func stop() {
-        guard phase == .recording else { return }
+        guard phase == .recording, !isStopping else { return }
+        isStopping = true
         for stream in streams.values { stream.source?.stop() }
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { self.flush() }
+        }
+    }
+
+    private var isStopping = false
+
+    private func flush() {
+        guard phase == .recording else { return }
         phase = .finishing
         for kind in orderedKinds {
             guard var stream = streams[kind] else { continue }
@@ -221,9 +232,11 @@ final class LiveTranscriptionSession {
 
     private func drain() async {
         for await (kind, chunk) in chunks {
-            backlog -= 1
             guard !Task.isCancelled else { return }
-            guard await transcribe(chunk, from: kind) else { break }
+            let transcribed = await transcribe(chunk, from: kind)
+            // Counted out only once it is done, so the backlog includes the chunk in flight.
+            backlog -= 1
+            guard transcribed else { break }
         }
         guard !Task.isCancelled else { return }
         if case .failed = phase {

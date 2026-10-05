@@ -177,9 +177,10 @@ struct TranscriptBuilderTests {
         var labelled = words([(" Mine", 1, 2), (" Theirs", 6, 7)])
         labelled[0].speaker = "B"
         let result = TranscriptBuilder.paragraphs(words: labelled, turns: turns)
-        // "Mine" falls in A's turn but says it is B's; B is first to appear, so it is Speaker 1.
+        // "Mine" falls in A's turn but says it is B's; B is first to appear, so it is Speaker 1,
+        // and "Theirs" (B by the turns) is the same speaker after a pause.
         #expect(result.map(\.speaker) == [1, 1])
-        #expect(result.count == 1)
+        #expect(result.count == 2)
     }
 
     @Test func aNamedLabelIsShownByNameAndTakesNoNumber() {

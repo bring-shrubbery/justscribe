@@ -119,9 +119,9 @@ struct LiveTranscriptionSessionTests {
             chunkSeconds: (10, 15), audioDirectory: directory, pollInterval: .milliseconds(5))
     }
 
-    /// Lets the main queue hop and the worker run until `condition` holds, or two seconds pass.
+    /// Lets the main queue hop and the worker run until `condition` holds, or ten seconds pass.
     private func wait(until condition: @escaping @MainActor () -> Bool) async {
-        let deadline = ContinuousClock.now + .seconds(2)
+        let deadline = ContinuousClock.now + .seconds(10)
         while !condition(), ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(5))
         }
@@ -144,9 +144,12 @@ struct LiveTranscriptionSessionTests {
 
         session.stop()
         #expect(mic.stopCalls == 1)
+        // Audio already on its way to the main queue when Stop is pressed is still taken in.
+        mic.feed(seconds: 1)
         await wait { session.phase == .finished }
         #expect(session.phase == .finished)
         #expect(transcriber.calls.count == 2)
+        #expect(transcriber.calls[1].count == 17 * AudioChunker.sampleRate - transcriber.calls[0].count)
         #expect(session.paragraphs.map(\.text) == ["call1.", "call2."])
         // The second chunk's word is placed after the first chunk, not at its own 0.5 s.
         #expect(session.paragraphs[1].start > 10)

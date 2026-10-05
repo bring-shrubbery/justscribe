@@ -97,7 +97,8 @@ struct AudioChunkerTests {
         var chunker = AudioChunker(minimumSeconds: 10, maximumSeconds: 15)
         var chunks = chunker.append(tone(seconds: 40))
         if let last = chunker.finish() { chunks.append(last) }
-        #expect(chunks.count == 3)
+        // A steady tone is cut at the first chance, 10 s in: three such chunks and the rest.
+        #expect(chunks.count == 4)
         for chunk in chunks.dropLast() {
             #expect(chunk.samples.count >= 10 * rate && chunk.samples.count <= 15 * rate)
         }
