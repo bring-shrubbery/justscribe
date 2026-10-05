@@ -167,6 +167,18 @@ sandboxed, so Sparkle depends on `SUEnableInstallerLauncherService` and the two
 mach-lookup entitlements in `justscribe.entitlements` — removing either breaks updates for
 every installed copy.
 
+### Menu bar app, and quitting
+
+`LSUIElement` is set in `Info.plist`, so the app launches without a Dock icon; "Show in Dock"
+(`showInDock`, default off) switches the activation policy to `.regular`. `AppSettings.getOrCreate`
+moves a record from before that default to Dock-off once, under `menuBarOnlyMigrationKey`, and
+`AppDelegate` ignores the stored value until that key is set. ⌘Q and "Quit JustScribe" go through
+`applicationShouldTerminate`, which asks first ("Keep Running" closes the windows instead). Two
+quits skip the question: one that carries a log-out/shutdown reason in its Apple event, and one
+Sparkle sends to relaunch into an update, flagged by `UpdateService.isInstallingUpdate` from the
+`SPUUpdaterDelegate` — without that flag an update would stall behind the alert. The Settings
+window is reopened through `AppDelegate.openSettingsWindow`, set from the SwiftUI scene.
+
 ## Conventions and gotchas
 
 - The Xcode project uses file-system-synchronized groups: **new files under `app/justscribe/` are picked
