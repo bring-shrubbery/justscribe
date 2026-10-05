@@ -171,4 +171,41 @@ struct TranscriptBuilderTests {
         #expect(TranscriptBuilder.timestamp(.nan) == "00:00:00")
         #expect(TranscriptBuilder.timestamp(.infinity) == "00:00:00")
     }
+
+    @Test func aWordWithItsOwnLabelIsNotLookedUpInTheTurns() {
+        let turns = [SpeakerTurn(speaker: "A", start: 0, end: 5), SpeakerTurn(speaker: "B", start: 5, end: 10)]
+        var labelled = words([(" Mine", 1, 2), (" Theirs", 6, 7)])
+        labelled[0].speaker = "B"
+        let result = TranscriptBuilder.paragraphs(words: labelled, turns: turns)
+        // "Mine" falls in A's turn but says it is B's; B is first to appear, so it is Speaker 1.
+        #expect(result.map(\.speaker) == [1, 1])
+        #expect(result.count == 1)
+    }
+
+    @Test func aNamedLabelIsShownByNameAndTakesNoNumber() {
+        var items = words([(" Hello", 0, 1), (" Hi", 1.2, 1.6), (" there", 1.7, 2)])
+        items[0].speaker = "you"
+        items[1].speaker = "x"
+        items[2].speaker = "x"
+        let result = TranscriptBuilder.paragraphs(words: items, turns: [], names: ["you": "You"])
+        #expect(result == [
+            TranscriptParagraph(start: 0, speaker: nil, text: "Hello", speakerName: "You"),
+            TranscriptParagraph(start: 1.2, speaker: 1, text: "Hi there"),
+        ])
+        #expect(result.map(\.label) == ["You", "Speaker 1"])
+        #expect(TranscriptBuilder.text(result) == "[00:00:00] You\nHello\n\n[00:00:01] Speaker 1\nHi there")
+    }
+
+    @Test func wordLabelsAloneCanMakeTheTranscriptLabelled() {
+        var items = words([(" One", 0, 1), (" Two", 1, 2)])
+        items[0].speaker = "you"
+        items[1].speaker = "others"
+        let labelled = TranscriptBuilder.paragraphs(words: items, turns: [], names: ["you": "You", "others": "Others"])
+        #expect(labelled.map(\.speakerName) == ["You", "Others"])
+
+        // One label everywhere is no label at all.
+        items[1].speaker = "you"
+        let single = TranscriptBuilder.paragraphs(words: items, turns: [], names: ["you": "You"])
+        #expect(single == [TranscriptParagraph(start: 0, speaker: nil, text: "One Two")])
+    }
 }

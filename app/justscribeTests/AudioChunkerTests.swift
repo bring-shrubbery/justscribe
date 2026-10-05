@@ -92,4 +92,16 @@ struct AudioChunkerTests {
         let input = tone(seconds: 65)
         #expect(allChunks(input, feed: 1_000).map(\.samples.count) == allChunks(input, feed: 100_000).map(\.samples.count))
     }
+
+    @Test func theLengthsCanBeChosen() {
+        var chunker = AudioChunker(minimumSeconds: 10, maximumSeconds: 15)
+        var chunks = chunker.append(tone(seconds: 40))
+        if let last = chunker.finish() { chunks.append(last) }
+        #expect(chunks.count == 3)
+        for chunk in chunks.dropLast() {
+            #expect(chunk.samples.count >= 10 * rate && chunk.samples.count <= 15 * rate)
+        }
+        #expect(chunks.flatMap(\.samples).count == 40 * rate)
+        #expect(chunks[1].startSeconds == Double(chunks[0].samples.count) / Double(rate))
+    }
 }

@@ -1,0 +1,308 @@
+//
+//  LiveTranscriptionSession.swift
+//  justscribe
+//
+//  Created by Antoni Silvestrovic on 05/10/2026.
+//
+//  Copyright (C) 2026 Quassum MB
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+//
+
+import Foundation
+import Observation
+
+/// One live transcription, from the first captured sample to the last paragraph: audio from
+/// one or two sources is cut into chunks as it arrives and transcribed in order, with the
+/// paragraphs so far always available. Nothing is kept in memory for the length of the
+/// recording except the words: the audio for the speaker pass goes to a temporary file.
+///
+/// Dictation goes first: a chunk waits while a dictation session is under way. With both
+/// sources, the microphone's words are the user's ("You") and the system audio's are
+/// "Others" until the speaker pass, at the end, tells them apart.
+@Observable
+final class LiveTranscriptionSession {
+    enum Phase: Equatable {
+        case idle
+        case recording
+        /// Stopped; the audio still queued is being transcribed.
+        case finishing
+        case identifyingSpeakers
+        case finished
+        case cancelled
+        case failed(String)
+    }
+
+    enum Message {
+        static let noModel = FileTranscriptionJob.Message.noModel
+        static let modelChanged = FileTranscriptionJob.Message.modelChanged
+        static let speakersFailed = "Couldn't identify speakers; the transcript keeps the labels it had"
+        static let noSpeech = "No speech was heard"
+        static func stopped(_ reason: String) -> String { "Transcription stopped: \(reason)" }
+    }
+
+    private(set) var phase: Phase = .idle
+    private(set) var paragraphs: [TranscriptParagraph] = []
+    /// Seconds of audio captured so far, from the source that has delivered the most.
+    private(set) var elapsed: Double = 0
+    /// Chunks waiting for the speech model.
+    private(set) var backlog = 0
+    /// A sentence about something that went wrong without ending the transcription.
+    private(set) var notice: String?
+    var text: String { TranscriptBuilder.text(paragraphs) }
+
+    var isRunning: Bool {
+        switch phase {
+        case .recording, .finishing, .identifyingSpeakers: true
+        case .idle, .finished, .cancelled, .failed: false
+        }
+    }
+
+    let kinds: Set<LiveAudioKind>
+    /// The source whose speakers the pass at the end tells apart: the system audio when it is
+    /// recorded (the microphone is the user), otherwise the microphone. Nil without a pass.
+    let diarizedKind: LiveAudioKind?
+
+    /// The sources in a fixed order, microphone first.
+    private var orderedKinds: [LiveAudioKind] { LiveAudioKind.allCases.filter(kinds.contains) }
+
+    private struct Stream {
+        var chunker: AudioChunker
+        var source: (any LiveAudioSource)?
+        var received = 0
+        var words: [TimedWord] = []
+    }
+
+    private var streams: [LiveAudioKind: Stream] = [:]
+    private var turns: [SpeakerTurn] = []
+    private let language: String?
+    private let speakers: SpeakerRequest
+    private let transcriber: any TimedTranscribing
+    private let dictation: any DictationActivity
+    private let speakerProvider: any SpeakerTurnProviding
+    private let makeSource: LiveAudioSourceFactory
+    private let vocabulary: [VocabularyEntry]
+    private let isDictionaryWord: (String) -> Bool
+    private let pollInterval: Duration
+    private var modelGeneration = 0
+
+    private let chunks: AsyncStream<(LiveAudioKind, AudioChunk)>
+    private let chunkFeed: AsyncStream<(LiveAudioKind, AudioChunk)>.Continuation
+    /// The diarized source's audio on its way to `recorder`, in order.
+    private let audio: AsyncStream<[Float]>
+    private let audioFeed: AsyncStream<[Float]>.Continuation
+    private let recorder: LiveAudioFile?
+    private var worker: Task<Void, Never>?
+    private var writer: Task<Void, Never>?
+
+    init(
+        kinds: Set<LiveAudioKind>, language: String?, speakers: SpeakerRequest,
+        transcriber: any TimedTranscribing, dictation: any DictationActivity,
+        speakerProvider: any SpeakerTurnProviding, makeSource: @escaping LiveAudioSourceFactory,
+        vocabulary: [VocabularyEntry] = [],
+        isDictionaryWord: @escaping (String) -> Bool = { DictionaryWords.isWord($0, language: nil) },
+        chunkSeconds: (minimum: Int, maximum: Int) = (10, 15),
+        audioDirectory: URL = FileManager.default.temporaryDirectory,
+        pollInterval: Duration = .milliseconds(200)
+    ) {
+        self.kinds = kinds
+        self.language = language
+        self.speakers = speakers
+        self.transcriber = transcriber
+        self.dictation = dictation
+        self.speakerProvider = speakerProvider
+        self.makeSource = makeSource
+        self.vocabulary = vocabulary
+        self.isDictionaryWord = isDictionaryWord
+        self.pollInterval = pollInterval
+        let diarized: LiveAudioKind? = speakers == .none ? nil
+            : kinds.contains(.systemAudio) ? .systemAudio
+            : kinds.contains(.microphone) ? .microphone : nil
+        diarizedKind = diarized
+        recorder = diarized == nil ? nil : LiveAudioFile(directory: audioDirectory)
+        (chunks, chunkFeed) = AsyncStream.makeStream(of: (LiveAudioKind, AudioChunk).self)
+        (audio, audioFeed) = AsyncStream.makeStream(of: [Float].self)
+        for kind in kinds {
+            streams[kind] = Stream(chunker: AudioChunker(minimumSeconds: chunkSeconds.minimum, maximumSeconds: chunkSeconds.maximum))
+        }
+    }
+
+    /// Starts every source. Throws, with nothing running, when one cannot start; the session
+    /// can then be dropped.
+    func start() throws {
+        guard phase == .idle else { return }
+        guard transcriber.isModelLoaded else {
+            phase = .failed(Message.noModel)
+            return
+        }
+        modelGeneration = transcriber.modelGeneration
+        var started: [any LiveAudioSource] = []
+        do {
+            for kind in orderedKinds {
+                let source = try makeSource(kind) { [weak self] samples in
+                    // Serial and in order, as a dispatch to the main queue is; tasks are not.
+                    DispatchQueue.main.async {
+                        MainActor.assumeIsolated { self?.receive(samples, from: kind) }
+                    }
+                }
+                try source.start()
+                started.append(source)
+                streams[kind]?.source = source
+            }
+        } catch {
+            for source in started { source.stop() }
+            for kind in kinds { streams[kind]?.source = nil }
+            throw error
+        }
+        phase = .recording
+        if let recorder {
+            let audio = audio
+            writer = Task {
+                for await samples in audio { await recorder.append(samples) }
+            }
+        }
+        worker = Task { await drain() }
+    }
+
+    /// Ends the recording; what is still queued is transcribed, then the speaker pass runs if
+    /// one was asked for.
+    func stop() {
+        guard phase == .recording else { return }
+        for stream in streams.values { stream.source?.stop() }
+        phase = .finishing
+        for kind in orderedKinds {
+            guard var stream = streams[kind] else { continue }
+            if let last = stream.chunker.finish() { enqueue(kind, last) }
+            streams[kind] = stream
+        }
+        chunkFeed.finish()
+        audioFeed.finish()
+    }
+
+    /// Ends everything at once; the transcript so far stays. Does nothing once ended.
+    func cancel() {
+        guard isRunning else { return }
+        for stream in streams.values { stream.source?.stop() }
+        chunkFeed.finish()
+        audioFeed.finish()
+        worker?.cancel()
+        phase = .cancelled
+        if let recorder { Task { await recorder.discard() } }
+    }
+
+    // MARK: - Audio in
+
+    private func receive(_ samples: [Float], from kind: LiveAudioKind) {
+        guard phase == .recording, var stream = streams[kind] else { return }
+        stream.received += samples.count
+        for chunk in stream.chunker.append(samples) { enqueue(kind, chunk) }
+        streams[kind] = stream
+        elapsed = max(elapsed, Double(stream.received) / Double(AudioChunker.sampleRate))
+        if kind == diarizedKind { audioFeed.yield(samples) }
+    }
+
+    private func enqueue(_ kind: LiveAudioKind, _ chunk: AudioChunk) {
+        backlog += 1
+        chunkFeed.yield((kind, chunk))
+    }
+
+    // MARK: - Transcribing
+
+    private func drain() async {
+        for await (kind, chunk) in chunks {
+            backlog -= 1
+            guard !Task.isCancelled else { return }
+            guard await transcribe(chunk, from: kind) else { break }
+        }
+        guard !Task.isCancelled else { return }
+        if case .failed = phase {
+            for stream in streams.values { stream.source?.stop() }
+            audioFeed.finish()
+            if let recorder { await recorder.discard() }
+            return
+        }
+        await identifySpeakersIfAsked()
+        guard !Task.isCancelled else { return }
+        phase = .finished
+    }
+
+    /// Transcribes one chunk; false when the session has failed (its phase says why).
+    private func transcribe(_ chunk: AudioChunk, from kind: LiveAudioKind) async -> Bool {
+        while dictation.isDictating, !Task.isCancelled {
+            try? await Task.sleep(for: pollInterval)
+        }
+        guard !Task.isCancelled else { return false }
+        guard !modelChanged else {
+            phase = .failed(Message.modelChanged)
+            return false
+        }
+        guard !LiveTranscript.isSilent(chunk.samples) else { return true }
+        let label = LiveTranscript.label(for: kind, among: kinds)
+        do {
+            let words = try await transcriber.transcribeTimed(chunk.samples, language: language)
+            let fixed = FileTranscriptionJob.applyVocabulary(words, entries: vocabulary, isDictionaryWord: isDictionaryWord)
+            streams[kind]?.words += fixed.map {
+                TimedWord(text: $0.text, start: $0.start + chunk.startSeconds, end: $0.end + chunk.startSeconds, speaker: label)
+            }
+        } catch {
+            guard !Task.isCancelled else { return false }
+            phase = .failed(modelChanged ? Message.modelChanged : Message.stopped(error.localizedDescription))
+            return false
+        }
+        await rebuild()
+        return true
+    }
+
+    private var modelChanged: Bool {
+        !transcriber.isModelLoaded || transcriber.modelGeneration != modelGeneration
+    }
+
+    private func identifySpeakersIfAsked() async {
+        guard let diarizedKind, let recorder else { return }
+        await writer?.value
+        guard let url = await recorder.finish() else { return }
+        defer { Task.detached { try? FileManager.default.removeItem(at: url) } }
+        var count: Int?
+        if case .exactly(let exact) = speakers { count = exact }
+        phase = .identifyingSpeakers
+        do {
+            let found = try await speakerProvider.turns(for: url, speakerCount: count)
+            guard !Task.isCancelled else { return }
+            turns = found
+            // The diarized source's words now go by the turns; the other source keeps its label.
+            streams[diarizedKind]?.words = (streams[diarizedKind]?.words ?? []).map {
+                var word = $0
+                word.speaker = nil
+                return word
+            }
+            await rebuild()
+        } catch {
+            guard !Task.isCancelled else { return }
+            notice = Message.speakersFailed
+        }
+    }
+
+    /// Off the main actor: with many words a rebuild takes long enough to delay a hotkey.
+    private func rebuild() async {
+        let words = LiveTranscript.merged(orderedKinds.compactMap { streams[$0]?.words })
+        let built = await Self.buildParagraphs(words: words, turns: turns)
+        guard !Task.isCancelled else { return }
+        paragraphs = built
+    }
+
+    @concurrent
+    private static func buildParagraphs(words: [TimedWord], turns: [SpeakerTurn]) async -> [TranscriptParagraph] {
+        TranscriptBuilder.paragraphs(words: words, turns: turns, names: LiveTranscript.names)
+    }
+}

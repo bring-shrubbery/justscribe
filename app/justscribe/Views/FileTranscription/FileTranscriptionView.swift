@@ -27,8 +27,6 @@ struct FileTranscriptionView: View {
 
     @State private var isChoosingFile = false
     @State private var isDropTargeted = false
-    /// Whether the transcript is scrolled to (or near) its end; only then does it follow new text.
-    @State private var isAtTranscriptEnd = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -43,10 +41,6 @@ struct FileTranscriptionView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.audio, .movie]) { result in
             if case .success(let url) = result { model.open(url) }
-        }
-        // A new job starts at the top of an empty transcript, so it follows new text.
-        .onChange(of: model.job.map { ObjectIdentifier($0) }) {
-            isAtTranscriptEnd = true
         }
     }
 
@@ -184,32 +178,10 @@ struct FileTranscriptionView: View {
         .lineLimit(1)
     }
 
-    /// One row per paragraph, laid out lazily: a long file's transcript is never measured
-    /// as a whole, and a new chunk leaves the rows above it alone.
     private func transcript(_ job: FileTranscriptionJob) -> some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    ForEach(job.paragraphs.indices, id: \.self) { index in
-                        ParagraphRow(paragraph: job.paragraphs[index])
-                    }
-                }
-                .padding(12)
-                Color.clear.frame(height: 1).id("end")
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: .separatorColor)))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.visibleRect.maxY >= geometry.contentSize.height - 40
-            } action: { _, isAtEnd in
-                isAtTranscriptEnd = isAtEnd
-            }
-            .onChange(of: job.paragraphs.last?.text) {
-                if job.isRunning, isAtTranscriptEnd { proxy.scrollTo("end", anchor: .bottom) }
-            }
-        }
+        TranscriptScrollView(paragraphs: job.paragraphs, isGrowing: job.isRunning)
+            // A new job starts at the top of an empty transcript, so it follows new text.
+            .id(ObjectIdentifier(job))
     }
 
     @ViewBuilder
@@ -230,27 +202,5 @@ struct FileTranscriptionView: View {
 
     private func statusText(_ text: String) -> some View {
         Text(text).font(.caption).lineLimit(1)
-    }
-}
-
-/// A paragraph of the transcript: its time and speaker, then what was said.
-private struct ParagraphRow: View {
-    let paragraph: TranscriptParagraph
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(header)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-            Text(paragraph.text)
-                .font(.body)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .textSelection(.enabled)
-    }
-
-    private var header: String {
-        let label = paragraph.speaker.map { " Speaker \($0)" } ?? ""
-        return "[\(TranscriptBuilder.timestamp(paragraph.start))]\(label)"
     }
 }

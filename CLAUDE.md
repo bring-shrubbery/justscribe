@@ -109,6 +109,32 @@ concatenating the model's own pieces, never by joining with spaces, so languages
 spaces stay intact. The assembler and the fallback paths put a space before a chunk's first word
 (except punctuation), so an unspaced language can get a space at a chunk boundary on those paths.
 
+### Live transcription
+
+"Live Transcription…" in the status-item menu opens an AppKit window (`Views/LiveTranscription/`,
+state in `LiveTranscriptionModel`) over `Services/LiveTranscription/`. A
+`LiveTranscriptionSession` records for as long as the user likes from one or two
+`LiveAudioSource`s: `MicrophoneStream` (its own `AVCaptureSession`, so dictation can use the
+microphone at the same time) and `SystemAudioTap` (a Core Audio process tap on every process's
+output, read through a private aggregate device; macOS asks once under Screen & System Audio
+Recording, with the text in `NSAudioCaptureUsageDescription`). Both deliver 16 kHz mono through
+`SampleRateConverter`; samples reach the session through `DispatchQueue.main.async`, not a
+`Task`, because tasks do not keep their order. Each source is cut by its own `AudioChunker`
+(10–15 s here, against the file pipeline's 20–30 s) and the chunks are transcribed in arrival
+order through `transcribeTimed`, waiting while `AppDelegate.isDictating`; a chunk whose loudest
+sample is under `LiveTranscript.silencePeak` never reaches the model. Words carry their time in
+their own stream, and `LiveTranscript.merged` weaves the streams together in runs so an
+interjection lands between the other side's runs rather than inside one.
+
+Speakers: with both sources, microphone words carry `TimedWord.speaker == "you"` and system
+words `"others"` (`TranscriptBuilder` shows a label's `names` entry instead of a number). When
+speakers are on, the session writes the diarized source (system audio when present, else the
+microphone) to a temporary AAC file through `LiveAudioFile` and, after stopping, runs the same
+`SpeakerDiarizationService` pass as file transcription over it; that source's words then drop
+their label and go by the turns, so a call reads "You", "Speaker 1", "Speaker 2". Nothing about
+a recording is persisted; closing the window ends it after asking, and "Keep Running" in the
+quit alert leaves the window open while it records.
+
 ### History
 
 Off by default. `HistoryStore` (`Services/History/`) owns `Application Support/<bundle id>/History/`:
@@ -187,6 +213,10 @@ window is reopened through `AppDelegate.openSettingsWindow`, set from the SwiftU
   `app/justscribe.xcodeproj/xcshareddata/IDETemplateMacros.plist`). Keep it on new files.
 - Carbon `kVK_*` constants are `Int` in Swift, not `Int32` — don't cast when switching on them.
 - `KeyboardShortcuts.Key(rawValue:)` is **not** optional; optional binding won't compile.
+- `MicrophoneDevice.preferred` chooses the microphone for dictation and live transcription: the
+  user's priority order first, then any available microphone that is not a Bluetooth headset.
+  A headset's microphone flips the headset into its hands-free profile, so everything it plays
+  drops to call quality; it is used unasked only when nothing else is there.
 - The recording indicator is `DynamicLanding` (github.com/bring-shrubbery/dynamic-landing, our own
   package): `OverlayManager` adapts the app's overlay states to one island per style — compact
   (waveform + timer) while listening in hold mode, expanded otherwise. Its geometry is pure and

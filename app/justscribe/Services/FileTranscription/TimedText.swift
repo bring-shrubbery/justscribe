@@ -28,6 +28,10 @@ nonisolated struct TimedWord: Equatable, Sendable {
     var text: String
     var start: Double
     var end: Double
+    /// Who said it, when that is known from where the word came from rather than from the
+    /// diarizer: a live transcription knows its microphone's words are the user's. A label in
+    /// the same namespace as `SpeakerTurn.speaker`.
+    var speaker: String? = nil
 }
 
 /// Who spoke between two times, from the diarizer. `speaker` is the diarizer's own label.
@@ -37,9 +41,14 @@ nonisolated struct SpeakerTurn: Equatable, Sendable {
     var end: Double
 }
 
-/// One paragraph of the transcript. `speaker` is 1-based, nil when speakers are not shown.
+/// One paragraph of the transcript. `speaker` is 1-based, nil when speakers are not shown or
+/// the speaker has a name instead (`speakerName`, such as "You").
 nonisolated struct TranscriptParagraph: Equatable, Sendable {
     var start: Double
     var speaker: Int?
     var text: String
+    var speakerName: String? = nil
+
+    /// What the transcript shows for the speaker: the name, or "Speaker 2"; nil for none.
+    var label: String? { speakerName ?? speaker.map { "Speaker \($0)" } }
 }

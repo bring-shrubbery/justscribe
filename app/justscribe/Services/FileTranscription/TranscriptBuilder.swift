@@ -24,11 +24,13 @@ import Foundation
 /// no clock. Safe to call again with more words: paragraphs already produced do not change,
 /// except that the last one may grow.
 ///
-/// Speaker labels are shown whenever the turns hold two or more speakers, even if every word
-/// so far went to one of them: the turns are complete before transcription starts, so the
-/// decision cannot flip while words stream in. Numbers are given in order of the first word
-/// each speaker is assigned, so a turn that wins no words leaves no gap, and numbers already
-/// given never change as words are appended.
+/// Speaker labels are shown whenever the turns and the words' own labels hold two or more
+/// speakers between them, even if every word so far went to one of them: the turns are
+/// complete before transcription starts, so the decision cannot flip while words stream in.
+/// A word that carries its own label (`TimedWord.speaker`) is never looked up in the turns.
+/// Numbers are given in order of the first word each speaker is assigned, so a turn that wins
+/// no words leaves no gap, and numbers already given never change as words are appended. A
+/// label with an entry in `names` is shown by that name and takes no number.
 nonisolated enum TranscriptBuilder {
     /// A silence this long between two words starts a new paragraph.
     static let pauseBreak = 1.5
@@ -41,8 +43,10 @@ nonisolated enum TranscriptBuilder {
     /// Closing quotes and brackets that may follow a sentence end.
     private static let closers: Set<Character> = ["\"", "'", "”", "’", ")", "]", "」", "』"]
 
-    static func paragraphs(words: [TimedWord], turns: [SpeakerTurn]) -> [TranscriptParagraph] {
-        let labelled = Set(turns.map(\.speaker)).count >= 2
+    static func paragraphs(
+        words: [TimedWord], turns: [SpeakerTurn], names: [String: String] = [:]
+    ) -> [TranscriptParagraph] {
+        let labelled = Set(turns.map(\.speaker)).union(words.compactMap(\.speaker)).count >= 2
         var numbers: [String: Int] = [:]
         var result: [TranscriptParagraph] = []
         var previous: TimedWord?
@@ -53,20 +57,25 @@ nonisolated enum TranscriptBuilder {
                 result[result.count - 1].text += word.text
             } else {
                 var speaker: Int?
-                if labelled, let label = diarizerLabel(for: word, in: turns) {
-                    speaker = numbers[label] ?? (numbers.count + 1)
-                    numbers[label] = speaker
+                var name: String?
+                if labelled, let label = word.speaker ?? diarizerLabel(for: word, in: turns) {
+                    if let known = names[label] {
+                        name = known
+                    } else {
+                        speaker = numbers[label] ?? (numbers.count + 1)
+                        numbers[label] = speaker
+                    }
                 }
                 var startsParagraph = result.isEmpty
                 if let previous, let current = result.last {
                     let length = previous.end - current.start
-                    startsParagraph = speaker != current.speaker
+                    startsParagraph = speaker != current.speaker || name != current.speakerName
                         || word.start - previous.end >= pauseBreak
                         || word.end - current.start > hardLimit
                         || (length >= softLimit && endsSentence(previous.text))
                 }
                 if startsParagraph {
-                    result.append(TranscriptParagraph(start: word.start, speaker: speaker, text: word.text))
+                    result.append(TranscriptParagraph(start: word.start, speaker: speaker, text: word.text, speakerName: name))
                 } else {
                     result[result.count - 1].text += word.text
                 }
@@ -82,7 +91,7 @@ nonisolated enum TranscriptBuilder {
 
     static func text(_ paragraphs: [TranscriptParagraph]) -> String {
         paragraphs.map { paragraph in
-            let label = paragraph.speaker.map { " Speaker \($0)" } ?? ""
+            let label = paragraph.label.map { " " + $0 } ?? ""
             return "[\(timestamp(paragraph.start))]\(label)\n\(paragraph.text)"
         }.joined(separator: "\n\n")
     }

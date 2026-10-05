@@ -37,6 +37,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model: FileTranscriptionModel(transcriber: TranscriptionService.shared, dictation: self),
         openSettings: { [weak self] in self?.openSettings() }
     )
+    private lazy var liveTranscription = LiveTranscriptionWindowController(
+        model: LiveTranscriptionModel(transcriber: TranscriptionService.shared, dictation: self),
+        openSettings: { [weak self] in self?.openSettings() }
+    )
     private lazy var history = HistoryWindowController(
         store: HistoryStore.shared,
         openSettings: { [weak self] in self?.openSettings() }
@@ -186,11 +190,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.messageText = "Quit JustScribe?"
         alert.informativeText = "The dictation shortcut only works while JustScribe is running. "
             + "Keep Running closes its windows and leaves it in the menu bar."
+        if liveTranscription.isRunning {
+            alert.informativeText = "A live transcription is recording; quitting ends it and loses its transcript. "
+                + "Keep Running leaves it recording and closes the other windows."
+        }
         alert.addButton(withTitle: "Keep Running")
         alert.addButton(withTitle: "Quit")
         guard alert.runModal() == .alertFirstButtonReturn else { return .terminateNow }
 
-        for window in NSApp.windows where window.isVisible && !(window is NSPanel) {
+        // A live transcription's window stays: closing it would end the recording.
+        for window in NSApp.windows where window.isVisible && !(window is NSPanel)
+            && !(window.identifier == LiveTranscriptionWindowController.windowIdentifier && liveTranscription.isRunning) {
             window.close()
         }
         return .terminateCancel
@@ -661,7 +671,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        menu.addItem(NSMenuItem(title: "Start Transcription", action: #selector(startTranscriptionFromMenu), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Start Dictation", action: #selector(startTranscriptionFromMenu), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Live Transcription…", action: #selector(liveTranscriptionFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Transcribe File…", action: #selector(transcribeFileFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "History…", action: #selector(showHistoryFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
@@ -688,6 +699,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         fileTranscription.show()
     }
 
+    @objc private func liveTranscriptionFromMenu() {
+        liveTranscription.show()
+    }
+
     /// Opens the History window; Settings → History calls this through the app delegate.
     func showHistory() {
         history.show()
@@ -706,6 +721,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Find and activate the settings window
         for window in NSApp.windows where window.identifier != FileTranscriptionWindowController.windowIdentifier
+            && window.identifier != LiveTranscriptionWindowController.windowIdentifier
             && window.identifier != HistoryWindowController.windowIdentifier {
             if window.identifier?.rawValue.contains("settings") == true ||
                window.title.contains("JustScribe") ||

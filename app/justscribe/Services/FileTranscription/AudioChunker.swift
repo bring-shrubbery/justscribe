@@ -26,24 +26,31 @@ nonisolated struct AudioChunk: Equatable, Sendable {
     var startSeconds: Double
 }
 
-/// Cuts a stream of samples into chunks of 20 to 30 seconds for the speech model. Each cut
-/// is placed in the quietest 100 ms of the last ten seconds, so a word is rarely split.
-/// The chunks concatenated are exactly the input.
+/// Cuts a stream of samples into chunks of 20 to 30 seconds (or the lengths given) for the
+/// speech model. Each cut is placed in the quietest 100 ms between the minimum and the
+/// maximum, so a word is rarely split. The chunks concatenated are exactly the input.
 nonisolated struct AudioChunker {
     static let sampleRate = 16_000
-    private static let minimum = 20 * sampleRate
-    private static let maximum = 30 * sampleRate
     private static let window = sampleRate / 10
 
+    private let minimum: Int
+    private let maximum: Int
     private var pending: [Float] = []
     private var emitted = 0
+
+    /// Chunks of `minimumSeconds` to `maximumSeconds`; the maximum is at least the minimum plus
+    /// one cut window.
+    init(minimumSeconds: Int = 20, maximumSeconds: Int = 30) {
+        minimum = max(1, minimumSeconds) * Self.sampleRate
+        maximum = max(maximumSeconds * Self.sampleRate, minimum + Self.window)
+    }
 
     /// Adds samples and returns every chunk that is now complete.
     mutating func append(_ samples: [Float]) -> [AudioChunk] {
         pending += samples
         var chunks: [AudioChunk] = []
-        while pending.count >= Self.maximum {
-            chunks.append(take(Self.cutIndex(in: pending)))
+        while pending.count >= maximum {
+            chunks.append(take(cutIndex(in: pending)))
         }
         return chunks
     }
@@ -60,8 +67,10 @@ nonisolated struct AudioChunker {
         return chunk
     }
 
-    /// The middle of the quietest window between 20 and 30 seconds; `samples` holds at least 30 s.
-    private static func cutIndex(in samples: [Float]) -> Int {
+    /// The middle of the quietest window between the minimum and the maximum; `samples` holds
+    /// at least the maximum.
+    private func cutIndex(in samples: [Float]) -> Int {
+        let window = Self.window
         var quietest = minimum
         var lowest = Float.greatestFiniteMagnitude
         var start = minimum

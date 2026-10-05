@@ -5,6 +5,9 @@
 	<!-- A menu bar app: launches without a Dock icon; "Show in Dock" switches the activation policy. -->
 	<key>LSUIElement</key>
 	<true/>
+	<!-- Live Transcription records what other apps play through a Core Audio tap; macOS asks with this text. -->
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>JustScribe records the audio other apps play only while a live transcription that includes system audio is running, to transcribe it on this Mac.</string>
 	<!-- Sparkle. The rest of the Info.plist is generated from build settings and merged with this. -->
 	<key>SUFeedURL</key>
 	<string>https://justscribe.quassum.com/appcast.xml</string>
