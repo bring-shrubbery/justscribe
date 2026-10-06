@@ -131,9 +131,28 @@ words `"others"` (`TranscriptBuilder` shows a label's `names` entry instead of a
 speakers are on, the session writes the diarized source (system audio when present, else the
 microphone) to a temporary AAC file through `LiveAudioFile` and, after stopping, runs the same
 `SpeakerDiarizationService` pass as file transcription over it; that source's words then drop
-their label and go by the turns, so a call reads "You", "Speaker 1", "Speaker 2". Nothing about
-a recording is persisted; closing the window ends it after asking, and "Keep Running" in the
-quit alert leaves the window open while it records.
+their label and go by the turns, so a call reads "You", "Speaker 1", "Speaker 2". A finished
+session's text (timestamps and labels included) is written to Transcripts; closing the window
+ends a running one after asking, and "Keep Running" in the quit alert leaves the window open
+while it records.
+
+"Start Long Dictation" in the menu is the same session run headlessly (`AppDelegate`'s
+`longDictation`): microphone only, speakers as the Live Transcription window has them set, the
+compact island as its indicator (fed by an `AudioLevelMeter` wrapped around the source's sink;
+a click on it stops), and the transcript saved to Transcripts when it stops. It is not a
+dictation: `isDictating` ignores it, so the hotkey still works while it runs and its chunks wait
+for the hotkey's session, and `OverlayManager.onHidden` puts its indicator back afterwards.
+
+### Transcripts
+
+`TranscriptStore` (`Services/Transcripts/`) owns `Application Support/<bundle id>/Transcripts/`:
+one `.txt` per transcript, named `yyyy-MM-dd HH.mm.ss <Title>.txt`, the folder itself being the
+index (files dropped in by hand are listed by creation date). Long dictations, finished live
+transcriptions and finished file transcriptions are saved there by their owners
+(`AppDelegate`, `LiveTranscriptionModel`, `FileTranscriptionModel`, each through an injectable
+`saveTranscript`). The Transcripts window (`Views/Transcripts/`) lists them newest first with
+the text alongside, Copy, Show in Finder and Move to Trash. Dictation through the hotkey is
+unaffected: it still inserts and, when set, copies.
 
 ### History
 

@@ -41,6 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model: LiveTranscriptionModel(transcriber: TranscriptionService.shared, dictation: self),
         openSettings: { [weak self] in self?.openSettings() }
     )
+    private lazy var transcripts = TranscriptsWindowController(store: TranscriptStore.shared)
     private lazy var history = HistoryWindowController(
         store: HistoryStore.shared,
         openSettings: { [weak self] in self?.openSettings() }
@@ -51,6 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
+        OverlayManager.shared.onHidden = { [weak self] in self?.restoreLongDictationIndicator() }
         applySavedVisibilitySettings()
         checkInputMonitoringAndSetupHotkey()
         loadSelectedModel()
@@ -193,6 +195,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if liveTranscription.isRunning {
             alert.informativeText = "A live transcription is recording; quitting ends it and loses its transcript. "
                 + "Keep Running leaves it recording and closes the other windows."
+        } else if longDictation?.isRunning == true {
+            alert.informativeText = "A long dictation is recording; quitting ends it and saves what has been transcribed so far. "
+                + "Keep Running leaves it recording."
         }
         alert.addButton(withTitle: "Keep Running")
         alert.addButton(withTitle: "Quit")
@@ -225,6 +230,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Unload models to free memory
         // This is called on the main thread by AppKit, so we can safely access MainActor-isolated code
         MainActor.assumeIsolated {
+            // A long dictation cut short by the quit keeps what it had transcribed.
+            if let longDictation, longDictation.isRunning {
+                longDictation.cancel()
+                saveLongDictation(longDictation)
+            }
             TranscriptionService.shared.unloadModel()
             GrammarCorrectionService.shared.unloadModel()
             print("Models unloaded on app termination")
@@ -671,10 +681,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-        menu.addItem(NSMenuItem(title: "Start Dictation", action: #selector(startTranscriptionFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Live Transcription…", action: #selector(liveTranscriptionFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Transcribe File…", action: #selector(transcribeFileFromMenu), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Transcripts…", action: #selector(showTranscriptsFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "History…", action: #selector(showHistoryFromMenu), keyEquivalent: ""))
+        menu.addItem(NSMenuItem.separator())
+        let longDictationItem = NSMenuItem(title: "Start Long Dictation", action: #selector(toggleLongDictationFromMenu), keyEquivalent: "")
+        longDictationItem.tag = Self.longDictationTag
+        menu.addItem(longDictationItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: ""))
@@ -684,15 +698,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem?.menu = menu
     }
 
-    @objc private func startTranscriptionFromMenu() {
-        Task { @MainActor in
-            // Menu click toggles recording (unlike hold-to-record with shortcut)
-            if sessionState == .recording {
-                await stopRecordingAndFinalize()
-            } else if sessionState == .idle {
-                handleHotkeyDown()
-            }
-        }
+    @objc private func showTranscriptsFromMenu() {
+        transcripts.show()
     }
 
     @objc private func transcribeFileFromMenu() {
@@ -722,6 +729,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Find and activate the settings window
         for window in NSApp.windows where window.identifier != FileTranscriptionWindowController.windowIdentifier
             && window.identifier != LiveTranscriptionWindowController.windowIdentifier
+            && window.identifier != TranscriptsWindowController.windowIdentifier
             && window.identifier != HistoryWindowController.windowIdentifier {
             if window.identifier?.rawValue.contains("settings") == true ||
                window.title.contains("JustScribe") ||
@@ -793,6 +801,138 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         refreshPermissionWarning()
+        refreshLongDictationItem()
+    }
+
+    // MARK: - Long dictation
+
+    private static let longDictationTag = 7_002
+    /// A live transcription of the microphone run from the menu, with the indicator in place
+    /// of a window; its transcript goes to Transcripts when it stops.
+    private var longDictation: LiveTranscriptionSession?
+    private let longDictationLevel = AudioLevelMeter()
+    private var longDictationStartedAt = Date()
+    private static let longDictationTitle = "Long Dictation"
+
+    @objc private func toggleLongDictationFromMenu() {
+        if let longDictation, longDictation.isRunning {
+            longDictation.stop()
+            return
+        }
+        startLongDictation()
+    }
+
+    private func startLongDictation() {
+        guard longDictation?.isRunning != true else { return }
+        guard TranscriptionService.shared.isModelLoaded else {
+            OverlayManager.shared.showError(message: "No model loaded. Please download and select a model in Settings.")
+            return
+        }
+        Task { @MainActor in
+            guard await LiveTranscriptionModel.requestMicrophone() else {
+                OverlayManager.shared.showError(message: "Microphone access required. Please enable it in System Settings.")
+                return
+            }
+            guard longDictation?.isRunning != true else { return }
+            let defaults = UserDefaults.standard
+            let language = defaults.string(forKey: AppSettings.selectedLanguageKey)
+            let identifySpeakers = defaults.bool(forKey: LiveTranscriptionModel.identifySpeakersKey)
+            let meter = longDictationLevel
+            let session = LiveTranscriptionSession(
+                kinds: [.microphone], language: language, speakers: identifySpeakers ? .detect : .none,
+                transcriber: TranscriptionService.shared, dictation: self, speakerProvider: SpeakerDiarizationService.shared,
+                makeSource: { kind, sink in
+                    try LiveTranscriptionModel.makeSource(kind) { samples in
+                        meter.update(samples)
+                        sink(samples)
+                    }
+                },
+                vocabulary: VocabularyStore.shared.entries,
+                isDictionaryWord: { DictionaryWords.isWord($0, language: language) })
+            session.onPhaseChange = { [weak self, weak session] phase in
+                guard let self, let session, session === self.longDictation else { return }
+                self.longDictationChanged(to: phase, session: session)
+            }
+            do {
+                try session.start()
+            } catch {
+                OverlayManager.shared.showError(message: error.localizedDescription)
+                return
+            }
+            longDictation = session
+            longDictationStartedAt = Date()
+            showLongDictationIndicator()
+        }
+    }
+
+    /// The compact island with the long dictation's waveform and timer; a click stops it.
+    private func showLongDictationIndicator() {
+        let meter = longDictationLevel
+        OverlayManager.shared.listeningHint = nil
+        OverlayManager.shared.onTap = { [weak self] in self?.longDictation?.stop() }
+        OverlayManager.shared.showListening(startedAt: longDictationStartedAt) { meter.level }
+    }
+
+    /// Puts the long dictation's indicator back once something else (a hotkey dictation's
+    /// result, say) has left the screen.
+    private func restoreLongDictationIndicator() {
+        guard longDictation?.phase == .recording, sessionState == .idle else { return }
+        showLongDictationIndicator()
+    }
+
+    private func longDictationChanged(to phase: LiveTranscriptionSession.Phase, session: LiveTranscriptionSession) {
+        switch phase {
+        case .idle, .recording:
+            break
+        case .finishing, .identifyingSpeakers:
+            OverlayManager.shared.onTap = nil
+            if sessionState == .idle { OverlayManager.shared.showProcessing() }
+        case .finished:
+            longDictation = nil
+            if saveLongDictation(session) {
+                if sessionState == .idle { OverlayManager.shared.showSaved() }
+            } else if sessionState == .idle {
+                OverlayManager.shared.showError(message: "No speech detected")
+            }
+        case .failed(let message):
+            longDictation = nil
+            // Whatever was transcribed before the failure is kept.
+            saveLongDictation(session)
+            if sessionState == .idle { OverlayManager.shared.showError(message: message) }
+        case .cancelled:
+            longDictation = nil
+            if sessionState == .idle { OverlayManager.shared.hide() }
+        }
+    }
+
+    /// Writes the session's transcript to Transcripts; false when there was nothing to write.
+    @discardableResult
+    private func saveLongDictation(_ session: LiveTranscriptionSession) -> Bool {
+        let text = session.text
+        guard !text.isEmpty else { return false }
+        do {
+            try TranscriptStore.shared.save(text, title: Self.longDictationTitle)
+            return true
+        } catch {
+            OverlayManager.shared.showError(message: "Couldn't save the transcript: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// "Start Long Dictation" becomes "Stop Long Dictation" while one records.
+    private func refreshLongDictationItem() {
+        guard let item = statusItem?.menu?.item(withTag: Self.longDictationTag) else { return }
+        switch longDictation?.phase {
+        case .recording:
+            item.title = "Stop Long Dictation"
+            item.isEnabled = true
+        case .finishing, .identifyingSpeakers:
+            item.title = "Finishing Long Dictation…"
+            item.isEnabled = false
+        default:
+            item.title = "Start Long Dictation"
+            item.isEnabled = true
+        }
     }
 
     @objc private func openAccessibilityFromMenu() {
@@ -834,6 +974,9 @@ extension AppDelegate: NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(checkForUpdatesFromMenu) {
             return UpdateService.shared.canCheckForUpdates
+        }
+        if menuItem.tag == Self.longDictationTag {
+            return menuItem.isEnabled
         }
         return true
     }

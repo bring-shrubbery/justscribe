@@ -91,10 +91,45 @@ final class FileTranscriptionModelTests {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    /// What the model asked to be saved to Transcripts: (text, title).
+    private let saved = SavedBox()
+
+    @MainActor
+    private final class SavedBox {
+        var items: [(String, String)] = []
+        var error: Error?
+        struct Boom: LocalizedError { var errorDescription: String? { "disk full" } }
+    }
+
     private func makeModel() -> FileTranscriptionModel {
         FileTranscriptionModel(
             transcriber: transcriber, dictation: dictation, diarization: speakers, defaults: defaults,
-            openSource: { _ in ShortSource() }, pollInterval: .milliseconds(5))
+            openSource: { _ in ShortSource() }, pollInterval: .milliseconds(5),
+            saveTranscript: { [saved] text, title in
+                if let error = saved.error { throw error }
+                saved.items.append((text, title))
+            })
+    }
+
+    @Test func aFinishedFileIsSavedToTranscriptsUnderItsName() async {
+        let model = makeModel()
+        model.open(url)
+        #expect(await waitUntil { model.job?.phase == .finished })
+        #expect(await waitUntil { !saved.items.isEmpty })
+        #expect(saved.items.count == 1)
+        #expect(saved.items.first?.1 == url.deletingPathExtension().lastPathComponent)
+        #expect(saved.items.first?.0 == model.job?.text)
+        #expect(model.notice == FileTranscriptionModel.Notice.saved)
+    }
+
+    @Test func aSaveThatFailsSaysSoAndKeepsTheTranscript() async {
+        saved.error = SavedBox.Boom()
+        let model = makeModel()
+        model.open(url)
+        #expect(await waitUntil { model.job?.phase == .finished })
+        #expect(await waitUntil { model.notice != nil })
+        #expect(model.notice == FileTranscriptionModel.Notice.saveFailed("disk full"))
+        #expect(model.job?.paragraphs.isEmpty == false)
     }
 
     /// Polls until `condition` holds or two seconds pass; false on timeout.

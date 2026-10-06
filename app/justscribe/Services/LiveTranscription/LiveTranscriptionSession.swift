@@ -52,7 +52,11 @@ final class LiveTranscriptionSession {
         static func stopped(_ reason: String) -> String { "Transcription stopped: \(reason)" }
     }
 
-    private(set) var phase: Phase = .idle
+    private(set) var phase: Phase = .idle {
+        didSet { if phase != oldValue { onPhaseChange?(phase) } }
+    }
+    /// Called on the main actor after every change of `phase`, for the owner that is not a view.
+    var onPhaseChange: ((Phase) -> Void)?
     private(set) var paragraphs: [TranscriptParagraph] = []
     /// Seconds of audio captured so far, from the source that has delivered the most.
     private(set) var elapsed: Double = 0

@@ -104,3 +104,25 @@ nonisolated final class SampleRateConverter {
         return Array(UnsafeBufferPointer(start: data[0], count: Int(output.frameLength)))
     }
 }
+
+/// The loudness of the latest samples a source delivered, as the indicator's waveform wants
+/// it: 0 for silence to 1 for full scale, on the same dB scale `AudioCaptureService` uses.
+/// Written on the source's queue, read on the main actor.
+nonisolated final class AudioLevelMeter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: Float = 0
+
+    var level: Float {
+        lock.withLock { current }
+    }
+
+    func update(_ samples: [Float]) {
+        guard !samples.isEmpty else { return }
+        var sum: Float = 0
+        for sample in samples { sum += sample * sample }
+        let rms = (sum / Float(samples.count)).squareRoot()
+        let decibels = 20 * log10(max(rms, 0.0001))
+        let normalized = max(0, min(1, (decibels + 60) / 60))
+        lock.withLock { current = normalized }
+    }
+}

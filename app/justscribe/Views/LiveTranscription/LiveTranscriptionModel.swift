@@ -37,6 +37,7 @@ final class LiveTranscriptionModel {
     enum Notice {
         static let speakerDownloadFailed = FileTranscriptionModel.Notice.speakerDownloadFailed
         static let microphoneDenied = "Microphone access is needed to record what you say. Allow it in System Settings → Privacy & Security → Microphone."
+        static let saved = "Saved to Transcripts"
         static func saveFailed(_ reason: String) -> String { "Couldn't save the transcript: \(reason)" }
     }
 
@@ -79,6 +80,8 @@ final class LiveTranscriptionModel {
     private let makeSource: LiveAudioSourceFactory
     private let requestMicrophone: () async -> Bool
     private let audioDirectory: URL
+    /// Writes a finished transcript to Transcripts; the app's goes to `TranscriptStore`.
+    private let saveTranscript: (String, String) throws -> Void
 
     init(
         transcriber: any TimedTranscribing, dictation: any DictationActivity,
@@ -86,7 +89,8 @@ final class LiveTranscriptionModel {
         defaults: UserDefaults = .standard,
         makeSource: @escaping LiveAudioSourceFactory = LiveTranscriptionModel.makeSource,
         requestMicrophone: @escaping () async -> Bool = LiveTranscriptionModel.requestMicrophone,
-        audioDirectory: URL = FileManager.default.temporaryDirectory
+        audioDirectory: URL = FileManager.default.temporaryDirectory,
+        saveTranscript: @escaping (String, String) throws -> Void = { try TranscriptStore.shared.save($0, title: $1) }
     ) {
         self.transcriber = transcriber
         self.dictation = dictation
@@ -95,6 +99,7 @@ final class LiveTranscriptionModel {
         self.makeSource = makeSource
         self.requestMicrophone = requestMicrophone
         self.audioDirectory = audioDirectory
+        self.saveTranscript = saveTranscript
         useMicrophone = defaults.object(forKey: Self.useMicrophoneKey) == nil ? true : defaults.bool(forKey: Self.useMicrophoneKey)
         useSystemAudio = defaults.bool(forKey: Self.useSystemAudioKey)
         identifySpeakers = defaults.bool(forKey: Self.identifySpeakersKey)
@@ -187,12 +192,34 @@ final class LiveTranscriptionModel {
                 vocabulary: VocabularyStore.shared.entries,
                 isDictionaryWord: { DictionaryWords.isWord($0, language: language) },
                 audioDirectory: audioDirectory)
+            session.onPhaseChange = { [weak self, weak session] phase in
+                guard phase == .finished, let self, let session, session === self.session else { return }
+                self.saveFinished(session)
+            }
             do {
                 try session.start()
                 self.session = session
             } catch {
                 notice = error.localizedDescription
             }
+        }
+    }
+
+    /// The title a saved live transcription gets.
+    nonisolated static func transcriptTitle(kinds: Set<LiveAudioKind>) -> String {
+        kinds == [.systemAudio] ? "System Audio" : "Live Transcription"
+    }
+
+    /// Writes the finished transcript to Transcripts, with timestamps and speaker labels as
+    /// the window shows them; nothing is written for a recording without speech.
+    private func saveFinished(_ session: LiveTranscriptionSession) {
+        let text = session.text
+        guard !text.isEmpty else { return }
+        do {
+            try saveTranscript(text, Self.transcriptTitle(kinds: session.kinds))
+            notice = Notice.saved
+        } catch {
+            notice = Notice.saveFailed(error.localizedDescription)
         }
     }
 

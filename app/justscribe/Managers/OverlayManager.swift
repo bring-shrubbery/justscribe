@@ -87,7 +87,7 @@ private struct OverlayExpandedView: View {
             IslandSpinnerView()
                 .foregroundStyle(textColor)
                 .padding(7)
-        case .completed:
+        case .completed, .saved:
             Image(systemName: "checkmark.circle.fill")
                 .resizable()
                 .scaledToFit()
@@ -152,6 +152,8 @@ final class OverlayManager {
         case listening
         case processing
         case completed(copiedToClipboard: Bool)
+        /// A long dictation's transcript has been written to Transcripts.
+        case saved
         case error(message: String)
     }
 
@@ -176,6 +178,7 @@ final class OverlayManager {
         case .listening: return "Listening..."
         case .processing: return "Processing..."
         case .completed: return "Done"
+        case .saved: return "Saved"
         case .error(let message): return message
         }
     }
@@ -186,6 +189,7 @@ final class OverlayManager {
         case .listening: return listeningHint ?? "Speak now"
         case .processing: return "Transcribing audio"
         case .completed(let copiedToClipboard): return copiedToClipboard ? "Copied to clipboard" : nil
+        case .saved: return "In Transcripts, from the menu"
         case .error: return nil
         }
     }
@@ -233,8 +237,8 @@ final class OverlayManager {
         levelTask = nil
     }
 
-    /// Samples the capture service's level into the waveform until listening ends.
-    private func startLevelSampling() {
+    /// Samples `level` into the waveform until listening ends.
+    private func startLevelSampling(level: @escaping () -> Float) {
         levelTask?.cancel()
         waveform = WaveformLevels()
         levelTask = Task { [weak self] in
@@ -243,7 +247,7 @@ final class OverlayManager {
                 guard !Task.isCancelled, let self, self.state == .listening else { return }
                 // Assigned whole, so the change is one the waveform view is sure to observe.
                 var levels = self.waveform
-                levels.push(level: AudioCaptureService.shared.currentAudioLevel)
+                levels.push(level: level())
                 self.waveform = levels
             }
         }
@@ -272,13 +276,23 @@ final class OverlayManager {
             if !isVisible {
                 state = .idle
                 listeningHint = nil
+                onHidden?()
             }
         }
     }
 
+    /// Called once the island is off screen and nothing else has been shown meanwhile, so a
+    /// recording that was still going on underneath can put its indicator back.
+    var onHidden: (() -> Void)?
+
     // MARK: - Convenience methods
 
-    func showListening() {
+    /// Shows the listening indicator. `startedAt` is when the recording began, for the timer;
+    /// `level` is where the waveform reads the microphone's loudness.
+    func showListening(
+        startedAt: Date = Date(),
+        level: @escaping () -> Float = { AudioCaptureService.shared.currentAudioLevel }
+    ) {
         // Cancel any pending auto-hide from a previous completed/error state
         autoHideTask?.cancel()
         autoHideTask = nil
@@ -291,15 +305,15 @@ final class OverlayManager {
             currentStyle = style
         }
 
-        recordingSeconds = 0
+        recordingSeconds = max(0, Int(Date().timeIntervalSince(startedAt)))
         stopListeningUpdates()
         // Only the compact island shows the timer and the waveform; the card (with a hint)
         // has no use for them.
         if listeningHint == nil {
-            startLevelSampling()
-            let start = Date()
+            startLevelSampling(level: level)
+            let start = startedAt
             recordingTimer = Task { [weak self] in
-                var shown = 0
+                var shown = max(0, Int(Date().timeIntervalSince(start)))
                 while !Task.isCancelled {
                     // Wake just after the next whole second since `start`, so each tick lands on
                     // a new value: the display never repeats or skips a second.
@@ -322,6 +336,18 @@ final class OverlayManager {
         state = .processing
         stopListeningUpdates()
         present()
+    }
+
+    func showSaved() {
+        state = .saved
+        stopListeningUpdates()
+        present()
+        autoHideTask?.cancel()
+        autoHideTask = Task {
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
+            hide()
+        }
     }
 
     func showCompleted(copiedToClipboard: Bool) {

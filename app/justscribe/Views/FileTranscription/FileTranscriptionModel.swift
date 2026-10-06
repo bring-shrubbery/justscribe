@@ -42,6 +42,7 @@ final class FileTranscriptionModel {
     enum Notice {
         static let speakerDownloadFailed = "Couldn't download the speaker model. Check your connection and try again"
         static let unreadableDrop = "JustScribe can't read this file"
+        static let saved = "Saved to Transcripts"
         static func saveFailed(_ reason: String) -> String { "Couldn't save the transcript: \(reason)" }
     }
 
@@ -79,6 +80,8 @@ final class FileTranscriptionModel {
     private let defaults: UserDefaults
     private let openSource: @Sendable (URL) async throws -> any FileAudioSource
     private let pollInterval: Duration
+    /// Writes a finished transcript to Transcripts; the app's goes to `TranscriptStore`.
+    private let saveTranscript: (String, String) throws -> Void
     /// The file whose security scope this model opened; closed once the file is done with.
     private var scopedURL: URL?
 
@@ -87,7 +90,8 @@ final class FileTranscriptionModel {
         diarization: any SpeakerModelProviding = SpeakerDiarizationService.shared,
         defaults: UserDefaults = .standard,
         openSource: @escaping @Sendable (URL) async throws -> any FileAudioSource = { try await AudioFileDecoder.open($0) },
-        pollInterval: Duration = .milliseconds(200)
+        pollInterval: Duration = .milliseconds(200),
+        saveTranscript: @escaping (String, String) throws -> Void = { try TranscriptStore.shared.save($0, title: $1) }
     ) {
         self.transcriber = transcriber
         self.dictation = dictation
@@ -95,6 +99,7 @@ final class FileTranscriptionModel {
         self.defaults = defaults
         self.openSource = openSource
         self.pollInterval = pollInterval
+        self.saveTranscript = saveTranscript
         identifySpeakers = defaults.bool(forKey: Self.identifySpeakersKey)
         prepareSpeakerModelsIfNeeded()
     }
@@ -185,8 +190,24 @@ final class FileTranscriptionModel {
             vocabulary: VocabularyStore.shared.entries,
             isDictionaryWord: { DictionaryWords.isWord($0, language: language) },
             openSource: openSource, pollInterval: pollInterval)
+        job.onFinished = { [weak self, weak job] in
+            guard let self, let job, job === self.job else { return }
+            self.saveFinished(job)
+        }
         self.job = job
         job.start()
+    }
+
+    /// Writes the finished transcript to Transcripts, named after the file.
+    private func saveFinished(_ job: FileTranscriptionJob) {
+        let text = job.text
+        guard !text.isEmpty else { return }
+        do {
+            try saveTranscript(text, job.url.deletingPathExtension().lastPathComponent)
+            notice = Notice.saved
+        } catch {
+            notice = Notice.saveFailed(error.localizedDescription)
+        }
     }
 
     func cancel() {

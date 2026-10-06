@@ -63,8 +63,13 @@ final class FileTranscriptionJob {
     }
 
     private(set) var phase: Phase = .idle {
-        didSet { if isFinal { isCancelling = false } }
+        didSet {
+            if isFinal { isCancelling = false }
+            if phase == .finished { onFinished?() }
+        }
     }
+    /// Called on the main actor once the whole file has been transcribed.
+    var onFinished: (() -> Void)?
     private(set) var paragraphs: [TranscriptParagraph] = []
     /// Whether a cancel was asked for and the job is finishing the chunk in flight.
     private(set) var isCancelling = false
