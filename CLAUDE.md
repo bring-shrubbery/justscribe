@@ -61,8 +61,11 @@ Two backends sit behind one unified model ID of the form `provider:variant`
 (`Models/ModelProvider.swift`): **WhisperKit** (`whisperkit:*` Whisper CoreML variants) and
 **FluidAudio** (`fluidaudio:*` Parakeet). `TranscriptionService` branches on
 `UnifiedModelInfo.model(forID:).provider` for load and inference; `ModelDownloadService` handles
-downloads and has to probe several on-disk locations (sandbox Documents, Caches, Application
-Support) because the two SDKs cache models differently.
+downloads and decides what is "downloaded": WhisperKit models by probing the Hub cache locations
+(sandbox Documents, Caches), Parakeet by asking FluidAudio itself
+(`AsrModels.defaultCacheDirectory` + `modelsExist`), because FluidAudio has renamed its model
+folder between versions and a path written down here went stale — onboarding then reappeared on
+every launch of a fresh install. Settings shows onboarding whenever that set is empty.
 
 Grammar correction is a separate opt-in path with its own two-backend split, this time behind a
 `GrammarBackend` protocol rather than an inline switch (`Services/Grammar/`).

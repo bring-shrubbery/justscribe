@@ -168,6 +168,9 @@ final class ModelDownloadService {
 
     // MARK: - Model Management
 
+    /// The Parakeet models the app offers, by the variant in their model ID.
+    private static let parakeetVersions: [(variant: String, version: AsrModelVersion)] = [("v2", .v2), ("v3", .v3)]
+
     func refreshDownloadedModels() async {
         let fileManager = FileManager.default
         var foundModels: Set<String> = []
@@ -209,25 +212,14 @@ final class ModelDownloadService {
             }
         }
 
-        // Look for FluidAudio/Parakeet CoreML models in Application Support
-        // FluidAudio stores models in ~/Library/Application Support/FluidAudio/Models/
-        if let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let fluidModelsDir = appSupportDir.appendingPathComponent("FluidAudio/Models")
-            let fluidModelV2 = fluidModelsDir.appendingPathComponent("parakeet-tdt-0.6b-v2-coreml")
-            let fluidModelV3 = fluidModelsDir.appendingPathComponent("parakeet-tdt-0.6b-v3-coreml")
-
-            // Check v2 model - verify directory exists and contains actual model files
-            if let contents = try? fileManager.contentsOfDirectory(at: fluidModelV2, includingPropertiesForKeys: nil),
-               !contents.isEmpty {
-                foundModels.insert("fluidaudio:v2")
-                print("Found FluidAudio model: fluidaudio:v2 at \(fluidModelV2.path)")
-            }
-
-            // Check v3 model - verify directory exists and contains actual model files
-            if let contents = try? fileManager.contentsOfDirectory(at: fluidModelV3, includingPropertiesForKeys: nil),
-               !contents.isEmpty {
-                foundModels.insert("fluidaudio:v3")
-                print("Found FluidAudio model: fluidaudio:v3 at \(fluidModelV3.path)")
+        // Parakeet: FluidAudio decides where its models live and what a complete download is,
+        // and the folder name has changed between its versions ("…-v3-coreml" once, "…-v3" now),
+        // so a fixed path here found nothing on a fresh install and onboarding kept coming back.
+        for (variant, version) in Self.parakeetVersions {
+            let directory = AsrModels.defaultCacheDirectory(for: version)
+            if AsrModels.modelsExist(at: directory, version: version) {
+                foundModels.insert("fluidaudio:\(variant)")
+                print("Found FluidAudio model: fluidaudio:\(variant) at \(directory.path)")
             }
         }
 
@@ -255,17 +247,15 @@ final class ModelDownloadService {
             }
 
         case .fluidAudio:
-            // FluidAudio stores models in Application Support
+            let version: AsrModelVersion = modelInfo.variant == "v2" ? .v2 : .v3
+            // Where FluidAudio keeps it now, and where older versions of it put the same model.
+            var directories = [AsrModels.defaultCacheDirectory(for: version)]
             if let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-                let modelName = modelInfo.variant == "v2"
-                    ? "parakeet-tdt-0.6b-v2-coreml"
-                    : "parakeet-tdt-0.6b-v3-coreml"
-                let modelDir = appSupportDir.appendingPathComponent("FluidAudio/Models/\(modelName)")
-
-                if fileManager.fileExists(atPath: modelDir.path) {
-                    try fileManager.removeItem(at: modelDir)
-                    print("Deleted FluidAudio model at: \(modelDir.path)")
-                }
+                directories.append(appSupportDir.appendingPathComponent("FluidAudio/Models/parakeet-tdt-0.6b-\(modelInfo.variant)-coreml"))
+            }
+            for modelDir in directories where fileManager.fileExists(atPath: modelDir.path) {
+                try fileManager.removeItem(at: modelDir)
+                print("Deleted FluidAudio model at: \(modelDir.path)")
             }
         }
 
