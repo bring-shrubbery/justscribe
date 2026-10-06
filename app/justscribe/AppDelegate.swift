@@ -683,12 +683,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         menu.addItem(NSMenuItem(title: "Live Transcription…", action: #selector(liveTranscriptionFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Transcribe File…", action: #selector(transcribeFileFromMenu), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Transcripts…", action: #selector(showTranscriptsFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "History…", action: #selector(showHistoryFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         let longDictationItem = NSMenuItem(title: "Start Long Dictation", action: #selector(toggleLongDictationFromMenu), keyEquivalent: "")
         longDictationItem.tag = Self.longDictationTag
         menu.addItem(longDictationItem)
+        menu.addItem(NSMenuItem(title: "Transcripts…", action: #selector(showTranscriptsFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: ""))
