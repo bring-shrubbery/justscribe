@@ -10,48 +10,53 @@ Native macOS app for fast voice-to-text dictation anywhere on your system. [Down
 
 ## 🚀 Features
 
-- Dictate in any app with a global shortcut
-- Hold-to-record workflow with live transcription updates
-- Final transcription pass on release for better accuracy
-- On-device transcription with downloadable models
-- Model options:
-  - Parakeet v3 (recommended, multilingual)
-  - Parakeet English (v2)
-  - Whisper Tiny, Base, Small, Medium, Large v3
-- Optional on-device grammar correction (fixes grammar, spelling, and punctuation in transcriptions)
-  - Llama 3.1 8B Instruct (4-bit MLX), downloaded on demand
-- Transcribe audio and video files, with timestamps and optional speaker labels
-- Optional history of your dictations, with or without the recordings (off by default; everything stays on your Mac)
-- A vocabulary for the names and words it must spell right, spoken commands ("new line", "scratch that", "stop recording"), hold-to-record or press-to-toggle, and clean-up modes that follow the app you dictate into
-- Customizable shortcut, including modifier-only shortcuts
-- Microphone priority ordering
-- Recording indicator styles: Floating Bubble or Notch
-- Optional automatic copy-to-clipboard
-- Launch at login, Dock visibility, and Menu Bar visibility controls
-- Light, Dark, and System appearance modes
+### Dictation
+
+- Dictate in any app with a global shortcut. Hold to record, or press once to start and again to stop; the shortcut can be any combination, including modifier-only ones.
+- Live transcription while you speak, then a final pass on release for accuracy. The finished text is pasted into the field you are in, or typed as you speak if you prefer.
+- Spoken commands: "new line", "new paragraph", "scratch that", "delete that", "stop recording", "send", and spoken punctuation when you turn it on.
+- A vocabulary for the names and words it must spell right, and clean-up modes that follow the app you dictate into.
+- Optional on-device clean-up of grammar, spelling and punctuation, with Apple Intelligence (no download) or a local Llama 3.1 8B model.
+- Optional copy of each dictation to the clipboard, and an optional history of your dictations, with or without the recordings (off by default; everything stays on your Mac).
+
+### Long recordings
+
+- **Live Transcription** records for as long as you like — a talk, a call, a meeting — from your microphone, from what other apps play (system audio), or both, and writes the transcript while it runs. With both sources, what you say is labelled "You" and the other side is told apart into Speaker 1, 2… when you stop.
+- **Long Dictation** from the menu bar runs the same way with only the recording indicator, no window.
+- **Transcribe File** turns an audio or video file you already have into a transcript, with timestamps and optional speaker labels.
+- **Transcripts** keeps every one of them as a text file, with timestamps and speaker labels, listed by date to read, copy or show in the Finder.
+
+### On your Mac
+
+- Everything runs on-device: transcription, speaker identification and clean-up. Nothing is uploaded.
+- Models to choose from: Parakeet v3 (recommended, multilingual), Parakeet English, Whisper Tiny to Large v3.
+- A menu bar app: no Dock icon unless you want one, a confirmation before quitting, and automatic updates.
+- Microphone priority order. A Bluetooth headset's microphone is used only when you put it first, so your headphones stay in full quality while you record.
+- Recording indicator as a floating bubble or in the notch, with a waveform that follows your voice.
+- Launch at login, light, dark and system appearance.
 
 ## 🐢 Quick Start
 
 1. 🌟 Star this repo 🌟
 2. Follow the author [Antoni (@bringshrubberyy)](https://x.com/bringshrubberyy) on X
-3. Install and open JustScribe.
+3. Install and open JustScribe. It lives in the menu bar.
 4. Download and select a transcription model on first launch.
-5. Grant required permissions:
+5. Grant the permissions it asks for:
    - Microphone
-   - Accessibility (needed to type into other apps)
+   - Accessibility (needed to put text into other apps)
+   - System audio recording, only if you include system audio in a Live Transcription
 6. Put your cursor in any text field.
 7. Hold the default shortcut: `Control + Shift + Space`.
 8. Speak while holding.
-9. Release to finish and insert final text.
+9. Release to finish; the text is pasted where your cursor is.
 
-You can change the shortcut, model, microphone order, and behavior in Settings.
+For something longer, open the menu bar icon and choose **Live Transcription…** or **Start Long Dictation**; the transcript is saved under **Transcripts…**. You can change the shortcut, model, microphone order and behaviour in Settings.
 
 ## 🤖 Requirements
 
-- macOS with M-series chip (strongly preferred)
-- Internet connection for initial model download
-- Microphone permission
-- Accessibility permission
+- A Mac with Apple silicon running macOS 26.2 or later
+- Internet connection for the initial model download
+- Microphone permission; Accessibility permission to insert text into other apps
 
 ## 😭 Development
 
