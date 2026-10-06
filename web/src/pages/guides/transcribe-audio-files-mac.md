@@ -12,7 +12,7 @@ faq:
   - q: "Which file types work?"
     a: "Anything macOS can play: m4a, mp3, wav, aiff, caf and flac, and the audio track of mp4, mov and m4v videos. Copy-protected media cannot be transcribed."
   - q: "Is the file uploaded anywhere?"
-    a: "No. The file is read where it is and transcribed on your Mac. When speakers are identified, a temporary decoded copy of the audio is written inside the app's own container and deleted afterwards. The transcript is discarded when you close the window unless you copy or save it."
+    a: "No. The file is read where it is and transcribed on your Mac. When speakers are identified, a temporary decoded copy of the audio is written inside the app's own container and deleted afterwards. The transcript is also saved as a text file in the app's own container, where the Transcripts window lists it; move it to the Trash from there if you don't want to keep it."
   - q: "How long does it take?"
     a: "With Parakeet v3 on an Apple silicon Mac, usually faster than real time. Identifying speakers adds a pass of its own before the transcription. Large Whisper models are slower."
 ---
@@ -24,7 +24,7 @@ JustScribe is a dictation app first, but the same on-device models can transcrib
 1. Click the JustScribe icon in the menu bar and choose **Transcribe File…**
 2. Drop an audio or video file on the window, or click **Choose File…**
 3. Optionally turn on **Identify speakers**. The first time, a small speaker model (about 22 MB) is downloaded. Leave the count empty to detect it, or enter the number of people.
-4. Watch the transcript fill in, paragraph by paragraph. **Copy** it, or **Save…** it as a text file.
+4. Watch the transcript fill in, paragraph by paragraph. **Copy** it, or **Save…** it as a text file. It is also kept in the **Transcripts** window, reachable from the menu-bar icon.
 
 The transcript looks like this:
 
