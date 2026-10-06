@@ -726,7 +726,7 @@
 			repositoryURL = "https://github.com/bring-shrubbery/dynamic-landing";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 0.1.0;
+				minimumVersion = 0.2.0;
 			};
 		};
 		AA0001042F25000000000004 /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
