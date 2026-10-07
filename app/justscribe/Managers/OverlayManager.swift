@@ -113,6 +113,19 @@ private struct ListeningWaveform: View {
     }
 }
 
+/// The compact island's timer. It reads the seconds itself, so the island is shown once per
+/// recording rather than re-shown every second (each re-show replaced its content and re-ran
+/// the island's state change).
+private struct ListeningTimer: View {
+    let manager: OverlayManager
+
+    var body: some View {
+        let seconds = manager.recordingSeconds
+        Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
+            .font(.system(size: 12, weight: .medium).monospacedDigit())
+    }
+}
+
 // MARK: - OverlayManager
 
 @MainActor
@@ -214,15 +227,13 @@ final class OverlayManager {
         let island = currentIsland()
         isVisible = true
         if case .listening = state, listeningHint == nil {
-            let seconds = recordingSeconds
             Task {
                 await island.show(
                     compactLeading: {
                         ListeningWaveform(manager: OverlayManager.shared)
                     },
                     trailing: {
-                        Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
-                            .font(.system(size: 12, weight: .medium).monospacedDigit())
+                        ListeningTimer(manager: OverlayManager.shared)
                     })
             }
         } else {
@@ -325,7 +336,6 @@ final class OverlayManager {
                     guard seconds != shown else { continue }
                     shown = seconds
                     self.recordingSeconds = seconds
-                    self.present()
                 }
             }
         }
