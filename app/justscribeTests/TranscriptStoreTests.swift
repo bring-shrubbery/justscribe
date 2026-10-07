@@ -84,6 +84,29 @@ struct TranscriptStoreTests {
         #expect(store.transcripts[0].date > .distantPast)
     }
 
+    @Test func aRecordingIsMovedNextToItsTranscriptAndDeletedWithIt() throws {
+        let store = makeStore()
+        let recording = FileManager.default.temporaryDirectory.appendingPathComponent("rec-\(UUID().uuidString).m4a")
+        try Data([1, 2, 3]).write(to: recording)
+        let saved = try store.save("[00:00:00]\nHi", title: "Long Dictation", date: date("2026-10-07 09:00:00"), audio: recording)
+        let audio = try #require(saved.audioURL)
+        #expect(audio.lastPathComponent == "2026-10-07 09.00.00 Long Dictation.m4a")
+        #expect(!FileManager.default.fileExists(atPath: recording.path))
+        #expect(try Data(contentsOf: audio) == Data([1, 2, 3]))
+        // Listed again from the folder, it still has its recording.
+        store.load()
+        #expect(store.transcripts.first?.audioURL == audio)
+        try store.delete(saved)
+        #expect(!FileManager.default.fileExists(atPath: audio.path))
+        #expect(!FileManager.default.fileExists(atPath: saved.url.path))
+    }
+
+    @Test func aTranscriptWithoutARecordingHasNoAudio() throws {
+        let store = makeStore()
+        let saved = try store.save("x", title: "Live Transcription")
+        #expect(saved.audioURL == nil)
+    }
+
     @Test func deletingRemovesTheFileAndTheEntry() throws {
         let store = makeStore()
         let saved = try store.save("x", title: "Long Dictation")

@@ -64,6 +64,9 @@ final class LiveTranscriptionSession {
     private(set) var backlog = 0
     /// A sentence about something that went wrong without ending the transcription.
     private(set) var notice: String?
+    /// The whole recording, every source mixed, once the session has ended when it was asked to
+    /// keep it. A temporary file: the owner moves it next to the saved transcript.
+    private(set) var recordedAudio: URL?
     var text: String { TranscriptBuilder.text(paragraphs) }
 
     var isRunning: Bool {
@@ -109,6 +112,12 @@ final class LiveTranscriptionSession {
     private let recorder: LiveAudioFile?
     private var worker: Task<Void, Never>?
     private var writer: Task<Void, Never>?
+    /// The kept recording: the sources mixed, written as they arrive.
+    private var mixer: LiveAudioMixer
+    private let kept: AsyncStream<[Float]>
+    private let keptFeed: AsyncStream<[Float]>.Continuation
+    private let keeper: LiveAudioFile?
+    private var keptWriter: Task<Void, Never>?
 
     init(
         kinds: Set<LiveAudioKind>, language: String?, speakers: SpeakerRequest,
@@ -118,6 +127,7 @@ final class LiveTranscriptionSession {
         isDictionaryWord: @escaping (String) -> Bool = { DictionaryWords.isWord($0, language: nil) },
         chunkSeconds: (minimum: Int, maximum: Int) = (10, 15),
         audioDirectory: URL = FileManager.default.temporaryDirectory,
+        keepAudio: Bool = false,
         pollInterval: Duration = .milliseconds(200)
     ) {
         self.kinds = kinds
@@ -137,6 +147,9 @@ final class LiveTranscriptionSession {
         recorder = diarized == nil ? nil : LiveAudioFile(directory: audioDirectory)
         (chunks, chunkFeed) = AsyncStream.makeStream(of: (LiveAudioKind, AudioChunk).self)
         (audio, audioFeed) = AsyncStream.makeStream(of: [Float].self)
+        (kept, keptFeed) = AsyncStream.makeStream(of: [Float].self)
+        keeper = keepAudio ? LiveAudioFile(directory: audioDirectory) : nil
+        mixer = LiveAudioMixer(kinds: kinds)
         for kind in kinds {
             streams[kind] = Stream(chunker: AudioChunker(minimumSeconds: chunkSeconds.minimum, maximumSeconds: chunkSeconds.maximum))
         }
@@ -176,6 +189,12 @@ final class LiveTranscriptionSession {
                 for await samples in audio { await recorder.append(samples) }
             }
         }
+        if let keeper {
+            let kept = kept
+            keptWriter = Task {
+                for await samples in kept { await keeper.append(samples) }
+            }
+        }
         worker = Task { await drain() }
     }
 
@@ -201,8 +220,10 @@ final class LiveTranscriptionSession {
             if let last = stream.chunker.finish() { enqueue(kind, last) }
             streams[kind] = stream
         }
+        if keeper != nil { keptFeed.yield(mixer.finish()) }
         chunkFeed.finish()
         audioFeed.finish()
+        keptFeed.finish()
     }
 
     /// Ends everything at once; the transcript so far stays. Does nothing once ended.
@@ -211,9 +232,11 @@ final class LiveTranscriptionSession {
         for stream in streams.values { stream.source?.stop() }
         chunkFeed.finish()
         audioFeed.finish()
+        keptFeed.finish()
         worker?.cancel()
         phase = .cancelled
         if let recorder { Task { await recorder.discard() } }
+        if let keeper { Task { await keeper.discard() } }
     }
 
     // MARK: - Audio in
@@ -225,6 +248,10 @@ final class LiveTranscriptionSession {
         streams[kind] = stream
         elapsed = max(elapsed, Double(stream.received) / Double(AudioChunker.sampleRate))
         if kind == diarizedKind { audioFeed.yield(samples) }
+        if keeper != nil {
+            let mixed = mixer.append(samples, from: kind)
+            if !mixed.isEmpty { keptFeed.yield(mixed) }
+        }
     }
 
     private func enqueue(_ kind: LiveAudioKind, _ chunk: AudioChunk) {
@@ -243,13 +270,20 @@ final class LiveTranscriptionSession {
             guard transcribed else { break }
         }
         guard !Task.isCancelled else { return }
-        if case .failed = phase {
+        if let failure {
             for stream in streams.values { stream.source?.stop() }
             audioFeed.finish()
+            keptFeed.finish()
             if let recorder { await recorder.discard() }
+            // What was recorded before the failure is kept with what was transcribed; the
+            // failure is reported once that recording is closed, so its owner can save both.
+            await finishKeptAudio()
+            phase = .failed(failure)
             return
         }
         await identifySpeakersIfAsked()
+        guard !Task.isCancelled else { return }
+        await finishKeptAudio()
         guard !Task.isCancelled else { return }
         phase = .finished
     }
@@ -261,7 +295,7 @@ final class LiveTranscriptionSession {
         }
         guard !Task.isCancelled else { return false }
         guard !modelChanged else {
-            phase = .failed(Message.modelChanged)
+            failure = Message.modelChanged
             return false
         }
         guard !LiveTranscript.isSilent(chunk.samples) else { return true }
@@ -274,11 +308,21 @@ final class LiveTranscriptionSession {
             }
         } catch {
             guard !Task.isCancelled else { return false }
-            phase = .failed(modelChanged ? Message.modelChanged : Message.stopped(error.localizedDescription))
+            failure = modelChanged ? Message.modelChanged : Message.stopped(error.localizedDescription)
             return false
         }
         await rebuild()
         return true
+    }
+
+    /// Why transcribing stopped early; reported as the phase once the session has wound down.
+    private var failure: String?
+
+    /// Closes the kept recording once everything has been written to it.
+    private func finishKeptAudio() async {
+        guard let keeper else { return }
+        await keptWriter?.value
+        recordedAudio = await keeper.finish()
     }
 
     private var modelChanged: Bool {

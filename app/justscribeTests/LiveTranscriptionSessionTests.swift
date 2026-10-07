@@ -20,6 +20,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+import AVFoundation
 import Foundation
 import Testing
 @testable import justscribe
@@ -108,7 +109,7 @@ struct LiveTranscriptionSessionTests {
         .appendingPathComponent("LiveTranscriptionSessionTests-\(UUID().uuidString)", isDirectory: true)
 
     private func session(
-        kinds: Set<LiveAudioKind> = [.microphone], speakers request: SpeakerRequest = .none
+        kinds: Set<LiveAudioKind> = [.microphone], speakers request: SpeakerRequest = .none, keepAudio: Bool = false
     ) -> LiveTranscriptionSession {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return LiveTranscriptionSession(
@@ -116,7 +117,7 @@ struct LiveTranscriptionSessionTests {
             transcriber: transcriber, dictation: dictation, speakerProvider: speakers,
             makeSource: { kind, sink in try sources.make(kind, sink: sink) },
             isDictionaryWord: { _ in true },
-            chunkSeconds: (10, 15), audioDirectory: directory, pollInterval: .milliseconds(5))
+            chunkSeconds: (10, 15), audioDirectory: directory, keepAudio: keepAudio, pollInterval: .milliseconds(5))
     }
 
     /// Lets the main queue hop and the worker run until `condition` holds, or ten seconds pass.
@@ -300,6 +301,53 @@ struct LiveTranscriptionSessionTests {
         sources[.microphone]?.feed(seconds: 16)
         try await Task.sleep(for: .milliseconds(30))
         #expect(transcriber.calls.count == 1)
+        await wait { (try? FileManager.default.contentsOfDirectory(atPath: self.directory.path))?.isEmpty == true }
+        #expect((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) == [])
+    }
+
+    @Test func aKeptRecordingHoldsBothSourcesMixedForTheWholeSession() async throws {
+        let session = session(kinds: [.microphone, .systemAudio], keepAudio: true)
+        try session.start()
+        sources[.microphone]?.feed(seconds: 3)
+        sources[.systemAudio]?.feed(seconds: 2)
+        var announced: URL?
+        session.onPhaseChange = { if $0 == .finished { announced = session.recordedAudio } }
+        session.stop()
+        await wait { session.phase == .finished }
+        let url = try #require(session.recordedAudio)
+        // The recording is closed before the session says it has finished.
+        #expect(announced == url)
+        let file = try AVAudioFile(forReading: url)
+        let seconds = Double(file.length) / file.fileFormat.sampleRate
+        #expect(abs(seconds - 3) < 0.2)
+    }
+
+    @Test func withoutKeepingAudioNoRecordingIsMade() async throws {
+        let session = session()
+        try session.start()
+        sources[.microphone]?.feed(seconds: 2)
+        session.stop()
+        await wait { session.phase == .finished }
+        #expect(session.recordedAudio == nil)
+    }
+
+    @Test func aFailedSessionStillHandsOverItsRecording() async throws {
+        let session = session(keepAudio: true)
+        try session.start()
+        transcriber.failOnCall = 1
+        var recordedAtFailure: URL?
+        session.onPhaseChange = { if case .failed = $0 { recordedAtFailure = session.recordedAudio } }
+        sources[.microphone]?.feed(seconds: 16)
+        await wait { !session.isRunning }
+        #expect(recordedAtFailure != nil)
+    }
+
+    @Test func aCancelledSessionKeepsNoRecording() async throws {
+        let session = session(keepAudio: true)
+        try session.start()
+        sources[.microphone]?.feed(seconds: 2)
+        session.cancel()
+        #expect(session.recordedAudio == nil)
         await wait { (try? FileManager.default.contentsOfDirectory(atPath: self.directory.path))?.isEmpty == true }
         #expect((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) == [])
     }

@@ -33,6 +33,9 @@ final class LiveTranscriptionModel {
     static let useMicrophoneKey = "liveTranscription.useMicrophone"
     static let useSystemAudioKey = "liveTranscription.useSystemAudio"
     static let identifySpeakersKey = "liveTranscription.identifySpeakers"
+    /// Keep the recording of a Live Transcription or Long Dictation next to its transcript.
+    /// Off unless turned on, in Settings or in the Live Transcription window.
+    static let keepAudioKey = "transcripts.keepAudio"
 
     enum Notice {
         static let speakerDownloadFailed = FileTranscriptionModel.Notice.speakerDownloadFailed
@@ -80,8 +83,9 @@ final class LiveTranscriptionModel {
     private let makeSource: LiveAudioSourceFactory
     private let requestMicrophone: () async -> Bool
     private let audioDirectory: URL
-    /// Writes a finished transcript to Transcripts; the app's goes to `TranscriptStore`.
-    private let saveTranscript: (String, String) throws -> Void
+    /// Writes a finished transcript (text, title, recording) to Transcripts; the app's goes to
+    /// `TranscriptStore`.
+    private let saveTranscript: (String, String, URL?) throws -> Void
 
     init(
         transcriber: any TimedTranscribing, dictation: any DictationActivity,
@@ -90,7 +94,7 @@ final class LiveTranscriptionModel {
         makeSource: @escaping LiveAudioSourceFactory = LiveTranscriptionModel.makeSource,
         requestMicrophone: @escaping () async -> Bool = LiveTranscriptionModel.requestMicrophone,
         audioDirectory: URL = FileManager.default.temporaryDirectory,
-        saveTranscript: @escaping (String, String) throws -> Void = { try TranscriptStore.shared.save($0, title: $1) }
+        saveTranscript: @escaping (String, String, URL?) throws -> Void = { try TranscriptStore.shared.save($0, title: $1, audio: $2) }
     ) {
         self.transcriber = transcriber
         self.dictation = dictation
@@ -191,7 +195,8 @@ final class LiveTranscriptionModel {
                 makeSource: makeSource,
                 vocabulary: VocabularyStore.shared.entries,
                 isDictionaryWord: { DictionaryWords.isWord($0, language: language) },
-                audioDirectory: audioDirectory)
+                audioDirectory: audioDirectory,
+                keepAudio: defaults.bool(forKey: Self.keepAudioKey))
             session.onPhaseChange = { [weak self, weak session] phase in
                 guard phase == .finished, let self, let session, session === self.session else { return }
                 self.saveFinished(session)
@@ -211,12 +216,13 @@ final class LiveTranscriptionModel {
     }
 
     /// Writes the finished transcript to Transcripts, with timestamps and speaker labels as
-    /// the window shows them; nothing is written for a recording without speech.
+    /// the window shows them, and the recording when one was kept. Without speech or a
+    /// recording nothing is written.
     private func saveFinished(_ session: LiveTranscriptionSession) {
         let text = session.text
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty || session.recordedAudio != nil else { return }
         do {
-            try saveTranscript(text, Self.transcriptTitle(kinds: session.kinds))
+            try saveTranscript(text, Self.transcriptTitle(kinds: session.kinds), session.recordedAudio)
             notice = Notice.saved
         } catch {
             notice = Notice.saveFailed(error.localizedDescription)

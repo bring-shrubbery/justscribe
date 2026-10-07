@@ -29,6 +29,8 @@ struct SavedTranscript: Identifiable, Equatable, Hashable {
     let url: URL
     let date: Date
     let title: String
+    /// The recording kept with it: the same name with `.m4a`, when there is one.
+    var audioURL: URL? = nil
     var id: URL { url }
 }
 
@@ -104,30 +106,47 @@ final class TranscriptStore {
         transcripts = urls
             .filter { $0.pathExtension.lowercased() == "txt" }
             .map { url in
+                let audio = Self.audioURL(for: url)
+                let audioURL = fm.fileExists(atPath: audio.path) ? audio : nil
                 if let parsed = Self.parse(fileName: url.lastPathComponent) {
-                    return SavedTranscript(url: url, date: parsed.date, title: parsed.title)
+                    return SavedTranscript(url: url, date: parsed.date, title: parsed.title, audioURL: audioURL)
                 }
                 let created = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
-                return SavedTranscript(url: url, date: created, title: url.deletingPathExtension().lastPathComponent)
+                return SavedTranscript(
+                    url: url, date: created, title: url.deletingPathExtension().lastPathComponent, audioURL: audioURL)
             }
             .sorted { ($0.date, $0.url.lastPathComponent) > ($1.date, $1.url.lastPathComponent) }
     }
 
     // MARK: - Writing, reading, deleting
 
-    /// Writes `text` as a new transcript and lists it. A name already taken gets a counter.
+    /// Where the recording kept with the transcript at `url` lives.
+    nonisolated static func audioURL(for url: URL) -> URL {
+        url.deletingPathExtension().appendingPathExtension("m4a")
+    }
+
+    /// Writes `text` as a new transcript and lists it, moving `audio` (a recording) next to it
+    /// under the same name. A name already taken gets a counter.
     @discardableResult
-    func save(_ text: String, title: String, date: Date = Date()) throws -> SavedTranscript {
+    func save(_ text: String, title: String, date: Date = Date(), audio: URL? = nil) throws -> SavedTranscript {
         let fm = FileManager.default
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
         let name = Self.fileName(title: title, date: date)
         var url = directory.appendingPathComponent(name)
         var counter = 2
-        while fm.fileExists(atPath: url.path) {
+        while fm.fileExists(atPath: url.path) || fm.fileExists(atPath: Self.audioURL(for: url).path) {
             url = directory.appendingPathComponent(Self.fileName(title: "\(title) \(counter)", date: date))
             counter += 1
         }
         try text.write(to: url, atomically: true, encoding: .utf8)
+        if let audio {
+            do {
+                try fm.moveItem(at: audio, to: Self.audioURL(for: url))
+            } catch {
+                // The transcript is saved either way; the recording stays where it was made.
+                print("Couldn't keep the recording with the transcript: \(error)")
+            }
+        }
         load()
         return transcripts.first { $0.url == url } ?? SavedTranscript(url: url, date: date, title: title)
     }
@@ -136,7 +155,9 @@ final class TranscriptStore {
         try String(contentsOf: transcript.url, encoding: .utf8)
     }
 
+    /// Removes the transcript and the recording kept with it.
     func delete(_ transcript: SavedTranscript) throws {
+        if let audio = transcript.audioURL { try remove(audio) }
         try remove(transcript.url)
         load()
     }

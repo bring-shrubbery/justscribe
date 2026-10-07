@@ -82,6 +82,10 @@ struct SettingsView: View {
 
                         Divider()
 
+                        TranscriptsSettingsSection()
+
+                        Divider()
+
                         UpdateSettingsSection()
 
                         Divider()

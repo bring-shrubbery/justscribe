@@ -25,6 +25,7 @@ import SwiftUI
 struct LiveTranscriptionView: View {
     @Bindable var model: LiveTranscriptionModel
     let openSettings: () -> Void
+    @AppStorage(LiveTranscriptionModel.keepAudioKey) private var keepAudio = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -62,6 +63,18 @@ struct LiveTranscriptionView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             speakerOptions
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Keep the recording").font(.body)
+                    Text("Saves the audio next to the transcript in Transcripts, to play back later.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Toggle("", isOn: $keepAudio)
+                    .toggleStyle(.pill)
+                    .labelsHidden()
+            }
 
             if !model.hasModel {
                 HStack {

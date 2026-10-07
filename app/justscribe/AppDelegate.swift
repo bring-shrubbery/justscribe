@@ -702,6 +702,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         transcripts.show()
     }
 
+    /// Opens the Transcripts window; Settings → Transcripts calls this through the app delegate.
+    func showTranscripts() {
+        transcripts.show()
+    }
+
     @objc private func transcribeFileFromMenu() {
         fileTranscription.show()
     }
@@ -837,6 +842,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let defaults = UserDefaults.standard
             let language = defaults.string(forKey: AppSettings.selectedLanguageKey)
             let identifySpeakers = defaults.bool(forKey: LiveTranscriptionModel.identifySpeakersKey)
+            let keepAudio = defaults.bool(forKey: LiveTranscriptionModel.keepAudioKey)
             let meter = longDictationLevel
             let session = LiveTranscriptionSession(
                 kinds: [.microphone], language: language, speakers: identifySpeakers ? .detect : .none,
@@ -848,7 +854,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     }
                 },
                 vocabulary: VocabularyStore.shared.entries,
-                isDictionaryWord: { DictionaryWords.isWord($0, language: language) })
+                isDictionaryWord: { DictionaryWords.isWord($0, language: language) },
+                keepAudio: keepAudio)
             session.onPhaseChange = { [weak self, weak session] phase in
                 guard let self, let session, session === self.longDictation else { return }
                 self.longDictationChanged(to: phase, session: session)
@@ -907,13 +914,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Writes the session's transcript to Transcripts; nil when there was nothing to write.
+    /// Writes the session's transcript, and its recording when one was kept, to Transcripts;
+    /// nil when there was nothing to write.
     @discardableResult
     private func saveLongDictation(_ session: LiveTranscriptionSession) -> SavedTranscript? {
         let text = session.text
-        guard !text.isEmpty else { return nil }
+        guard !text.isEmpty || session.recordedAudio != nil else { return nil }
         do {
-            return try TranscriptStore.shared.save(text, title: Self.longDictationTitle)
+            return try TranscriptStore.shared.save(text, title: Self.longDictationTitle, audio: session.recordedAudio)
         } catch {
             OverlayManager.shared.showError(message: "Couldn't save the transcript: \(error.localizedDescription)")
             return nil

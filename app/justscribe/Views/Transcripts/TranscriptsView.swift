@@ -24,6 +24,7 @@ import SwiftUI
 
 struct TranscriptsView: View {
     let store: TranscriptStore
+    let playback: HistoryPlayback
 
     @State private var selection: URL?
     @State private var text = ""
@@ -40,7 +41,10 @@ struct TranscriptsView: View {
         }
         .frame(minWidth: 680, minHeight: 420)
         .background(Color(nsColor: .windowBackgroundColor))
-        .onChange(of: selection) { loadText() }
+        .onChange(of: selection) {
+            playback.stop()
+            loadText()
+        }
         .onChange(of: store.transcripts) {
             // The selected file is gone (deleted, or removed in the Finder): show the newest instead.
             takeRequestedSelection()
@@ -82,13 +86,19 @@ struct TranscriptsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(store.transcripts, selection: $selection) { transcript in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(Self.rowDate(transcript.date))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(transcript.title)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                    HStack(alignment: .top, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(Self.rowDate(transcript.date))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(transcript.title)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        Spacer(minLength: 4)
+                        if transcript.audioURL != nil {
+                            Image(systemName: "waveform").foregroundStyle(.secondary).font(.caption)
+                        }
                     }
                     .padding(.vertical, 2)
                     .tag(transcript.url)
@@ -160,10 +170,18 @@ struct TranscriptsView: View {
                     }
                     .buttonStyle(.pill)
                     .disabled(text.isEmpty)
+                    if let audio = selected.audioURL {
+                        if playback.playingURL == audio {
+                            Button("Stop") { playback.stop() }.buttonStyle(.pill)
+                        } else {
+                            Button("Play") { playback.play(audio) }.buttonStyle(.pill)
+                        }
+                    }
                     Button("Show in Finder") { store.revealInFinder(selected) }
                         .buttonStyle(.pill)
                     Spacer()
                     Button("Move to Trash", role: .destructive) {
+                        playback.stop()
                         do {
                             try store.delete(selected)
                         } catch {

@@ -154,7 +154,15 @@ index (files dropped in by hand are listed by creation date). Long dictations, f
 transcriptions and finished file transcriptions are saved there by their owners
 (`AppDelegate`, `LiveTranscriptionModel`, `FileTranscriptionModel`, each through an injectable
 `saveTranscript`). The Transcripts window (`Views/Transcripts/`) lists them newest first with
-the text alongside, Copy, Show in Finder and Move to Trash. Dictation through the hotkey is
+the text alongside, Copy, Play, Show in Finder and Move to Trash.
+
+With "Keep Audio Recordings" on (`LiveTranscriptionModel.keepAudioKey`, a plain UserDefaults key
+shown in Settings → Transcripts and in the Live Transcription window, separate from History's),
+a session also writes its whole recording: `LiveAudioMixer` sums the sources by sample count
+(padding one that lags over two seconds) into a temporary `LiveAudioFile`, which the session
+closes before it reports `.finished` or `.failed` and exposes as `recordedAudio`; the owner
+passes it to `TranscriptStore.save(_:title:audio:)`, which moves it next to the transcript as
+`<same name>.m4a`. A cancelled session discards it. Dictation through the hotkey is
 unaffected: it still inserts and, when set, copies.
 
 ### History

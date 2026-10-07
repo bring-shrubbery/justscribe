@@ -28,6 +28,7 @@ final class TranscriptsWindowController: NSObject, NSWindowDelegate {
     static let windowIdentifier = NSUserInterfaceItemIdentifier("transcripts")
 
     private let store: TranscriptStore
+    private let playback = HistoryPlayback()
     private var window: NSWindow?
 
     init(store: TranscriptStore) {
@@ -45,7 +46,7 @@ final class TranscriptsWindowController: NSObject, NSWindowDelegate {
             window.title = "Transcripts"
             window.identifier = Self.windowIdentifier
             window.isReleasedWhenClosed = false
-            let hostingView = NSHostingView(rootView: TranscriptsView(store: store))
+            let hostingView = NSHostingView(rootView: TranscriptsView(store: store, playback: playback))
             hostingView.sizingOptions = [.minSize]
             window.contentView = hostingView
             window.delegate = self
@@ -56,5 +57,9 @@ final class TranscriptsWindowController: NSObject, NSWindowDelegate {
         store.load()
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        playback.stop()
     }
 }
