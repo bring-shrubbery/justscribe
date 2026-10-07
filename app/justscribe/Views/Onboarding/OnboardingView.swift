@@ -185,7 +185,7 @@ struct OnboardingView: View {
                 provider: .fluidAudio,
                 variant: "v3",
                 displayName: "Parakeet v3",
-                sizeDescription: "~250 MB",
+                sizeDescription: "~480 MB",
                 approximateRAMInMB: 600,
                 isRecommended: true,
                 languageSupport: .multilingual
@@ -195,7 +195,7 @@ struct OnboardingView: View {
                 provider: .fluidAudio,
                 variant: "v2",
                 displayName: "Parakeet English",
-                sizeDescription: "~200 MB",
+                sizeDescription: "~460 MB",
                 approximateRAMInMB: 500,
                 isRecommended: false,
                 languageSupport: .englishOnly
@@ -453,15 +453,19 @@ struct OnboardingView: View {
             currentStep = .downloading
         }
 
+        // Follows the download's progress while it runs; the download itself is awaited below.
+        let progressTask = Task {
+            while !Task.isCancelled {
+                downloadProgress = downloadService.progress(for: model.id)
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+
         Task {
+            defer { progressTask.cancel() }
             do {
                 try await downloadService.downloadModel(modelID: model.id)
-
-                // Update progress periodically
-                while downloadService.activeDownloads[model.id] != nil {
-                    downloadProgress = downloadService.progress(for: model.id)
-                    try? await Task.sleep(for: .milliseconds(100))
-                }
+                downloadProgress = 1
 
                 // Set as selected model
                 settings.selectedModelID = model.id

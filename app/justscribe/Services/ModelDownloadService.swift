@@ -129,29 +129,31 @@ final class ModelDownloadService {
         )
     }
 
+    /// Downloads a Parakeet model and checks that every file it needs arrived. It is only
+    /// downloaded here, not loaded: loading compiles it for the Neural Engine, which takes a
+    /// while and is done once, by `TranscriptionService`, when the model is selected.
     private func downloadFluidAudioModel(variant: String, modelID: String) async throws {
         print("Downloading FluidAudio model: \(variant)")
-
-        // FluidAudio downloads automatically when loading
-        // We'll do a "pre-download" by loading and then discarding
         let version: AsrModelVersion = variant == "v2" ? .v2 : .v3
-
-        // Update progress manually since FluidAudio doesn't provide progress callbacks
-        activeDownloads[modelID]?.progress = 0.1
-
-        do {
-            _ = try await AsrModels.downloadAndLoad(version: version)
-            activeDownloads[modelID]?.progress = 1.0
-            print("FluidAudio model downloaded successfully: \(variant)")
-        } catch {
-            print("FluidAudio download error for \(variant): \(error)")
-            print("Error type: \(type(of: error))")
-            if let nsError = error as NSError? {
-                print("NSError domain: \(nsError.domain), code: \(nsError.code)")
-                print("NSError userInfo: \(nsError.userInfo)")
+        // Byte-level progress, so a download of nearly half a gigabyte does not sit at one number.
+        // FluidAudio counts a download as the first half of download-and-load (0…0.5), file by file.
+        let directory = try await AsrModels.download(version: version) { progress in
+            let fraction = progress.fractionCompleted * 2
+            Task { @MainActor in
+                ModelDownloadService.shared.reportProgress(fraction, for: modelID)
             }
-            throw error
         }
+        guard AsrModels.modelsExist(at: directory, version: version) else {
+            print("FluidAudio download of \(variant) is incomplete at \(directory.path)")
+            throw DownloadError.incomplete
+        }
+        print("FluidAudio model downloaded: \(variant) at \(directory.path)")
+    }
+
+    /// Progress that arrives after a download has ended, or for one that never started, is ignored.
+    private func reportProgress(_ fraction: Double, for modelID: String) {
+        guard let task = activeDownloads[modelID], !task.isCompleted else { return }
+        activeDownloads[modelID]?.progress = max(task.progress, min(fraction, 0.99))
     }
 
     func cancelDownload(modelID: String) {
@@ -266,12 +268,15 @@ final class ModelDownloadService {
     // MARK: - Types
 
     enum DownloadError: LocalizedError {
+        case incomplete
         case alreadyDownloading
         case downloadFailed(underlying: Error?)
         case modelNotFound
 
         var errorDescription: String? {
             switch self {
+            case .incomplete:
+                return "Some of the model's files are missing after the download. Try again."
             case .alreadyDownloading:
                 return "This model is already being downloaded."
             case .downloadFailed(let error):

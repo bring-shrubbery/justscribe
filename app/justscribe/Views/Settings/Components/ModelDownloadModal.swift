@@ -171,19 +171,10 @@ struct ModelDownloadModal: View {
         Task {
             do {
                 try await downloadService.downloadModel(modelID: model.id)
-
-                // Auto-select if this is the first downloaded model or no model is selected
-                let isFirstModel = downloadService.downloadedModels.count == 1
-                let noModelSelected = settings.selectedModelID.isEmpty
-
-                if isFirstModel || noModelSelected {
-                    settings.selectedModelID = model.id
-                }
-
-                // Auto-load if this is the selected model
-                if settings.selectedModelID == model.id {
-                    await loadModel(model.id)
-                }
+                // Downloading a model is asking to use it: select and load it, rather than
+                // leaving the previous one in place with nothing to say the new one is ready.
+                settings.selectedModelID = model.id
+                await loadModel(model.id)
             } catch {
                 let errorMessage = error.localizedDescription
                 print("Download failed: \(errorMessage)")
@@ -219,6 +210,7 @@ struct ModelDownloadModal: View {
             print("Model loaded: \(modelID)")
         } catch {
             print("Failed to load model: \(error.localizedDescription)")
+            downloadError = "Couldn't load the model: \(error.localizedDescription)"
         }
     }
 }

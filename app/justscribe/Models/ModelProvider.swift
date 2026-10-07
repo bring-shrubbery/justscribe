@@ -67,7 +67,7 @@ extension UnifiedModelInfo {
             provider: .fluidAudio,
             variant: "v3",
             displayName: "Parakeet v3",
-            sizeDescription: "~250 MB",
+            sizeDescription: "~480 MB",
             approximateRAMInMB: 600,
             isRecommended: true,
             languageSupport: .multilingual
@@ -76,7 +76,7 @@ extension UnifiedModelInfo {
             provider: .fluidAudio,
             variant: "v2",
             displayName: "Parakeet English",
-            sizeDescription: "~200 MB",
+            sizeDescription: "~460 MB",
             approximateRAMInMB: 500,
             isRecommended: false,
             languageSupport: .englishOnly
