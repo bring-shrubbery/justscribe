@@ -43,14 +43,25 @@ struct TranscriptsView: View {
         .onChange(of: selection) { loadText() }
         .onChange(of: store.transcripts) {
             // The selected file is gone (deleted, or removed in the Finder): show the newest instead.
+            takeRequestedSelection()
             if selection != nil, selected == nil { selection = store.transcripts.first?.url }
             if selection == nil { selection = store.transcripts.first?.url }
             loadText()
         }
         .onAppear {
+            takeRequestedSelection()
             if selection == nil { selection = store.transcripts.first?.url }
             loadText()
         }
+        .onChange(of: store.requestedSelection) { takeRequestedSelection() }
+    }
+
+    /// Selects the transcript something asked the window to show, once it is in the list.
+    private func takeRequestedSelection() {
+        guard let requested = store.requestedSelection,
+              store.transcripts.contains(where: { $0.url == requested }) else { return }
+        selection = requested
+        store.requestedSelection = nil
     }
 
     // MARK: - List

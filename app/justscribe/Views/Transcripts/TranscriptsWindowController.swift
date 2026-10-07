@@ -34,7 +34,9 @@ final class TranscriptsWindowController: NSObject, NSWindowDelegate {
         self.store = store
     }
 
-    func show() {
+    /// Opens the window; with `transcript`, that one is selected.
+    func show(selecting transcript: SavedTranscript? = nil) {
+        if let transcript { store.requestedSelection = transcript.url }
         if window == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 760, height: 500),

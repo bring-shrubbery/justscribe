@@ -189,7 +189,7 @@ final class OverlayManager {
         case .listening: return listeningHint ?? "Speak now"
         case .processing: return "Transcribing audio"
         case .completed(let copiedToClipboard): return copiedToClipboard ? "Copied to clipboard" : nil
-        case .saved: return "In Transcripts, from the menu"
+        case .saved: return onTap == nil ? "In Transcripts, from the menu" : "Click to open it in Transcripts"
         case .error: return nil
         }
     }
@@ -338,13 +338,22 @@ final class OverlayManager {
         present()
     }
 
-    func showSaved() {
+    /// Shows "Saved"; with `open`, a click on the indicator calls it, and the indicator stays
+    /// a little longer so there is time to click.
+    func showSaved(open: (() -> Void)? = nil) {
         state = .saved
         stopListeningUpdates()
+        if let open {
+            onTap = { [weak self] in
+                self?.hide()
+                open()
+            }
+        }
         present()
         autoHideTask?.cancel()
+        let seconds = open == nil ? 2.5 : 5.0
         autoHideTask = Task {
-            try? await Task.sleep(for: .seconds(2.5))
+            try? await Task.sleep(for: .seconds(seconds))
             guard !Task.isCancelled else { return }
             hide()
         }

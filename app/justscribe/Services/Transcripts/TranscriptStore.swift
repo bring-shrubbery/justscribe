@@ -42,6 +42,9 @@ final class TranscriptStore {
 
     /// Newest first.
     private(set) var transcripts: [SavedTranscript] = []
+    /// The transcript the Transcripts window should show next, set when something asks for a
+    /// particular one (a click on the "Saved" indicator); the window selects it and clears it.
+    var requestedSelection: URL?
     let directory: URL
     private let remove: (URL) throws -> Void
 

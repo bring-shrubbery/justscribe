@@ -889,8 +889,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if sessionState == .idle { OverlayManager.shared.showProcessing() }
         case .finished:
             longDictation = nil
-            if saveLongDictation(session) {
-                if sessionState == .idle { OverlayManager.shared.showSaved() }
+            if let saved = saveLongDictation(session) {
+                if sessionState == .idle {
+                    OverlayManager.shared.showSaved { [weak self] in self?.transcripts.show(selecting: saved) }
+                }
             } else if sessionState == .idle {
                 OverlayManager.shared.showError(message: "No speech detected")
             }
@@ -905,17 +907,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Writes the session's transcript to Transcripts; false when there was nothing to write.
+    /// Writes the session's transcript to Transcripts; nil when there was nothing to write.
     @discardableResult
-    private func saveLongDictation(_ session: LiveTranscriptionSession) -> Bool {
+    private func saveLongDictation(_ session: LiveTranscriptionSession) -> SavedTranscript? {
         let text = session.text
-        guard !text.isEmpty else { return false }
+        guard !text.isEmpty else { return nil }
         do {
-            try TranscriptStore.shared.save(text, title: Self.longDictationTitle)
-            return true
+            return try TranscriptStore.shared.save(text, title: Self.longDictationTitle)
         } catch {
             OverlayManager.shared.showError(message: "Couldn't save the transcript: \(error.localizedDescription)")
-            return false
+            return nil
         }
     }
 
