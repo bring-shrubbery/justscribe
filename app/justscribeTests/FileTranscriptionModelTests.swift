@@ -132,9 +132,10 @@ final class FileTranscriptionModelTests {
         #expect(model.job?.paragraphs.isEmpty == false)
     }
 
-    /// Polls until `condition` holds or two seconds pass; false on timeout.
+    /// Polls until `condition` holds or ten seconds pass; false on timeout. Generous because a
+    /// busy CI runner can take seconds to run a job that takes milliseconds here.
     private func waitUntil(_ condition: () -> Bool) async -> Bool {
-        let deadline = ContinuousClock.now + .seconds(2)
+        let deadline = ContinuousClock.now + .seconds(10)
         while !condition() {
             if ContinuousClock.now > deadline { return false }
             try? await Task.sleep(for: .milliseconds(5))
