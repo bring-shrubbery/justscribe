@@ -217,6 +217,8 @@ final class OverlayManager {
         config.shadow = .none
         let created = DynamicLanding(configuration: config)
         created.onTap = { [weak self] in self?.onTap?() }
+        // Its window exists from now on, so it is already on every Space when it is first shown.
+        created.prepare()
         island = created
         islandStyle = currentStyle
         return created
@@ -262,6 +264,15 @@ final class OverlayManager {
                 self.waveform = levels
             }
         }
+    }
+
+    /// Creates the indicator in the saved style ahead of the first recording; called at launch.
+    func prepareIndicator() {
+        if let styleRaw = UserDefaults.standard.string(forKey: AppSettings.indicatorStyleKey),
+           let style = OverlayStyle(rawValue: styleRaw) {
+            currentStyle = style
+        }
+        _ = currentIsland()
     }
 
     // MARK: - Show / Hide

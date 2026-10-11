@@ -53,6 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
         OverlayManager.shared.onHidden = { [weak self] in self?.restoreLongDictationIndicator() }
+        OverlayManager.shared.prepareIndicator()
         applySavedVisibilitySettings()
         checkInputMonitoringAndSetupHotkey()
         loadSelectedModel()
