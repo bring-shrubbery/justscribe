@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/bring-shrubbery/dynamic-landing",
       "state" : {
-        "revision" : "589166d9afec11c77629dc3c915df0a4375eab41",
-        "version" : "0.2.5"
+        "revision" : "68a8bbeeb706891b06aa55b9df1226d77ed94de2",
+        "version" : "0.2.6"
       }
     },
     {
