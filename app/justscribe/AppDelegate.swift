@@ -294,6 +294,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @MainActor
     private func handleHotkeyDown() {
+        isHotkeyHeld = true
         switch sessionState {
         case .idle:
             sessionTrigger = RecordingTrigger.stored(UserDefaults.standard.string(forKey: AppSettings.recordingTriggerKey))
@@ -308,6 +309,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @MainActor
     private func handleHotkeyUp() {
+        isHotkeyHeld = false
         guard sessionState == .recording, sessionTrigger == .hold else {
             print("Key up ignored (state: \(sessionState), trigger: \(sessionTrigger))")
             return
@@ -317,12 +319,56 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @MainActor
     private func startRecording() {
-        // Check if model is loaded
         guard TranscriptionService.shared.isModelLoaded else {
+            recordOnceModelLoads()
+            return
+        }
+        recordAfterPermissionCheck()
+    }
+
+    // MARK: - Waiting for the model
+
+    /// Whether the shortcut is down, so a recording that waited for the model can tell whether
+    /// the user is still holding it.
+    private var isHotkeyHeld = false
+    private var modelWait: Task<Void, Never>?
+
+    /// The model the user chose, if it is on disk; nil means there is nothing to load.
+    private var selectedDownloadedModelID: String? {
+        guard let id = UserDefaults.standard.string(forKey: AppSettings.selectedModelIDKey), !id.isEmpty,
+              ModelDownloadService.shared.isModelDownloaded(id) else { return nil }
+        return id
+    }
+
+    /// The shortcut was pressed before the model had loaded (at launch, loading takes a while;
+    /// on a first launch it is also compiled). The indicator says so, the load is joined or
+    /// started, and the recording begins the moment the model is ready: at once in press mode,
+    /// in hold mode if the shortcut is still held, otherwise the indicator says "Ready".
+    private func recordOnceModelLoads() {
+        guard modelWait == nil else { return }
+        guard let modelID = selectedDownloadedModelID else {
             OverlayManager.shared.showError(message: "No model loaded. Please download and select a model in Settings.")
             return
         }
+        OverlayManager.shared.showLoadingModel()
+        modelWait = Task { @MainActor in
+            defer { modelWait = nil }
+            do {
+                try await TranscriptionService.shared.loadModel(unifiedID: modelID)
+            } catch {
+                OverlayManager.shared.showError(message: "The model didn't load — \(error.localizedDescription)")
+                return
+            }
+            guard sessionState == .idle else { return }
+            if sessionTrigger == .pressToToggle || isHotkeyHeld {
+                recordAfterPermissionCheck()
+            } else {
+                OverlayManager.shared.showReady()
+            }
+        }
+    }
 
+    private func recordAfterPermissionCheck() {
         // Check microphone permission
         PermissionsService.shared.checkMicrophonePermission()
         print("startRecording - microphoneStatus: \(PermissionsService.shared.microphoneStatus)")
@@ -686,6 +732,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(NSMenuItem(title: "Transcribe File…", action: #selector(transcribeFileFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "History…", action: #selector(showHistoryFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
+        let modelItem = NSMenuItem(title: "", action: #selector(modelStatusFromMenu), keyEquivalent: "")
+        modelItem.tag = Self.modelStatusTag
+        modelItem.isHidden = true
+        menu.addItem(modelItem)
+        let modelSeparator = NSMenuItem.separator()
+        modelSeparator.tag = Self.modelStatusSeparatorTag
+        modelSeparator.isHidden = true
+        menu.addItem(modelSeparator)
         let longDictationItem = NSMenuItem(title: "Start Long Dictation", action: #selector(toggleLongDictationFromMenu), keyEquivalent: "")
         longDictationItem.tag = Self.longDictationTag
         menu.addItem(longDictationItem)
@@ -807,7 +861,44 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         refreshPermissionWarning()
+        refreshModelStatusItem()
         refreshLongDictationItem()
+    }
+
+    // MARK: - Model status in the menu
+
+    private static let modelStatusTag = 7_003
+    private static let modelStatusSeparatorTag = 7_004
+
+    /// What the menu says about the speech model when it is not ready; hidden when it is.
+    nonisolated static func modelStatusTitle(isLoaded: Bool, isLoading: Bool, failure: String?, hasModel: Bool, name: String?) -> String? {
+        if isLoaded { return nil }
+        if isLoading { return "Loading \(name ?? "the model")…" }
+        if failure != nil { return "The model didn't load — Try Again" }
+        if hasModel { return "Load \(name ?? "the model")" }
+        return "No model — Open Settings…"
+    }
+
+    private func refreshModelStatusItem() {
+        guard let menu = statusItem?.menu, let item = menu.item(withTag: Self.modelStatusTag),
+              let separator = menu.item(withTag: Self.modelStatusSeparatorTag) else { return }
+        let service = TranscriptionService.shared
+        let modelID = selectedDownloadedModelID
+        let name = modelID.flatMap { UnifiedModelInfo.model(forID: $0)?.displayName }
+        let title = Self.modelStatusTitle(isLoaded: service.isModelLoaded, isLoading: service.isModelLoading,
+                                          failure: service.loadFailure, hasModel: modelID != nil, name: name)
+        item.isHidden = title == nil
+        separator.isHidden = title == nil
+        item.title = title ?? ""
+        item.isEnabled = !service.isModelLoading
+    }
+
+    @objc private func modelStatusFromMenu() {
+        if selectedDownloadedModelID != nil {
+            loadSelectedModel()
+        } else {
+            openSettings()
+        }
     }
 
     // MARK: - Long dictation
@@ -830,11 +921,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func startLongDictation() {
         guard longDictation?.isRunning != true else { return }
-        guard TranscriptionService.shared.isModelLoaded else {
-            OverlayManager.shared.showError(message: "No model loaded. Please download and select a model in Settings.")
-            return
-        }
         Task { @MainActor in
+            if !TranscriptionService.shared.isModelLoaded {
+                // Loading, or not loaded yet: wait for it, with the indicator saying so.
+                guard let modelID = selectedDownloadedModelID else {
+                    OverlayManager.shared.showError(message: "No model loaded. Please download and select a model in Settings.")
+                    return
+                }
+                OverlayManager.shared.showLoadingModel()
+                do {
+                    try await TranscriptionService.shared.loadModel(unifiedID: modelID)
+                } catch {
+                    OverlayManager.shared.showError(message: "The model didn't load — \(error.localizedDescription)")
+                    return
+                }
+                guard longDictation?.isRunning != true else { return }
+            }
             guard await LiveTranscriptionModel.requestMicrophone() else {
                 OverlayManager.shared.showError(message: "Microphone access required. Please enable it in System Settings.")
                 return
@@ -985,7 +1087,7 @@ extension AppDelegate: NSMenuItemValidation {
         if menuItem.action == #selector(checkForUpdatesFromMenu) {
             return UpdateService.shared.canCheckForUpdates
         }
-        if menuItem.tag == Self.longDictationTag {
+        if menuItem.tag == Self.longDictationTag || menuItem.tag == Self.modelStatusTag {
             return menuItem.isEnabled
         }
         return true

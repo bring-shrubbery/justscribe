@@ -69,6 +69,16 @@ every launch of a fresh install. Settings shows onboarding whenever that set is 
 
 Grammar correction is a separate opt-in path with its own two-backend split, this time behind a
 `GrammarBackend` protocol rather than an inline switch (`Services/Grammar/`).
+Loading the speech model goes through `TranscriptionService.loadModel(unifiedID:)` only: it
+returns at once for a model already loaded, joins a load of it in flight, waits for a load of
+another model (a Core ML load cannot be stopped), and tries up to `loadAttempts` times with
+`Retry.attempting` (a first launch compiles the model for the Neural Engine, which can fail under
+memory pressure and work a moment later). Nothing may assume the model is loaded right after
+launch: the hotkey, Long Dictation and the Live Transcription window all wait for it with
+"Loading the model…" showing (`AppDelegate.recordOnceModelLoads`: press mode starts when it is
+ready, hold mode starts only if the shortcut is still held, else the indicator says "Ready"),
+and the status menu shows a "Loading…" / "Try Again" / "Open Settings…" line while it is not.
+
 `AppleFoundationGrammarBackend` uses the OS `FoundationModels` model — no download, no RAM budget,
 but unavailable unless Apple Intelligence is enabled — and is the default selection.
 `MLXGrammarBackend` runs Llama 3.1 8B 4-bit, downloaded on demand. `GrammarCorrectionService` is

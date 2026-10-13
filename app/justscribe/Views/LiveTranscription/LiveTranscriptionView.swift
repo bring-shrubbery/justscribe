@@ -76,7 +76,12 @@ struct LiveTranscriptionView: View {
                     .labelsHidden()
             }
 
-            if !model.hasModel {
+            if model.isModelLoading {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Loading the transcription model…").font(.callout).foregroundStyle(.secondary)
+                }
+            } else if !model.hasModel {
                 HStack {
                     Label(LiveTranscriptionSession.Message.noModel, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.secondary)

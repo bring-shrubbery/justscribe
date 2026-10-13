@@ -87,19 +87,64 @@ final class TranscriptionService {
 
     // MARK: - Model Management
 
-    /// Load a model using the unified model ID format (provider:variant)
+    /// The load in flight, and which model it is for. Loads are serialised: a second request
+    /// for the same model waits for the first instead of starting over (two loads at once each
+    /// unloaded the other's work), and a request for another model waits for the one in
+    /// flight, since a Core ML load cannot be stopped.
+    private var loadTask: Task<Void, Error>?
+    private var loadingModelID: String?
+    /// Why the last load failed, until a load succeeds or starts again.
+    private(set) var loadFailure: String?
+    var isModelLoading: Bool { loadTask != nil }
+    /// How many times a load is tried before giving up: a first launch compiles the model for
+    /// the Neural Engine, which can fail under memory pressure and work a moment later.
+    static let loadAttempts = 3
+
+    /// Loads the model with the unified ID (provider:variant), trying again on failure.
+    /// Returns at once when it is loaded already; joins a load of it already in flight.
     func loadModel(unifiedID: String) async throws {
+        guard UnifiedModelInfo.model(forID: unifiedID) != nil else {
+            throw TranscriptionError.modelNotFound
+        }
+        if let loadTask, loadingModelID == unifiedID {
+            try await loadTask.value
+            return
+        }
+        if let loadTask {
+            _ = try? await loadTask.value
+        }
+        if isModelLoaded, loadedModelID == unifiedID { return }
+
+        let task = Task<Void, Error> {
+            try await Retry.attempting(Self.loadAttempts) { try await self.loadOnce(unifiedID: unifiedID) }
+        }
+        loadTask = task
+        loadingModelID = unifiedID
+        loadFailure = nil
+        defer {
+            if loadingModelID == unifiedID {
+                loadTask = nil
+                loadingModelID = nil
+            }
+        }
+        do {
+            try await task.value
+        } catch {
+            loadFailure = error.localizedDescription
+            throw error
+        }
+    }
+
+    private func loadOnce(unifiedID: String) async throws {
         guard let modelInfo = UnifiedModelInfo.model(forID: unifiedID) else {
             throw TranscriptionError.modelNotFound
         }
-
         switch modelInfo.provider {
         case .whisperKit:
             try await loadWhisperModel(variant: modelInfo.variant)
         case .fluidAudio:
             try await loadFluidAudioModel(variant: modelInfo.variant)
         }
-
         loadedModelID = unifiedID
         loadedProvider = modelInfo.provider
     }
@@ -482,8 +527,14 @@ final class TranscriptionService {
 /// What a file job needs from the speech model; a protocol so tests can stand in for it.
 protocol TimedTranscribing: AnyObject {
     var isModelLoaded: Bool { get }
+    /// A load is under way; the model will be there shortly, or a failure will be reported.
+    var isModelLoading: Bool { get }
     var modelGeneration: Int { get }
     func transcribeTimed(_ buffer: [Float], language: String?) async throws -> [TimedWord]
+}
+
+extension TimedTranscribing {
+    var isModelLoading: Bool { false }
 }
 
 extension TranscriptionService: TimedTranscribing {}

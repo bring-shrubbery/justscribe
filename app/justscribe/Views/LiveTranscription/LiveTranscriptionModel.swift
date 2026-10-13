@@ -111,6 +111,7 @@ final class LiveTranscriptionModel {
     }
 
     var hasModel: Bool { transcriber.isModelLoaded }
+    var isModelLoading: Bool { transcriber.isModelLoading }
     var kinds: Set<LiveAudioKind> {
         var kinds = Set<LiveAudioKind>()
         if useMicrophone { kinds.insert(.microphone) }

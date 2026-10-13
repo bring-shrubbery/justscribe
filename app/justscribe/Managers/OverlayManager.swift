@@ -83,11 +83,11 @@ private struct OverlayExpandedView: View {
                 .scaledToFit()
                 .foregroundStyle(.red)
                 .padding(4)
-        case .processing:
+        case .processing, .loadingModel:
             IslandSpinnerView()
                 .foregroundStyle(textColor)
                 .padding(7)
-        case .completed, .saved:
+        case .completed, .saved, .ready:
             Image(systemName: "checkmark.circle.fill")
                 .resizable()
                 .scaledToFit()
@@ -167,6 +167,10 @@ final class OverlayManager {
         case completed(copiedToClipboard: Bool)
         /// A long dictation's transcript has been written to Transcripts.
         case saved
+        /// The shortcut was pressed before the speech model had loaded; it is loading now.
+        case loadingModel
+        /// The model has loaded after such a wait, and the shortcut was let go meanwhile.
+        case ready
         case error(message: String)
     }
 
@@ -192,6 +196,8 @@ final class OverlayManager {
         case .processing: return "Processing..."
         case .completed: return "Done"
         case .saved: return "Saved"
+        case .loadingModel: return "Loading the model…"
+        case .ready: return "Ready"
         case .error(let message): return message
         }
     }
@@ -203,6 +209,8 @@ final class OverlayManager {
         case .processing: return "Transcribing audio"
         case .completed(let copiedToClipboard): return copiedToClipboard ? "Copied to clipboard" : nil
         case .saved: return onTap == nil ? "In Transcripts, from the menu" : "Click to open it in Transcripts"
+        case .loadingModel: return "Dictation starts as soon as it's ready"
+        case .ready: return "Press the shortcut to dictate"
         case .error: return nil
         }
     }
@@ -361,6 +369,28 @@ final class OverlayManager {
 
     /// Shows "Saved"; with `open`, a click on the indicator calls it, and the indicator stays
     /// a little longer so there is time to click.
+    /// Stays up until something else is shown: the model takes as long as it takes.
+    func showLoadingModel() {
+        autoHideTask?.cancel()
+        autoHideTask = nil
+        onTap = nil
+        state = .loadingModel
+        stopListeningUpdates()
+        present()
+    }
+
+    func showReady() {
+        state = .ready
+        stopListeningUpdates()
+        present()
+        autoHideTask?.cancel()
+        autoHideTask = Task {
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
+            hide()
+        }
+    }
+
     func showSaved(open: (() -> Void)? = nil) {
         state = .saved
         stopListeningUpdates()
