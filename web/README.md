@@ -8,13 +8,14 @@ release feed on GitHub, and the app's Settings link to `/privacy`, `/terms`, `/s
 ## Pages
 
 - `src/pages/index.astro`: the home page.
-- `src/pages/*.md` and `src/pages/guides/*.md`: every other page is a Markdown file whose
+- `src/pages/*.md`, `src/pages/guides/*.md` and `src/pages/articles/*.md`: every other page is a Markdown file whose
   frontmatter is its metadata (`title` under 60 characters, `description` of 70 to 160,
   `heading`, `updated`, optional `faq` and `download: false`), rendered by
   `src/layouts/Page.astro`. To add a page, add a file, then link it from
   `src/components/Footer.astro` and `public/llms.txt`.
 - `src/pages/changelog.astro`: generated from GitHub releases at build time.
-- The comparison pages state facts about other products. Each names its sources and the month
+- The comparison pages, and the articles under `articles/` (explainers about other products that
+  stand on their own, with JustScribe mentioned once at most), state facts about other products. Each names its sources and the month
   they were checked; re-check them, and bump `updated`, when you touch the page.
 
 ## Develop

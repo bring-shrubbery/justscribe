@@ -27,6 +27,11 @@ JustScribe is a free, open-source (GPL-3.0) app by Quassum for macOS 26.2 and la
 - [JustScribe as a free Superwhisper alternative](https://justscribe.quassum.com/superwhisper-alternative)
 - [JustScribe as a MacWhisper alternative for dictation](https://justscribe.quassum.com/macwhisper-alternative)
 - [JustScribe vs Apple Dictation](https://justscribe.quassum.com/vs-apple-dictation)
+- [What is Wispr Flow, and how does it work?](https://justscribe.quassum.com/articles/what-is-wispr-flow): an explainer about Wispr Flow itself
+- [Wispr Flow pricing](https://justscribe.quassum.com/articles/wispr-flow-pricing): the free limit, Pro, Growth, Enterprise, students, cancelling
+- [Is Wispr Flow private?](https://justscribe.quassum.com/articles/wispr-flow-privacy): where its audio and text go, the settings, deleting data
+- [Does Wispr Flow work offline?](https://justscribe.quassum.com/articles/does-wispr-flow-work-offline): no; what happens without a connection, what works offline
+- [Wispr Flow not working on a Mac](https://justscribe.quassum.com/articles/wispr-flow-not-working-mac): a checklist by symptom
 - [Changelog](https://justscribe.quassum.com/changelog)
 - [Support](https://justscribe.quassum.com/support)
 - [Privacy policy](https://justscribe.quassum.com/privacy) and [terms](https://justscribe.quassum.com/terms)
