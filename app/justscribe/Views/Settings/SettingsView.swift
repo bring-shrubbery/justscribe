@@ -23,6 +23,15 @@
 import SwiftUI
 import SwiftData
 
+/// What something outside the Settings window asked it to show next ("More Models…" in the
+/// Transcripts window opens Settings on the download sheet); the window takes the request when
+/// it appears or when it is made, and clears it.
+@Observable
+final class SettingsRequests {
+    static let shared = SettingsRequests()
+    var showModelDownload = false
+}
+
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var settings: AppSettings?
@@ -121,7 +130,9 @@ struct SettingsView: View {
         .onAppear {
             settings = AppSettings.getOrCreate(in: modelContext)
             checkForOnboarding()
+            takeRequests()
         }
+        .onChange(of: SettingsRequests.shared.showModelDownload) { takeRequests() }
         .sheet(isPresented: $showingModelDownloadModal) {
             if let settings = settings {
                 ModelDownloadModal(settings: settings)
@@ -133,6 +144,13 @@ struct SettingsView: View {
                 OnboardingView(isPresented: $showingOnboarding, settings: settings)
             }
         }
+    }
+
+    private func takeRequests() {
+        let requests = SettingsRequests.shared
+        guard requests.showModelDownload else { return }
+        requests.showModelDownload = false
+        showingModelDownloadModal = true
     }
 
     private func checkForOnboarding() {

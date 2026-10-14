@@ -44,7 +44,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var transcripts = TranscriptsWindowController(
         store: TranscriptStore.shared,
         retranscription: RetranscriptionModel(
-            store: TranscriptStore.shared, transcriber: TranscriptionService.shared, dictation: self)
+            store: TranscriptStore.shared, transcriber: TranscriptionService.shared, dictation: self),
+        openModelDownload: { [weak self] in self?.openModelDownload() }
     )
     private lazy var history = HistoryWindowController(
         store: HistoryStore.shared,
@@ -781,6 +782,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func showHistoryFromMenu() {
         history.show()
+    }
+
+    /// Opens Settings on the model download sheet.
+    private func openModelDownload() {
+        SettingsRequests.shared.showModelDownload = true
+        openSettings()
     }
 
     @objc private func openSettings() {

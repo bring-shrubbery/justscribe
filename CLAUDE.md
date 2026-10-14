@@ -183,7 +183,9 @@ recording (so it pauses for dictation like any file), saves the text as a new tr
 titled "<Title> (<Model>)" with the original's date and a copy of its recording
 (`TranscriptStore.save(..., transfer: .copy)`, a clone on APFS), selects it, and then loads
 the model chosen in Settings back. The original is never overwritten. The run continues if
-the window closes.
+the window closes. "More Models" in its popover opens Settings on the download sheet through
+`SettingsRequests.shared.showModelDownload`, a flag the Settings view takes on appearing or
+on change and clears, since the sheet's state is private to that view.
 
 ### History
 

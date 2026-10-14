@@ -26,6 +26,8 @@ struct TranscriptsView: View {
     let store: TranscriptStore
     let playback: HistoryPlayback
     let retranscription: RetranscriptionModel
+    /// Opens Settings on the model download sheet.
+    let openModelDownload: () -> Void
 
     @State private var selection: URL?
     @State private var text = ""
@@ -186,15 +188,19 @@ struct TranscriptsView: View {
                         }
                         Button("Transcribe Again…") { isChoosingModel = true }
                             .buttonStyle(.pill)
-                            .disabled(retranscription.isRunning || retranscription.models.isEmpty)
-                            .help(retranscription.models.isEmpty
-                                ? "Download a transcription model in Settings first"
-                                : "Transcribe this recording again with another model")
+                            .disabled(retranscription.isRunning)
+                            .help("Transcribe this recording again with another model")
                             .popover(isPresented: $isChoosingModel, arrowEdge: .bottom) {
-                                RetranscriptionOptions(model: retranscription) { chosen, speakers in
-                                    isChoosingModel = false
-                                    retranscription.start(selected, model: chosen, speakers: speakers)
-                                }
+                                RetranscriptionOptions(
+                                    model: retranscription,
+                                    start: { chosen, speakers in
+                                        isChoosingModel = false
+                                        retranscription.start(selected, model: chosen, speakers: speakers)
+                                    },
+                                    moreModels: {
+                                        isChoosingModel = false
+                                        openModelDownload()
+                                    })
                             }
                     }
                     Button("Show in Finder") { store.revealInFinder(selected) }
@@ -257,6 +263,8 @@ struct TranscriptsView: View {
 private struct RetranscriptionOptions: View {
     @Bindable var model: RetranscriptionModel
     let start: (UnifiedModelInfo, SpeakerRequest) -> Void
+    /// Opens Settings on the model download sheet.
+    let moreModels: () -> Void
 
     @State private var modelID = ""
 
@@ -267,8 +275,13 @@ private struct RetranscriptionOptions: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Transcribe this recording again")
                 .font(.headline)
-            Picker("Model", selection: $modelID) {
-                ForEach(models) { Text($0.fullDisplayName).tag($0.id) }
+            if models.isEmpty {
+                Text("No models downloaded")
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker("Model", selection: $modelID) {
+                    ForEach(models) { Text($0.fullDisplayName).tag($0.id) }
+                }
             }
             Toggle("Identify speakers", isOn: $model.identifySpeakers)
             if model.identifySpeakers {
@@ -286,6 +299,10 @@ private struct RetranscriptionOptions: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
+                Button(action: moreModels) {
+                    Label("More Models", systemImage: "arrow.down.circle")
+                }
+                .buttonStyle(.pill)
                 Spacer()
                 Button("Transcribe") {
                     guard let chosen else { return }

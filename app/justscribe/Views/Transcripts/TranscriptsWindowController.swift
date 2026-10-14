@@ -29,12 +29,14 @@ final class TranscriptsWindowController: NSObject, NSWindowDelegate {
 
     private let store: TranscriptStore
     private let retranscription: RetranscriptionModel
+    private let openModelDownload: () -> Void
     private let playback = HistoryPlayback()
     private var window: NSWindow?
 
-    init(store: TranscriptStore, retranscription: RetranscriptionModel) {
+    init(store: TranscriptStore, retranscription: RetranscriptionModel, openModelDownload: @escaping () -> Void) {
         self.store = store
         self.retranscription = retranscription
+        self.openModelDownload = openModelDownload
     }
 
     /// Opens the window; with `transcript`, that one is selected.
@@ -48,7 +50,9 @@ final class TranscriptsWindowController: NSObject, NSWindowDelegate {
             window.title = "Transcripts"
             window.identifier = Self.windowIdentifier
             window.isReleasedWhenClosed = false
-            let hostingView = NSHostingView(rootView: TranscriptsView(store: store, playback: playback, retranscription: retranscription))
+            let hostingView = NSHostingView(rootView: TranscriptsView(
+                    store: store, playback: playback, retranscription: retranscription,
+                    openModelDownload: openModelDownload))
             hostingView.sizingOptions = [.minSize]
             window.contentView = hostingView
             window.delegate = self
