@@ -41,7 +41,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model: LiveTranscriptionModel(transcriber: TranscriptionService.shared, dictation: self),
         openSettings: { [weak self] in self?.openSettings() }
     )
-    private lazy var transcripts = TranscriptsWindowController(store: TranscriptStore.shared)
+    private lazy var transcripts = TranscriptsWindowController(
+        store: TranscriptStore.shared,
+        retranscription: RetranscriptionModel(
+            store: TranscriptStore.shared, transcriber: TranscriptionService.shared, dictation: self)
+    )
     private lazy var history = HistoryWindowController(
         store: HistoryStore.shared,
         openSettings: { [weak self] in self?.openSettings() }

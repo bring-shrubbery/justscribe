@@ -125,10 +125,22 @@ final class TranscriptStore {
         url.deletingPathExtension().appendingPathExtension("m4a")
     }
 
-    /// Writes `text` as a new transcript and lists it, moving `audio` (a recording) next to it
+    /// How a recording reaches the transcript's folder.
+    enum AudioTransfer {
+        /// The recording is moved: it was made for this transcript.
+        case move
+        /// The recording is copied: another transcript keeps it too (a re-transcription shares
+        /// the recording of the transcript it came from). On APFS the copy is a clone, so it
+        /// takes no space of its own.
+        case copy
+    }
+
+    /// Writes `text` as a new transcript and lists it, putting `audio` (a recording) next to it
     /// under the same name. A name already taken gets a counter.
     @discardableResult
-    func save(_ text: String, title: String, date: Date = Date(), audio: URL? = nil) throws -> SavedTranscript {
+    func save(
+        _ text: String, title: String, date: Date = Date(), audio: URL? = nil, transfer: AudioTransfer = .move
+    ) throws -> SavedTranscript {
         let fm = FileManager.default
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
         let name = Self.fileName(title: title, date: date)
@@ -141,7 +153,10 @@ final class TranscriptStore {
         try text.write(to: url, atomically: true, encoding: .utf8)
         if let audio {
             do {
-                try fm.moveItem(at: audio, to: Self.audioURL(for: url))
+                switch transfer {
+                case .move: try fm.moveItem(at: audio, to: Self.audioURL(for: url))
+                case .copy: try fm.copyItem(at: audio, to: Self.audioURL(for: url))
+                }
             } catch {
                 // The transcript is saved either way; the recording stays where it was made.
                 print("Couldn't keep the recording with the transcript: \(error)")

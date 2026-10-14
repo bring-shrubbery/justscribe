@@ -175,6 +175,16 @@ passes it to `TranscriptStore.save(_:title:audio:)`, which moves it next to the 
 `<same name>.m4a`. A cancelled session discards it. Dictation through the hotkey is
 unaffected: it still inserts and, when set, copies.
 
+A transcript that has its recording can be transcribed again with another model:
+"Transcribe Again…" in the Transcripts window (`RetranscriptionModel`, owned by the window
+controller, one run at a time) loads the chosen downloaded model through
+`TranscriptionService.loadModel(unifiedID:)`, runs a `FileTranscriptionJob` over the
+recording (so it pauses for dictation like any file), saves the text as a new transcript
+titled "<Title> (<Model>)" with the original's date and a copy of its recording
+(`TranscriptStore.save(..., transfer: .copy)`, a clone on APFS), selects it, and then loads
+the model chosen in Settings back. The original is never overwritten. The run continues if
+the window closes.
+
 ### History
 
 Off by default. `HistoryStore` (`Services/History/`) owns `Application Support/<bundle id>/History/`:

@@ -25,10 +25,12 @@ import SwiftUI
 struct TranscriptsView: View {
     let store: TranscriptStore
     let playback: HistoryPlayback
+    let retranscription: RetranscriptionModel
 
     @State private var selection: URL?
     @State private var text = ""
     @State private var notice: String?
+    @State private var isChoosingModel = false
 
     private var selected: SavedTranscript? { store.transcripts.first { $0.url == selection } }
 
@@ -162,6 +164,12 @@ struct TranscriptsView: View {
                 if let notice {
                     Text(notice).font(.caption).foregroundStyle(.secondary)
                 }
+                if retranscription.transcript?.url == selected.url, let status = retranscription.status {
+                    retranscriptionStatus(status)
+                } else if retranscription.noticeURL == selected.url, let notice = retranscription.notice {
+                    Label(notice, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
                 HStack {
                     Button("Copy") {
                         NSPasteboard.general.clearContents()
@@ -176,6 +184,18 @@ struct TranscriptsView: View {
                         } else {
                             Button("Play") { playback.play(audio) }.buttonStyle(.pill)
                         }
+                        Button("Transcribe Again…") { isChoosingModel = true }
+                            .buttonStyle(.pill)
+                            .disabled(retranscription.isRunning || retranscription.models.isEmpty)
+                            .help(retranscription.models.isEmpty
+                                ? "Download a transcription model in Settings first"
+                                : "Transcribe this recording again with another model")
+                            .popover(isPresented: $isChoosingModel, arrowEdge: .bottom) {
+                                RetranscriptionOptions(model: retranscription) { chosen, speakers in
+                                    isChoosingModel = false
+                                    retranscription.start(selected, model: chosen, speakers: speakers)
+                                }
+                            }
                     }
                     Button("Show in Finder") { store.revealInFinder(selected) }
                         .buttonStyle(.pill)
@@ -199,6 +219,25 @@ struct TranscriptsView: View {
         }
     }
 
+    /// The run's progress, with a way to stop it.
+    @ViewBuilder
+    private func retranscriptionStatus(_ status: FileTranscriptionModel.Status) -> some View {
+        HStack(spacing: 12) {
+            switch status {
+            case .working(let text, let progress?):
+                ProgressView(value: progress) { Text(text).font(.caption).lineLimit(1) }
+            case .working(let text, nil):
+                ProgressView { Text(text).font(.caption).lineLimit(1) }
+                    .progressViewStyle(.linear)
+            case .ended(let text, let systemImage):
+                Label(text, systemImage: systemImage).font(.caption).foregroundStyle(.secondary)
+            }
+            Button("Cancel") { retranscription.cancel() }
+                .buttonStyle(.pillSmall)
+                .disabled(retranscription.job?.isCancelling == true)
+        }
+    }
+
     private func loadText() {
         notice = nil
         guard let selected else {
@@ -210,6 +249,62 @@ struct TranscriptsView: View {
         } catch {
             text = ""
             notice = "Couldn't read the transcript: \(error.localizedDescription)"
+        }
+    }
+}
+
+/// The choices for transcribing a recording again: which model, and whether to label speakers.
+private struct RetranscriptionOptions: View {
+    @Bindable var model: RetranscriptionModel
+    let start: (UnifiedModelInfo, SpeakerRequest) -> Void
+
+    @State private var modelID = ""
+
+    private var models: [UnifiedModelInfo] { model.models }
+    private var chosen: UnifiedModelInfo? { models.first { $0.id == modelID } ?? models.first }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Transcribe this recording again")
+                .font(.headline)
+            Picker("Model", selection: $modelID) {
+                ForEach(models) { Text($0.fullDisplayName).tag($0.id) }
+            }
+            Toggle("Identify speakers", isOn: $model.identifySpeakers)
+            if model.identifySpeakers {
+                HStack {
+                    Text("Speakers")
+                    TextField("Detect", text: $model.speakerCountText)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 70)
+                    Text(FileTranscriptionModel.speakerCountHint(for: model.speakerCountText))
+                        .font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            Text("The new transcript is saved next to this one; the model you use for dictation is loaded back afterwards.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button("Transcribe") {
+                    guard let chosen else { return }
+                    start(chosen, model.speakerRequest)
+                }
+                .buttonStyle(.pill)
+                .keyboardShortcut(.defaultAction)
+                .disabled(chosen == nil)
+            }
+        }
+        .padding(16)
+        .frame(width: 340)
+        .onAppear {
+            // The model loaded now first, then the first on disk.
+            if let loaded = model.loadedModelID(), models.contains(where: { $0.id == loaded }) {
+                modelID = loaded
+            } else {
+                modelID = models.first?.id ?? ""
+            }
         }
     }
 }
