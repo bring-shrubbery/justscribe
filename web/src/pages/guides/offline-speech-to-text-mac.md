@@ -3,12 +3,12 @@ layout: ../../layouts/Page.astro
 title: "Offline Speech to Text on Mac: Models and Setup"
 description: "Offline speech to text on a Mac with JustScribe: which on-device model to pick, Parakeet or Whisper, how big each is, and what happens to your audio."
 heading: "Offline speech to text on a Mac"
-updated: "2026-10-02"
+updated: "2026-10-14"
 faq:
   - q: "Can a Mac do speech to text without the internet?"
     a: "Yes. Apple silicon Macs are fast enough to run modern speech recognition models locally. With JustScribe you download a model once, and after that dictation works with no connection at all."
   - q: "Which model should I choose for dictation?"
-    a: "Start with Parakeet v3. It is the recommended model: about 250 MB, multilingual, and fast enough that text appears while you are still speaking. Try a larger Whisper model only if it makes mistakes on your voice or language."
+    a: "Start with Parakeet v3. It is the recommended model: about 480 MB, multilingual, and fast enough that text appears while you are still speaking. Try a larger Whisper model only if it makes mistakes on your voice or language."
   - q: "Is anything uploaded when I dictate?"
     a: "No. The audio is transcribed by the model on your Mac and discarded. JustScribe has no servers to send it to. The only downloads are the model files themselves, once, and update checks."
 ---
@@ -28,8 +28,8 @@ From then on you can turn Wi-Fi off and it keeps working.
 
 | Model | Download | Languages | Choose it when |
 |---|---|---|---|
-| Parakeet v3 | ~250 MB | Multilingual | You want the default: fast and accurate |
-| Parakeet English | ~200 MB | English | You only dictate in English |
+| Parakeet v3 | ~480 MB | Multilingual | You want the default: fast and accurate |
+| Parakeet English | ~460 MB | English | You only dictate in English |
 | Whisper Tiny | ~75 MB | Multilingual | Disk space is very tight |
 | Whisper Base | ~142 MB | Multilingual | You want Whisper at a small size |
 | Whisper Small | ~466 MB | Multilingual | A middle ground |
