@@ -9,7 +9,7 @@ JustScribe is a free, open-source (GPL-3.0) app by Quassum for macOS 26.2 and la
 - Platform: macOS 26.2 or later, Apple silicon only. Signed and notarized disk image; no longer on the Mac App Store.
 - Price: free. No account, subscription or usage limit.
 - How it works: hold the shortcut (default Control + Shift + Space) to record; text streams in while speaking and is re-transcribed for accuracy on release.
-- Transcription models: Parakeet v3 (recommended, multilingual, ~250 MB), Parakeet English (~200 MB), Whisper Tiny, Base, Small, Medium and Large v3 (75 MB to 3 GB). Downloaded on demand.
+- Transcription models: Parakeet v3 (recommended, 25 European languages, ~480 MB), Parakeet English (~460 MB), Whisper Tiny, Base, Small, Medium and Large v3 (75 MB to 3 GB). Downloaded on demand.
 - Clean-up (grammar correction with your own per-app instructions): optional, on-device, through Apple Intelligence or Llama 3.1 8B (~4.6 GB).
 - Permissions: Microphone, and Accessibility to type into other apps.
 - File transcription: drop an audio or video file (m4a, mp3, wav, aiff, caf, flac, mp4, mov, m4v) on the Transcribe File window for a transcript with timestamps and optional speaker labels; copy it or save it as text. Also on-device.
@@ -32,6 +32,13 @@ JustScribe is a free, open-source (GPL-3.0) app by Quassum for macOS 26.2 and la
 - [Is Wispr Flow private?](https://justscribe.quassum.com/articles/wispr-flow-privacy): where its audio and text go, the settings, deleting data
 - [Does Wispr Flow work offline?](https://justscribe.quassum.com/articles/does-wispr-flow-work-offline): no; what happens without a connection, what works offline
 - [Wispr Flow not working on a Mac](https://justscribe.quassum.com/articles/wispr-flow-not-working-mac): a checklist by symptom
+- [Wispr Flow vs Superwhisper](https://justscribe.quassum.com/articles/wispr-flow-vs-superwhisper): cloud versus local, price, editing, who should pick which
+- [Wispr Flow vs Apple Dictation](https://justscribe.quassum.com/articles/wispr-flow-vs-apple-dictation): what the paid app adds to the built-in one
+- [Superwhisper pricing](https://justscribe.quassum.com/articles/superwhisper-pricing): free tier, Pro monthly, yearly and lifetime
+- [Does Superwhisper work offline?](https://justscribe.quassum.com/articles/does-superwhisper-work-offline): yes with local models; what still needs a connection
+- [Dictate into Cursor, VS Code and Claude Code](https://justscribe.quassum.com/articles/dictate-into-cursor-vs-code-and-claude-code): built-in voice modes and system-wide dictation
+- [Parakeet vs Whisper](https://justscribe.quassum.com/articles/parakeet-vs-whisper): the two on-device speech models compared
+- [The Fn key on a Mac](https://justscribe.quassum.com/articles/mac-fn-key): what it does and how to use it for dictation
 - [Changelog](https://justscribe.quassum.com/changelog)
 - [Support](https://justscribe.quassum.com/support)
 - [Privacy policy](https://justscribe.quassum.com/privacy) and [terms](https://justscribe.quassum.com/terms)
