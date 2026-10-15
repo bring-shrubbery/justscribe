@@ -43,7 +43,10 @@ window scene. **The real app logic lives in `AppDelegate.swift`**, which orchest
    `TranscriptionService.startStreamingTranscription(chunkInterval: 2.0)`.
 2. During recording, streaming chunks arrive on `onTranscriptionUpdate`; only the *delta* is typed,
    tracked by `typedTextLength` via `ClipboardService.typeNewText(fullText:previouslyTypedLength:)`.
-3. Key up → stop streaming → re-transcribe the full audio buffer for accuracy (30s timeout, falls
+3. Key up → stop streaming → `ShortRecording.outcome` (`Models/ShortRecording.swift`): a
+   recording under 1 s with nothing heard (`LiveTranscript.isSilent`) is a tap by mistake and
+   the indicator just hides; one under 0.3 s with sound shows "Recording too short"; the rest
+   goes on → re-transcribe the full audio buffer for accuracy (30s timeout, falls
    back to the streamed text) → optional grammar correction, which *replaces* the already-typed text
    via `ClipboardService.replaceTypedText` → optional clipboard copy → reset to `idle`.
 

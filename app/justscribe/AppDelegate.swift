@@ -524,20 +524,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Stop audio capture
         AudioCaptureService.shared.stopRecording()
 
-        // Short-recording guard: skip transcription if < 0.3s
-        if AudioCaptureService.shared.recordingDuration < 0.3 {
-            print("Recording too short (\(AudioCaptureService.shared.recordingDuration)s), skipping transcription")
+        // Get audio buffer for final transcription
+        let audioBuffer = AudioCaptureService.shared.getAudioBuffer()
+        diagnostic.samples = audioBuffer.count
+
+        // Short-recording guard: a tap on the shortcut with nothing heard just goes away; a
+        // recording too short for the model with something in it says so.
+        let duration = AudioCaptureService.shared.recordingDuration
+        switch ShortRecording.outcome(duration: duration, isSilent: LiveTranscript.isSilent(audioBuffer)) {
+        case .dismissQuietly:
+            print("Recording too short (\(duration)s) and silent, dismissing")
+            outcome = "Dismissed: a tap with nothing heard"
+            OverlayManager.shared.hide()
+            AudioCaptureService.shared.clearBuffer()
+            typedTextLength = 0
+            sessionState = .idle
+            return
+        case .tooShort:
+            print("Recording too short (\(duration)s), skipping transcription")
             outcome = "Recording too short"
             OverlayManager.shared.showError(message: "Recording too short")
             AudioCaptureService.shared.clearBuffer()
             typedTextLength = 0
             sessionState = .idle
             return
+        case .transcribe:
+            break
         }
-
-        // Get audio buffer for final transcription
-        let audioBuffer = AudioCaptureService.shared.getAudioBuffer()
-        diagnostic.samples = audioBuffer.count
         diagnostic.rms = SessionDiagnostic.rms(audioBuffer)
         let finalPassStarted = ContinuousClock.now
         print("Audio buffer size: \(audioBuffer.count) samples (\(Double(audioBuffer.count) / 16000.0) seconds at 16kHz)")
