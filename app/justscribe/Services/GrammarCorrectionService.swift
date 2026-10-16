@@ -41,6 +41,8 @@ final class GrammarCorrectionService {
 
     private let appleBackend = AppleFoundationGrammarBackend()
     private let mlxBackend = MLXGrammarBackend()
+    private let hostedBackends: [HostedProvider: HostedGrammarBackend] = Dictionary(
+        uniqueKeysWithValues: HostedProvider.allCases.map { ($0, HostedGrammarBackend(provider: $0)) })
     private var activeBackend: (any GrammarBackend)?
 
     private init() {
@@ -54,7 +56,13 @@ final class GrammarCorrectionService {
         switch model.backend {
         case .apple: return appleBackend
         case .mlx: return mlxBackend
+        case .hosted(let provider): return hostedBackends[provider]
         }
+    }
+
+    /// The backend for a hosted provider, for the Settings row that keeps its key and model.
+    func hostedBackend(for provider: HostedProvider) -> HostedGrammarBackend {
+        hostedBackends[provider]!
     }
 
     func refreshDownloadedModels() {
@@ -64,7 +72,7 @@ final class GrammarCorrectionService {
 
     /// Whether the model can be used right now with no further download. For MLX
     /// models that means the weights are on disk; for the Apple model it means
-    /// Apple Intelligence is enabled and ready.
+    /// Apple Intelligence is enabled and ready; for a hosted provider, that a key is saved.
     func isReadyToUse(_ modelID: String) -> Bool {
         backend(for: modelID)?.availability == .available
     }

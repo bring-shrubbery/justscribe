@@ -49,15 +49,19 @@ struct CleanUpSettingsSection: View {
                 )
 
                 if settings.grammarCorrectionEnabled {
-                    ForEach(GrammarCorrectionModel.allModels) { model in
+                    ForEach(GrammarCorrectionModel.allModels.filter { !$0.backend.isHosted }) { model in
                         Divider()
                         switch model.backend {
                         case .apple:
                             AppleGrammarModelRow(model: model, settings: settings)
                         case .mlx:
                             MLXGrammarModelRow(model: model, settings: settings)
+                        case .hosted:
+                            EmptyView()
                         }
                     }
+                    Divider()
+                    HostedGrammarRow(settings: settings)
                     Divider()
                     ModesList(store: ModeStore.shared)
                 }
@@ -275,6 +279,149 @@ private struct AppleGrammarModelRow: View {
                 }
                 .buttonStyle(.pill)
             }
+        }
+    }
+}
+
+/// One row for every hosted provider: pick the provider, type a model name, paste a key. The
+/// key goes to the keychain, never to defaults or logs; the row says plainly that the text
+/// leaves the Mac.
+private struct HostedGrammarRow: View {
+    @Bindable var settings: AppSettings
+    private var service: GrammarCorrectionService { GrammarCorrectionService.shared }
+
+    @State private var provider: HostedProvider = HostedProvider(
+        rawValue: UserDefaults.standard.string(forKey: HostedProvider.selectedKey) ?? "") ?? .groq
+    @State private var keyDraft = ""
+    @State private var modelDraft = ""
+    @State private var notice: String?
+    @State private var hasKey = false
+
+    private var backend: HostedGrammarBackend { service.hostedBackend(for: provider) }
+    private var isLoaded: Bool { service.isModelLoaded && service.loadedModelID == provider.modelID }
+    private var isLoading: Bool { service.isLoadingModel && settings.selectedGrammarModelID == provider.modelID }
+    private var isSelected: Bool { settings.selectedGrammarModelID == provider.modelID }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "cloud")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Hosted provider").font(.body)
+                    Text("Clean-up through a service with your own API key. Everything you dictate is sent to it; the key is kept in your keychain.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: 8) {
+                    Picker("Provider", selection: $provider) {
+                        ForEach(HostedProvider.allCases) { Text($0.displayName).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    Link("Get an API key", destination: provider.keyPageURL)
+                        .font(.caption)
+                }
+
+                HStack(spacing: 8) {
+                    Text("Model").font(.callout)
+                    TextField(provider.defaultModel, text: $modelDraft)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+                        .onSubmit { backend.setModel(modelDraft) }
+                        .onChange(of: modelDraft) { backend.setModel(modelDraft) }
+                }
+
+                HStack(spacing: 8) {
+                    SecureField(hasKey ? "Key saved — paste a new one to replace it" : "Paste your API key", text: $keyDraft)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+                        .onSubmit(saveKey)
+                    Button("Save") { saveKey() }
+                        .buttonStyle(.pillSmall)
+                        .disabled(keyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if hasKey {
+                        Button("Remove") { removeKey() }.buttonStyle(.pillSmall)
+                    }
+                }
+
+                if isLoaded {
+                    Label("Loaded", systemImage: "checkmark.circle.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                } else if isLoading {
+                    HStack(spacing: 6) {
+                        ProgressView().scaleEffect(0.6)
+                        Text("Loading…").font(.caption).foregroundStyle(.secondary)
+                    }
+                } else if let notice {
+                    Text(notice).font(.caption).foregroundStyle(.orange)
+                }
+            }
+
+            Spacer()
+
+            if hasKey, !isLoaded, !isLoading {
+                Button {
+                    settings.selectedGrammarModelID = provider.modelID
+                    Task { await load() }
+                } label: {
+                    Label("Use", systemImage: "checkmark.circle")
+                        .font(.callout)
+                }
+                .buttonStyle(.pill)
+            }
+        }
+        .onAppear(perform: refresh)
+        .onChange(of: provider) {
+            UserDefaults.standard.set(provider.rawValue, forKey: HostedProvider.selectedKey)
+            keyDraft = ""
+            refresh()
+        }
+    }
+
+    private func refresh() {
+        hasKey = backend.hasKey
+        modelDraft = backend.customModel
+        notice = nil
+    }
+
+    private func saveKey() {
+        do {
+            try backend.setKey(keyDraft)
+            keyDraft = ""
+            hasKey = backend.hasKey
+            notice = nil
+            // The key for the provider in use replaces the one the loaded backend held.
+            if isSelected { Task { await load() } }
+        } catch {
+            notice = error.localizedDescription
+        }
+    }
+
+    private func removeKey() {
+        do {
+            try backend.setKey(nil)
+            hasKey = false
+            if isSelected { service.unloadModel() }
+        } catch {
+            notice = error.localizedDescription
+        }
+    }
+
+    private func load() async {
+        do {
+            try await service.loadModel(modelID: provider.modelID)
+            notice = nil
+        } catch {
+            notice = error.localizedDescription
         }
     }
 }

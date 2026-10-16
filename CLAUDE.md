@@ -84,7 +84,15 @@ and the status menu shows a "Loading…" / "Try Again" / "Open Settings…" line
 
 `AppleFoundationGrammarBackend` uses the OS `FoundationModels` model — no download, no RAM budget,
 but unavailable unless Apple Intelligence is enabled — and is the default selection.
-`MLXGrammarBackend` runs Llama 3.1 8B 4-bit, downloaded on demand. `GrammarCorrectionService` is
+`MLXGrammarBackend` runs Llama 3.1 8B 4-bit, downloaded on demand. `HostedGrammarBackend` (one
+instance per `HostedProvider`: Groq, Anthropic, OpenAI, Gemini, Mistral, OpenRouter) sends the
+text to the provider with the user's own API key, kept in the keychain through `SecretStore`
+(`KeychainSecretStore` in the app, a dictionary in tests) and never in defaults or logs; its
+model IDs are `hosted:<provider>` and it is "ready" when a key is saved. Every provider but
+Anthropic speaks the OpenAI chat-completions dialect; Anthropic gets its Messages API with
+`x-api-key` and `anthropic-version`. Request and reply shapes are pure in `HostedRequest` and
+tested without a network; the model name is a user-editable field with a per-provider default,
+since those names go stale. `GrammarCorrectionService` is
 just the router plus the `@Observable` state the settings UI binds to.
 
 Because the Apple model needs no download, `isReadyToUse(_:)` — not "is it downloaded" — is the

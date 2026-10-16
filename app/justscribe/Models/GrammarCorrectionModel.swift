@@ -26,6 +26,13 @@ nonisolated enum GrammarModelBackend: Hashable {
     case apple
     /// An MLX model downloaded from Hugging Face and held in our process.
     case mlx
+    /// A hosted service reached with the user's own API key; the text leaves the Mac.
+    case hosted(HostedProvider)
+
+    var isHosted: Bool {
+        if case .hosted = self { return true }
+        return false
+    }
 }
 
 nonisolated struct GrammarCorrectionModel: Identifiable, Hashable {
@@ -62,7 +69,8 @@ nonisolated struct GrammarCorrectionModel: Identifiable, Hashable {
         approximateRAMInMB: 5120
     )
 
-    static let allModels: [GrammarCorrectionModel] = [.appleFoundation, .llama3_1_8b_4bit]
+    static let allModels: [GrammarCorrectionModel] =
+        [.appleFoundation, .llama3_1_8b_4bit] + HostedProvider.allCases.map(\.grammarModel)
 
     /// Selected for new installs: no download, no RAM cost.
     static let defaultModelID = appleFoundation.id
