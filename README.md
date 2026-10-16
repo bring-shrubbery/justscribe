@@ -16,7 +16,7 @@ Native macOS app for fast voice-to-text dictation anywhere on your system. [Down
 - Live transcription while you speak, then a final pass on release for accuracy. The finished text is pasted into the field you are in, or typed as you speak if you prefer.
 - Spoken commands: "new line", "new paragraph", "scratch that", "delete that", "stop recording", "send", and spoken punctuation when you turn it on.
 - A vocabulary for the names and words it must spell right, and clean-up modes that follow the app you dictate into.
-- Optional on-device clean-up of grammar, spelling and punctuation, with Apple Intelligence (no download) or a local Llama 3.1 8B model.
+- Optional clean-up of grammar, spelling and punctuation. On your Mac with Apple Intelligence (no download) or a local Llama 3.1 8B model; or, if you prefer a bigger model, through a hosted provider with your own API key (Groq, Anthropic, OpenAI, Google Gemini, Mistral, OpenRouter), or through Claude Code or the Codex CLI when either is installed and signed in to your account.
 - Optional copy of each dictation to the clipboard, and an optional history of your dictations, with or without the recordings (off by default; everything stays on your Mac).
 
 ### Long recordings
@@ -24,11 +24,11 @@ Native macOS app for fast voice-to-text dictation anywhere on your system. [Down
 - **Live Transcription** records for as long as you like — a talk, a call, a meeting — from your microphone, from what other apps play (system audio), or both, and writes the transcript while it runs. With both sources, what you say is labelled "You" and the other side is told apart into Speaker 1, 2… when you stop.
 - **Long Dictation** from the menu bar runs the same way with only the recording indicator, no window.
 - **Transcribe File** turns an audio or video file you already have into a transcript, with timestamps and optional speaker labels.
-- **Transcripts** keeps every one of them as a text file, with timestamps and speaker labels, listed by date to read, copy or show in the Finder.
+- **Transcripts** keeps every one of them as a text file, with timestamps and speaker labels, listed by date to read, copy, play or show in the Finder. Turn on Keep Audio Recordings and each long dictation and live transcription keeps its recording next to the transcript, which you can play back or transcribe again with another model.
 
 ### On your Mac
 
-- Everything runs on-device: transcription, speaker identification and clean-up. Nothing is uploaded.
+- Everything runs on-device: transcription, speaker identification and, by default, clean-up. Nothing is uploaded unless you choose a hosted provider or a coding agent's CLI for clean-up, and then only the text of each dictation goes out, never audio.
 - Models to choose from: Parakeet v3 (recommended, multilingual), Parakeet English, Whisper Tiny to Large v3.
 - A menu bar app: no Dock icon unless you want one, a confirmation before quitting, and automatic updates.
 - Microphone priority order. A Bluetooth headset's microphone is used only when you put it first, so your headphones stay in full quality while you record.
