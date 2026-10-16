@@ -3,7 +3,7 @@ layout: ../layouts/Page.astro
 title: "JustScribe Privacy Policy"
 description: "JustScribe transcribes on your Mac and has no servers: your audio and text are never collected. What the app and this website do and do not do with your data."
 heading: "JustScribe Privacy Policy"
-updated: "2026-10-06"
+updated: "2026-10-16"
 download: false
 ---
 
@@ -36,7 +36,7 @@ JustScribe uses on-device machine learning models (Parakeet and Whisper) to tran
 
 - Audio is held in memory while you record and discarded afterwards. It is not saved to disk unless you turn on Keep Audio Recordings in History (see below).
 - Audio is never uploaded. We do not operate transcription servers.
-- Optional grammar correction also runs on your Mac, using either the language model built into macOS (Apple Intelligence) or a Llama model stored on your Mac.
+- Optional grammar correction also runs on your Mac, using either the language model built into macOS (Apple Intelligence) or a Llama model stored on your Mac. You can instead choose a hosted provider (Groq, Anthropic, OpenAI, Google Gemini, Mistral or OpenRouter) and paste your own API key; then, and only then, the text of each dictation is sent to that provider for clean-up under its own privacy terms. Audio is never sent. The key is kept in your Mac's keychain, is sent only to the provider you chose, and is removed when you remove it in Settings.
 - Files you transcribe are read where they are and never uploaded. When you ask for speakers to be identified, the App writes a temporary copy of the file's audio inside its own sandbox container and deletes it when the pass ends; if the App was quit or failed meanwhile, the copy is removed the next time the App starts or identifies speakers.
 - A Live Transcription or a Long Dictation is transcribed on your Mac as it is recorded. Its audio is kept only for the few seconds the speech model needs, except that when you ask for speakers to be identified the App writes the audio it will identify them in (the system audio when it is recorded, otherwise the microphone) to a temporary file inside its own sandbox container and deletes it when the pass ends.
 - Transcripts from Long Dictation, Live Transcription and Transcribe File are saved as plain-text files in the App's own sandbox container (the Transcripts window shows them, and "Show in Finder" opens the folder). They stay on your Mac until you move them to the Trash from that window or delete the files yourself. If you turn on Keep Audio Recordings in Settings → Transcripts, the recording of each Long Dictation and Live Transcription is saved next to its transcript in the same place, and is removed with it.
@@ -47,7 +47,7 @@ Your settings, the model files you download, your vocabulary and dictation modes
 
 ## When the App uses the network
 
-The App contacts the internet in three cases. None of them sends audio or text.
+The App contacts the internet in three cases. None of them sends audio or text (the optional hosted clean-up above is the one exception, and it sends text only).
 
 - **Downloading a model.** When you choose a transcription model, the optional Llama grammar model, or turn on speaker identification for file transcription, the App downloads it from Hugging Face (huggingface.co). As with any download, Hugging Face sees your IP address and which file was requested. Their handling of that request is covered by their own privacy policy.
 - **Checking for updates.** The App checks for a new version when it starts and about once a day. The check requests a small file from justscribe.quassum.com, which redirects to GitHub (github.com), and a newer version is downloaded from GitHub. Those services see your IP address and the App's version. You can turn automatic updates off in Settings; a manual check makes the same requests.

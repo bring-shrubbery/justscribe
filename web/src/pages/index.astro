@@ -26,7 +26,7 @@ const faq: { q: string; a: string }[] = [
   },
   {
     q: 'Does it work offline?',
-    a: 'Yes. Transcription and grammar correction run on your Mac; your audio never leaves it. The only network use is downloading a model the first time you pick it, and checking for updates.',
+    a: 'Yes. Transcription runs on your Mac and your audio never leaves it. Grammar correction runs on your Mac too, unless you choose a hosted provider and paste your own API key, in which case the text of each dictation goes to that provider. The only other network use is downloading a model the first time you pick it, and checking for updates.',
   },
   {
     q: 'Which Macs does it run on?',
@@ -87,7 +87,7 @@ const structuredData = {
         'Dictate into any app with a global hold-to-record shortcut',
         'Live transcription while you speak, with a final accuracy pass on release',
         'On-device transcription with Parakeet and Whisper models',
-        'Optional on-device grammar, spelling and punctuation correction',
+        'Optional grammar, spelling and punctuation correction, on-device or through a hosted provider with your own API key',
         'Customizable shortcut, including modifier-only shortcuts',
         'Transcription of audio and video files with timestamps and speaker labels',
         'Automatic updates',
