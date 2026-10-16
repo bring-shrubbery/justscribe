@@ -3,7 +3,7 @@ layout: ../../layouts/Page.astro
 title: "Dictate Into Cursor, VS Code and Claude Code on a Mac"
 description: "How to talk to coding agents instead of typing: the voice modes in Claude Code, Cursor and VS Code, their limits, and dictation that works in all three."
 heading: "How to dictate into Cursor, VS Code and Claude Code on a Mac"
-updated: "2026-10-14"
+updated: "2026-10-17"
 faq:
   - q: "Does Claude Code have voice input?"
     a: "Yes. Run /voice in the CLI, then hold Space to speak, or switch to tap mode to toggle recording. It needs a Claude.ai sign-in and a local microphone, and the audio is transcribed on Anthropic's servers. The VS Code extension has the same feature."
@@ -62,7 +62,7 @@ Three things to get right for coding use:
 
 - **Wispr Flow** is cloud-based and defaults to the `Fn` key. Its Context Awareness reads the text around your cursor, which helps with names and should be turned off for code that must not leave the machine. It has a help page on using it with Cursor and VS Code.
 - **Superwhisper** runs models locally, with cloud options, and its modes can be set per app.
-- **JustScribe**, which we make, is free, open source and on-device only. Its vocabulary takes "heard as" forms for identifiers, and its clean-up modes are bound to apps, so a mode for Cursor and the terminal can be told to leave code words alone while a mode for Slack fixes grammar. [How it works.](/)
+- **JustScribe**, which we make, is free and open source and transcribes on your Mac. Clean-up is on-device too, or, if you already use Claude Code or the Codex CLI, it can run through that, signed in to your account. Its vocabulary takes "heard as" forms for identifiers, and its clean-up modes are bound to apps, so a mode for Cursor and the terminal can be told to leave code words alone while a mode for Slack fixes grammar. [How it works.](/)
 
 ## A workflow that holds up
 

@@ -3,7 +3,7 @@ layout: ../layouts/Page.astro
 title: "MacWhisper Alternative for Dictation: JustScribe (Free)"
 description: "MacWhisper is built for transcribing files and meetings. JustScribe is a free, open-source Mac app built only for dictation into any app."
 heading: "A free MacWhisper alternative for dictation"
-updated: "2026-10-03"
+updated: "2026-10-17"
 faq:
   - q: "Can JustScribe replace MacWhisper?"
     a: "For dictation, yes: JustScribe types what you say into any Mac app, for free. It also transcribes audio and video files, with timestamps and speaker labels. It does not record meetings, export subtitles or batch-process files, which are MacWhisper's main jobs."
@@ -28,7 +28,7 @@ faq:
 | Speaker labels | Yes | Yes |
 | Subtitles and export formats | No, plain text only | Yes |
 | Live text while you speak | Yes | Check its feature list |
-| Grammar correction | Yes, on-device | Yes |
+| Grammar correction | Yes: on-device, or with your own API key or coding-agent CLI | Yes |
 
 MacWhisper details are from [macwhisper.com](https://www.macwhisper.com) as of October 2026; its comparison table shows which features need the Pro licence.
 

@@ -3,7 +3,7 @@ layout: ../../layouts/Page.astro
 title: "Does Superwhisper Work Offline? Yes, With Local Models"
 description: "Superwhisper transcribes on your Mac with local Whisper, Parakeet or Cohere models and needs no connection for that. What still needs the internet."
 heading: "Does Superwhisper work offline?"
-updated: "2026-10-14"
+updated: "2026-10-17"
 faq:
   - q: "Does Superwhisper need an internet connection?"
     a: "Not for transcription with a local model. Superwhisper's documentation says local models work without an account or an internet connection. You need to be online to download a model the first time and to use any of its cloud voice or language models."
@@ -57,7 +57,7 @@ Superwhisper's current releases need macOS 14 or later. Local models run well on
 
 ## The alternatives, briefly
 
-Apple's built-in Dictation processes on the device on Apple silicon Macs, with no clean-up step. Our own [JustScribe](/guides/offline-speech-to-text-mac) is local only, with Parakeet and Whisper for speech and an on-device model for clean-up, and no cloud option to fall back to by accident. Wispr Flow has no offline mode at any price.
+Apple's built-in Dictation processes on the device on Apple silicon Macs, with no clean-up step. Our own [JustScribe](/guides/offline-speech-to-text-mac) transcribes locally with Parakeet and Whisper and cleans up with an on-device model by default. It has cloud options for clean-up only, a hosted model with your own API key or Claude Code or the Codex CLI, and never falls back to one by itself: you have to pick it. Wispr Flow has no offline mode at any price.
 
 ## Sources
 

@@ -144,11 +144,11 @@ const structuredData = {
         <li><strong>Dictate anywhere.</strong> A global shortcut works in every app: editors, browsers, chat, the terminal. The text goes where your cursor is.</li>
         <li><strong>Hold to record.</strong> When you let go, JustScribe transcribes the whole recording once more for accuracy and pastes the result into the field you are in, in one go. Prefer to see the words appear as you speak? Switch to typing in Settings.</li>
         <li><strong>Stay on your Mac.</strong> Transcription runs on-device with Parakeet or Whisper models. Nothing is uploaded.</li>
-        <li><strong>Fix the grammar, if you like.</strong> Optional on-device correction of grammar, spelling and punctuation, using Apple Intelligence or a local Llama model.</li>
+        <li><strong>Fix the grammar, if you like.</strong> Optional correction of grammar, spelling and punctuation: on your Mac with Apple Intelligence or a local Llama model, or, when you want a bigger model, through a hosted provider with your own API key, or through Claude Code or the Codex CLI if you have one installed. <a href="/guides/grammar-correction">How it works.</a></li>
         <li><strong>Make it yours.</strong> Any shortcut, including modifier-only ones; microphone priority order; a floating bubble or a notch indicator; light and dark appearance.</li>
         <li><strong>Transcribe files too.</strong> Drop an audio or video file on the Transcribe File window and get a transcript with timestamps and, if you like, speaker labels. <a href="/guides/transcribe-audio-files-mac">How it works.</a></li>
         <li><strong>Record for as long as you like.</strong> Live Transcription takes a talk, a call or a meeting from your microphone, from what other apps play, or both, and writes the transcript while it runs — what you say labelled as you, the other side told apart by speaker. Start a Long Dictation from the menu and it runs the same way without a window.</li>
-        <li><strong>Keep every transcript.</strong> Long dictations, live transcriptions and transcribed files are saved as text files with timestamps and speaker labels, and the Transcripts window lists them by date to read, copy or show in the Finder.</li>
+        <li><strong>Keep every transcript.</strong> Long dictations, live transcriptions and transcribed files are saved as text files with timestamps and speaker labels, and the Transcripts window lists them by date to read, copy or show in the Finder. Keep the recordings too, and you can play them back or transcribe one again with another model.</li>
         <li><strong>Stay out of the way.</strong> Lives in the menu bar, can launch at login, can copy each transcription to the clipboard, and updates itself.</li>
         <li><strong>Remember what you said, if you want.</strong> An optional history of your dictations, with or without the recordings, kept on your Mac and off by default.</li>
         <li><strong>Knows your words.</strong> A vocabulary for names and jargon, spoken commands, press-to-toggle recording, and clean-up modes per app — all on your Mac.</li>
@@ -187,7 +187,10 @@ const structuredData = {
       </div>
       <p class="muted">
         Grammar correction is off by default. It can use the model built into macOS when Apple Intelligence is
-        enabled (no download), or Llama 3.1 8B (~4.6 GB download, about 5 GB of memory while loaded).
+        enabled (no download), or Llama 3.1 8B (~4.6 GB download, about 5 GB of memory while loaded). If you would
+        rather use a bigger model, paste your own API key for Groq, Anthropic, OpenAI, Google Gemini, Mistral or
+        OpenRouter, or let Claude Code or the Codex CLI do it when one is installed; only then does the text leave
+        your Mac.
       </p>
       <div class="shots">
         <figure>
