@@ -10,6 +10,28 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- Clean-up through Claude Code or Codex runs those tools as child processes, which
+	     inherit this sandbox: they may read and write their own configuration (the sign-in
+	     lives there), and the app may read the folders they are usually installed in.
+	     Nothing else of the home folder is opened up. -->
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+	<array>
+		<string>/.claude/</string>
+		<string>/.claude.json</string>
+		<string>/.codex/</string>
+	</array>
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
+	<array>
+		<string>/.local/bin/</string>
+		<string>/.nvm/</string>
+		<string>/.volta/</string>
+		<string>/.npm-global/</string>
+	</array>
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
+	<array>
+		<string>/opt/homebrew/</string>
+		<string>/usr/local/</string>
+	</array>
 	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER)-spks</string>

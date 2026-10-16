@@ -28,9 +28,17 @@ nonisolated enum GrammarModelBackend: Hashable {
     case mlx
     /// A hosted service reached with the user's own API key; the text leaves the Mac.
     case hosted(HostedProvider)
+    /// A coding agent's command-line tool on this Mac, signed in to the user's own account;
+    /// the text leaves the Mac through it.
+    case cli(CLIAgent)
 
     var isHosted: Bool {
         if case .hosted = self { return true }
+        return false
+    }
+
+    var isCLI: Bool {
+        if case .cli = self { return true }
         return false
     }
 }
@@ -70,7 +78,7 @@ nonisolated struct GrammarCorrectionModel: Identifiable, Hashable {
     )
 
     static let allModels: [GrammarCorrectionModel] =
-        [.appleFoundation, .llama3_1_8b_4bit] + HostedProvider.allCases.map(\.grammarModel)
+        [.appleFoundation, .llama3_1_8b_4bit] + HostedProvider.allCases.map(\.grammarModel) + CLIAgent.allCases.map(\.grammarModel)
 
     /// Selected for new installs: no download, no RAM cost.
     static let defaultModelID = appleFoundation.id

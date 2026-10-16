@@ -92,7 +92,20 @@ model IDs are `hosted:<provider>` and it is "ready" when a key is saved. Every p
 Anthropic speaks the OpenAI chat-completions dialect; Anthropic gets its Messages API with
 `x-api-key` and `anthropic-version`. Request and reply shapes are pure in `HostedRequest` and
 tested without a network; the model name is a user-editable field with a per-provider default,
-since those names go stale. `GrammarCorrectionService` is
+since those names go stale. `CLIGrammarBackend` (one per `CLIAgent`: Claude Code, Codex) runs
+the agent's own command-line tool as a child process (`CommandRunner`, `@concurrent`, drains
+the pipes and kills on its 90 s deadline), signed in to the user's account; model IDs
+`cli:<agent>`, "ready" when the tool is found (`CLIAgent.locate` probes the usual install
+folders, nvm versions newest first; the user's real home comes from `getpwuid`, since
+`NSHomeDirectory()` is the container). The child inherits the sandbox, so
+`justscribe.entitlements` carries temporary exceptions: read-write for `~/.claude/`,
+`~/.claude.json` and `~/.codex/`, read-only for the install folders. Claude is told its
+config folder through `CLAUDE_CONFIG_DIR` (with `HOME` left as the container it finds no
+sign-in), Codex through `CODEX_HOME` with `TMPDIR` in the container (it must write scratch
+files somewhere); both invocations are pure in `CLIInvocation` and tested. Settings shows
+each agent's row with "Not installed" and no Use button when it is not found, and a "Try It"
+that runs one correction, since a sign-in problem only shows on a request. Tests never run
+the real tools. `GrammarCorrectionService` is
 just the router plus the `@Observable` state the settings UI binds to.
 
 Because the Apple model needs no download, `isReadyToUse(_:)` — not "is it downloaded" — is the

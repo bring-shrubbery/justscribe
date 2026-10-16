@@ -49,19 +49,23 @@ struct CleanUpSettingsSection: View {
                 )
 
                 if settings.grammarCorrectionEnabled {
-                    ForEach(GrammarCorrectionModel.allModels.filter { !$0.backend.isHosted }) { model in
+                    ForEach(GrammarCorrectionModel.allModels.filter { !$0.backend.isHosted && !$0.backend.isCLI }) { model in
                         Divider()
                         switch model.backend {
                         case .apple:
                             AppleGrammarModelRow(model: model, settings: settings)
                         case .mlx:
                             MLXGrammarModelRow(model: model, settings: settings)
-                        case .hosted:
+                        case .hosted, .cli:
                             EmptyView()
                         }
                     }
                     Divider()
                     HostedGrammarRow(settings: settings)
+                    ForEach(CLIAgent.allCases) { agent in
+                        Divider()
+                        CLIGrammarRow(agent: agent, settings: settings)
+                    }
                     Divider()
                     ModesList(store: ModeStore.shared)
                 }
@@ -422,6 +426,125 @@ private struct HostedGrammarRow: View {
             notice = nil
         } catch {
             notice = error.localizedDescription
+        }
+    }
+}
+
+/// One row per coding agent's command-line tool: whether it is on this Mac, a Use button
+/// when it is, and a way to try it, since a sign-in problem shows only on a request.
+private struct CLIGrammarRow: View {
+    let agent: CLIAgent
+    @Bindable var settings: AppSettings
+    private var service: GrammarCorrectionService { GrammarCorrectionService.shared }
+
+    @State private var installedAt: String?
+    @State private var modelDraft = ""
+    @State private var notice: String?
+    @State private var isTrying = false
+
+    private var backend: CLIGrammarBackend { service.cliBackend(for: agent) }
+    private var isLoaded: Bool { service.isModelLoaded && service.loadedModelID == agent.modelID }
+    private var isLoading: Bool { service.isLoadingModel && settings.selectedGrammarModelID == agent.modelID }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "terminal")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(agent.displayName).font(.body)
+                if let installedAt {
+                    Text("Installed on this Mac. Everything you dictate is sent through it to \(agent.accountName).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(installedAt)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    HStack(spacing: 8) {
+                        Text("Model").font(.callout)
+                        TextField("Default", text: $modelDraft)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 200)
+                            .onChange(of: modelDraft) { backend.setModel(modelDraft) }
+                        if isLoaded {
+                            Button(isTrying ? "Trying…" : "Try It") { tryIt() }
+                                .buttonStyle(.pillSmall)
+                                .disabled(isTrying)
+                        }
+                    }
+                    if isLoaded {
+                        Label("Loaded", systemImage: "checkmark.circle.fill")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else if isLoading {
+                        HStack(spacing: 6) {
+                            ProgressView().scaleEffect(0.6)
+                            Text("Loading…").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    if let notice {
+                        Text(notice)
+                            .font(.caption)
+                            .foregroundStyle(notice.hasPrefix("→") ? Color.secondary : Color.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    Text("Not installed, or not where JustScribe can see it. Install it and open Settings again.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Link("About \(agent.displayName)", destination: agent.installURL)
+                        .font(.caption)
+                }
+            }
+
+            Spacer()
+
+            if installedAt != nil, !isLoaded, !isLoading {
+                Button {
+                    settings.selectedGrammarModelID = agent.modelID
+                    Task {
+                        do {
+                            try await service.loadModel(modelID: agent.modelID)
+                            notice = nil
+                        } catch {
+                            notice = error.localizedDescription
+                        }
+                    }
+                } label: {
+                    Label("Use", systemImage: "checkmark.circle")
+                        .font(.callout)
+                }
+                .buttonStyle(.pill)
+            }
+        }
+        .onAppear {
+            installedAt = backend.executablePath
+            modelDraft = backend.model
+        }
+    }
+
+    /// Runs one small correction through the tool, so a sign-in problem shows here rather
+    /// than on the first dictation.
+    private func tryIt() {
+        isTrying = true
+        notice = nil
+        Task {
+            defer { isTrying = false }
+            do {
+                let sample = "this is a quick test of the clean up it should fix the capitals and punctuation"
+                let result = try await service.correctGrammar(sample, instructions: DictationMode.defaultInstructions)
+                notice = "→ " + result
+            } catch {
+                notice = error.localizedDescription
+            }
         }
     }
 }
