@@ -81,7 +81,7 @@ const menuIcon = [[5, 25, 29, 2], [7, 19, 35, 1], [8, 18, 36, 1], [9, 19, 36, 1]
     <rect x="574" y="10.5" width="22" height="11" rx="3" fill="none" stroke="#fff" stroke-opacity="0.55" />
     <rect x="576" y="12.5" width="15" height="7" rx="1.5" fill="#fff" />
     <rect x="597.5" y="14" width="1.6" height="4" rx="0.8" fill="#fff" fill-opacity="0.55" />
-    <text x="664" y="20.5" text-anchor="end" class="hs-menu">Thu 9:41</text>
+    <text data-clock x="664" y="20.5" text-anchor="end" class="hs-menu">Thu 9:41</text>
 
     <!-- The island, which is the notch itself when hidden -->
     <path data-island d={still} fill="#000" />
@@ -260,6 +260,20 @@ const menuIcon = [[5, 25, 29, 2], [7, 19, 35, 1], [8, 18, 36, 1], [9, 19, 36, 1]
     };
     requestAnimationFrame(frame);
   }
+
+  // The menu bar clock shows the visitor's day and time, as macOS does: the weekday,
+  // then the time in their 12- or 24-hour habit, without AM/PM.
+  function clock() {
+    const now = new Date();
+    const cycle = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle;
+    const twelve = cycle === 'h12' || cycle === 'h11';
+    const hour = twelve ? (now.getHours() % 12 || 12) : now.getHours();
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    const day = now.toLocaleDateString('en-US', { weekday: 'short' });
+    document.querySelectorAll<SVGTextElement>('[data-clock]').forEach((el) => { el.textContent = `${day} ${hour}:${minute}`; });
+    setTimeout(clock, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()));
+  }
+  clock();
 
   document.querySelectorAll<SVGSVGElement>('[data-hero-scene]').forEach(setUp);
 </script>
