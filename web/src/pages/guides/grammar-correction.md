@@ -1,7 +1,7 @@
 ---
 layout: ../../layouts/Page.astro
 title: "Dictation with Grammar Correction on Mac"
-description: "JustScribe can fix grammar, spelling and punctuation in dictated text: on your Mac with Apple Intelligence or a local Llama model, with your own API key for Groq, Claude, OpenAI and others, or through Claude Code or the Codex CLI. How to set it up."
+description: "Fix grammar in Mac dictation: on-device with Apple Intelligence or Llama, with your own Groq, Claude or OpenAI key, or through Claude Code or Codex."
 heading: "Dictation with automatic grammar correction"
 updated: "2026-10-17"
 faq:
