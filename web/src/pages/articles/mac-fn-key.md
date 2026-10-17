@@ -57,7 +57,7 @@ A push-to-talk key has to be comfortable to hold for ten seconds and must never 
 
 ## The other candidates
 
-If `Fn` is spoken for, the common alternatives are `Option` `Space` (Superwhisper's default), `Control` `Shift` `Space` (JustScribe's default), a single modifier held alone such as the right `Command` key, or Caps Lock, which most apps support and which is otherwise the most useless key on the board. Whichever you choose, the test is the same: holding it for as long as a sentence takes should type nothing and open nothing.
+If `Fn` is spoken for, the common alternatives are `Option` `Space` (Superwhisper's default), `Control` `Shift` held on their own (JustScribe's default), `Control` `Shift` `Space`, a single modifier held alone such as the right `Command` key, or Caps Lock, which most apps support and which is otherwise the most useless key on the board. Whichever you choose, the test is the same: holding it for as long as a sentence takes should type nothing and open nothing.
 
 ## Sources
 

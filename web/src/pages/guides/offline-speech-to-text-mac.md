@@ -20,7 +20,7 @@ Speech recognition used to mean sending audio to a server. On an Apple silicon M
 1. [Download JustScribe](/download) and open it.
 2. Choose a model. It is downloaded once, from Hugging Face, and stored on your Mac.
 3. Allow Microphone access, to hear you, and Accessibility access, to type into other apps.
-4. Hold `Control` `Shift` `Space`, speak, and release.
+4. Hold `Control` `Shift`, speak, and release.
 
 From then on you can turn Wi-Fi off and it keeps working.
 

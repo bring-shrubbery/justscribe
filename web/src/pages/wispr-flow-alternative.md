@@ -49,6 +49,6 @@ Wispr Flow details are from its [pricing](https://wisprflow.ai/pricing) and [dat
 1. [Download JustScribe](/download) and drag it into Applications.
 2. Pick a transcription model on first launch. Parakeet v3 is the recommended one and understands many languages.
 3. Grant Microphone and Accessibility permission.
-4. Hold `Control` `Shift` `Space` and speak. You can change the shortcut, including to a single modifier key, in Settings.
+4. Hold `Control` `Shift` and speak. You can change the shortcut, including to a key combination or a single modifier, in Settings.
 
 If you want the tidy-up that cloud tools do, turn on Clean-up in Settings. By default it runs on your Mac as well, and you can point it at a larger hosted model when you want to: see [dictation with grammar correction](/guides/grammar-correction).
