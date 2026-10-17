@@ -174,14 +174,52 @@ final class CLIGrammarBackendTests {
         #expect(CLIGrammarError.failed(.codex, status: 2, detail: "").errorDescription == "Codex CLI failed (exit 2).")
     }
 
-    @Test func theModelNameIsKeptPerAgentAndBlankMeansTheToolsDefault() {
+    @Test func theModelIsKeptPerAgentAndBlankOrTheDefaultMeansTheCheapDefault() async throws {
         let backend = makeBackend(.claude)
-        #expect(backend.model == "")
-        backend.setModel("  haiku ")
-        #expect(backend.model == "haiku")
-        #expect(makeBackend(.codex).model == "")
+        #expect(backend.model == "haiku" && backend.customModel == "")
+        backend.setModel("  sonnet ")
+        #expect(backend.model == "sonnet")
+        #expect(makeBackend(.codex).model == CLIAgent.codex.defaultModel)
         backend.setModel(" ")
-        #expect(backend.model == "" && defaults.string(forKey: CLIAgent.claude.modelKey) == nil)
+        #expect(backend.model == "haiku" && defaults.string(forKey: CLIAgent.claude.modelKey) == nil)
+        backend.setModel("haiku")
+        #expect(defaults.string(forKey: CLIAgent.claude.modelKey) == nil)
+
+        // A request with nothing chosen goes to the default, never to the tool's own.
+        try await backend.prepare { _ in }
+        result = CommandResult(status: 0, stdout: "Hi.", stderr: "", timedOut: false)
+        _ = try await backend.correct("hi", instructions: "", language: nil)
+        #expect(runs.last?.arguments.suffix(2) == ["--model", "haiku"])
+    }
+
+    @Test func everyAgentOffersItsDefaultAmongItsModels() {
+        for agent in CLIAgent.allCases {
+            let models = agent.availableModels(home: tmp)
+            #expect(models.first?.id == agent.defaultModel, "\(agent)")
+            #expect(Set(models.map(\.id)).count == models.count, "\(agent)")
+        }
+    }
+
+    @Test func codexsModelsComeFromItsCacheInItsOrderWithoutHiddenOnes() throws {
+        let cache = """
+        {"fetched_at": "2026-10-17T17:50:02Z", "models": [
+          {"slug": "gpt-6-luna", "display_name": "GPT-6-Luna", "description": "Fast.", "visibility": "list", "priority": 4},
+          {"slug": "gpt-6.1-sol", "display_name": "GPT-6.1-Sol", "description": "Workhorse.", "visibility": "list", "priority": 1, "extra": [1]},
+          {"slug": "codex-auto-review", "display_name": "Review", "visibility": "hide", "priority": 2}
+        ]}
+        """
+        let models = try #require(CLIAgent.codexModels(fromCache: Data(cache.utf8)))
+        #expect(models.map(\.id) == ["gpt-6.1-sol", "gpt-6-luna"])
+        #expect(models[0] == CLIModelOption(id: "gpt-6.1-sol", name: "GPT-6.1-Sol", detail: "Workhorse."))
+        #expect(CLIAgent.codexModels(fromCache: Data("not json".utf8)) == nil)
+
+        // Read from the Codex folder under the home it is given; a cache without the
+        // default still offers it, first.
+        try FileManager.default.createDirectory(atPath: "\(tmp)/.codex", withIntermediateDirectories: true)
+        let other = #"{"models": [{"slug": "gpt-7", "visibility": "list"}]}"#
+        try other.write(toFile: "\(tmp)/.codex/models_cache.json", atomically: true, encoding: .utf8)
+        #expect(CLIAgent.codex.availableModels(home: tmp).map(\.id) == [CLIAgent.codex.defaultModel, "gpt-7"])
+        #expect(CLIAgent.claude.availableModels(home: tmp) == CLIAgent.claude.builtInModels)
     }
 
     @Test func everyAgentIsAGrammarModelFoundByItsID() {

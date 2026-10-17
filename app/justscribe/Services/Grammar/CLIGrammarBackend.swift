@@ -58,12 +58,23 @@ final class CLIGrammarBackend: GrammarBackend {
     var executablePath: String? { locate() }
     var isInstalled: Bool { executablePath != nil }
 
-    /// What the user typed, empty for the tool's own default.
-    var model: String { defaults.string(forKey: agent.modelKey) ?? "" }
+    /// The model requests go to: the user's choice, else the agent's cheap default.
+    var model: String { customModel.isEmpty ? agent.defaultModel : customModel }
+
+    /// What the user picked or typed, empty when they left the default.
+    var customModel: String { defaults.string(forKey: agent.modelKey) ?? "" }
+
+    /// The models to offer, read afresh so a list Codex refreshed since is seen.
+    var availableModels: [CLIModelOption] { agent.availableModels(home: home) }
 
     func setModel(_ name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { defaults.removeObject(forKey: agent.modelKey) } else { defaults.set(trimmed, forKey: agent.modelKey) }
+        // Choosing the default stores nothing, so a later change of default reaches the user.
+        if trimmed.isEmpty || trimmed == agent.defaultModel {
+            defaults.removeObject(forKey: agent.modelKey)
+        } else {
+            defaults.set(trimmed, forKey: agent.modelKey)
+        }
     }
 
     // MARK: - GrammarBackend

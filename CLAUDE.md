@@ -102,7 +102,11 @@ folders, nvm versions newest first; the user's real home comes from `getpwuid`, 
 `~/.claude.json` and `~/.codex/`, read-only for the install folders. Claude is told its
 config folder through `CLAUDE_CONFIG_DIR` (with `HOME` left as the container it finds no
 sign-in), Codex through `CODEX_HOME` with `TMPDIR` in the container (it must write scratch
-files somewhere); both invocations are pure in `CLIInvocation` and tested. Settings shows
+files somewhere); both invocations are pure in `CLIInvocation` and tested. The model
+defaults to the agent's cheap one (`CLIAgent.defaultModel`: Claude's `haiku` alias, Codex's
+`gpt-6-luna`; choosing it stores nothing); Settings lists Claude's aliases and the models Codex
+caches for the account in `~/.codex/models_cache.json` (built-in list when absent), plus
+"Custom…" for any name. Settings shows
 each agent's row with "Not installed" and no Use button when it is not found, and a "Try It"
 that runs one correction, since a sign-in problem only shows on a request. Tests never run
 the real tools. `GrammarCorrectionService` is

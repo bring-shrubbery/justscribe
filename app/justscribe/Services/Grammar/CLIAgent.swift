@@ -39,8 +39,75 @@ nonisolated enum CLIAgent: String, CaseIterable, Codable, Sendable, Identifiable
         return CLIAgent(rawValue: String(id.dropFirst(modelIDPrefix.count)))
     }
 
-    /// The model name the user typed for this agent; empty means the tool's own default.
+    /// The model the user picked or typed for this agent; unset means `defaultModel`.
     var modelKey: String { "grammar.cli.model.\(rawValue)" }
+
+    /// The fast, cheap model clean-up uses unless the user picks another: tidying a
+    /// sentence needs no frontier model, and every dictation spends the user's own quota.
+    var defaultModel: String {
+        switch self {
+        case .claude: "haiku"
+        case .codex: "gpt-6-luna"
+        }
+    }
+
+    /// The models offered in Settings when nothing better is known. Claude Code takes
+    /// aliases that always mean the latest of each family, so its list does not go stale.
+    var builtInModels: [CLIModelOption] {
+        switch self {
+        case .claude:
+            [
+                CLIModelOption(id: "haiku", name: "Haiku", detail: "Fastest and cheapest"),
+                CLIModelOption(id: "sonnet", name: "Sonnet", detail: "Balanced"),
+                CLIModelOption(id: "opus", name: "Opus", detail: "Most capable"),
+                CLIModelOption(id: "fable", name: "Fable", detail: "Frontier"),
+            ]
+        case .codex:
+            [
+                CLIModelOption(id: "gpt-6-luna", name: "GPT-6-Luna", detail: "Fast and affordable"),
+                CLIModelOption(id: "gpt-6.1-sol", name: "GPT-6.1-Sol", detail: "Workhorse"),
+                CLIModelOption(id: "gpt-6-astra", name: "GPT-6-Astra", detail: "Frontier"),
+            ]
+        }
+    }
+
+    /// The models this agent offers right now. Codex keeps the list its account can use in
+    /// `models_cache.json`, refreshed whenever it runs, so that list is read when it is there;
+    /// otherwise, and for Claude, the built-in one. The default is always on the list.
+    func availableModels(home: String = CLIAgent.realHome) -> [CLIModelOption] {
+        var models = builtInModels
+        if self == .codex,
+           let data = FileManager.default.contents(atPath: "\(home)/.codex/models_cache.json"),
+           let cached = Self.codexModels(fromCache: data), !cached.isEmpty {
+            models = cached
+        }
+        if !models.contains(where: { $0.id == defaultModel }),
+           let builtIn = builtInModels.first(where: { $0.id == defaultModel }) {
+            models.insert(builtIn, at: 0)
+        }
+        return models
+    }
+
+    /// The models Codex lists for the account, in its own order; hidden ones left out.
+    static func codexModels(fromCache data: Data) -> [CLIModelOption]? {
+        struct Cache: Decodable {
+            struct Model: Decodable {
+                var slug: String
+                var display_name: String?
+                var description: String?
+                var visibility: String?
+                var priority: Int?
+            }
+            var models: [Model]
+        }
+        guard let cache = try? JSONDecoder().decode(Cache.self, from: data) else { return nil }
+        return cache.models
+            .filter { $0.visibility == nil || $0.visibility == "list" }
+            .enumerated()
+            .sorted { ($0.element.priority ?? Int.max, $0.offset) < ($1.element.priority ?? Int.max, $1.offset) }
+            .map { CLIModelOption(id: $0.element.slug, name: $0.element.display_name ?? $0.element.slug,
+                                  detail: $0.element.description ?? "") }
+    }
 
     var displayName: String {
         switch self {
@@ -102,6 +169,13 @@ nonisolated enum CLIAgent: String, CaseIterable, Codable, Sendable, Identifiable
         let list: (String) -> [String] = { (try? fileManager.contentsOfDirectory(atPath: $0)) ?? [] }
         return candidatePaths(home: home, contentsOf: list).first { fileManager.isExecutableFile(atPath: $0) }
     }
+}
+
+/// One model an agent's tool can be asked for, as Settings lists it.
+nonisolated struct CLIModelOption: Equatable, Sendable, Identifiable {
+    var id: String
+    var name: String
+    var detail: String
 }
 
 nonisolated enum CLIGrammarError: LocalizedError, Equatable {

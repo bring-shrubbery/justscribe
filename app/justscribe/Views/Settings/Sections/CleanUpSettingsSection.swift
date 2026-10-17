@@ -438,7 +438,9 @@ private struct CLIGrammarRow: View {
     private var service: GrammarCorrectionService { GrammarCorrectionService.shared }
 
     @State private var installedAt: String?
-    @State private var modelDraft = ""
+    @State private var models: [CLIModelOption] = []
+    @State private var modelChoice = ""
+    @State private var customDraft = ""
     @State private var notice: String?
     @State private var isTrying = false
 
@@ -468,15 +470,37 @@ private struct CLIGrammarRow: View {
                         .truncationMode(.middle)
                     HStack(spacing: 8) {
                         Text("Model").font(.callout)
-                        TextField("Default", text: $modelDraft)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 200)
-                            .onChange(of: modelDraft) { backend.setModel(modelDraft) }
+                        Picker("Model", selection: $modelChoice) {
+                            ForEach(models) { model in
+                                Text(label(for: model)).tag(model.id)
+                            }
+                            Divider()
+                            Text("Custom…").tag(Self.customTag)
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                        .onChange(of: modelChoice) {
+                            backend.setModel(modelChoice == Self.customTag ? customDraft : modelChoice)
+                        }
                         if isLoaded {
                             Button(isTrying ? "Trying…" : "Try It") { tryIt() }
                                 .buttonStyle(.pillSmall)
                                 .disabled(isTrying)
                         }
+                    }
+                    if let chosenModelDetail {
+                        Text(chosenModelDetail)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    if modelChoice == Self.customTag {
+                        TextField(agent.defaultModel, text: $customDraft)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 200)
+                            .onChange(of: customDraft) { backend.setModel(customDraft) }
+                        Text("Any model name `\(agent.commandName) --model` accepts.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                     if isLoaded {
                         Label("Loaded", systemImage: "checkmark.circle.fill")
@@ -527,8 +551,29 @@ private struct CLIGrammarRow: View {
         }
         .onAppear {
             installedAt = backend.executablePath
-            modelDraft = backend.model
+            models = backend.availableModels
+            let custom = backend.customModel
+            if custom.isEmpty {
+                modelChoice = agent.defaultModel
+            } else if models.contains(where: { $0.id == custom }) {
+                modelChoice = custom
+            } else {
+                customDraft = custom
+                modelChoice = Self.customTag
+            }
         }
+    }
+
+    /// The picker's tag for a model name typed by hand; no model is called this.
+    private static let customTag = "\u{0}custom"
+
+    private func label(for model: CLIModelOption) -> String {
+        model.id == agent.defaultModel ? "\(model.name) (Default)" : model.name
+    }
+
+    private var chosenModelDetail: String? {
+        guard let detail = models.first(where: { $0.id == modelChoice })?.detail, !detail.isEmpty else { return nil }
+        return detail
     }
 
     /// Runs one small correction through the tool, so a sign-in problem shows here rather
