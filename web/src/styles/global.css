@@ -160,20 +160,24 @@ td.num { font-family: var(--font-mono); font-size: 14px; }
 .not-found { min-height: 60vh; }
 .not-found h1 { margin-bottom: 14px; }
 
-/* GitHub link, top right, level with the hero icon */
-.github {
+/* X and GitHub links, top right, level with the hero icon */
+.social {
   position: absolute;
   top: 56px;
   right: calc(var(--gutter) - 6px);
+  display: flex;
+  gap: 4px;
+}
+.social a {
   display: inline-flex;
   padding: 6px;
   border-radius: 8px;
   color: var(--text-muted);
 }
-.github svg { width: 24px; height: 24px; display: block; }
-.github:hover, .github:focus-visible { color: var(--text-strong); text-decoration: none; }
+.social svg { width: 24px; height: 24px; display: block; }
+.social a:hover, .social a:focus-visible { color: var(--text-strong); text-decoration: none; }
 @media (max-width: 480px) {
-  .github { top: 36px; }
+  .social { top: 36px; }
 }
 
 /* Header of the inner pages */
