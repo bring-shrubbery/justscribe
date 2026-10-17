@@ -117,11 +117,25 @@ final class CLIGrammarBackend: GrammarBackend {
         return trimmed
     }
 
-    /// The last line the tool said, for a failure message: stderr first, then stdout.
+    /// `"message": "…"` in a JSON error, escaped quotes allowed.
+    nonisolated private static let messagePattern = try! NSRegularExpression(pattern: #""message"\s*:\s*"((?:[^"\\]|\\.)*)""#)
+
+    /// What went wrong in words the user can read, for a failure message. An API error's
+    /// own `"message"` comes first (Codex prints the JSON), then the last plain line of
+    /// stdout (where Claude says "There's an issue with the selected model"), then of stderr.
+    /// Lines that are only a tag or JSON, like `[claude-code:unrecognized_model] {…}`, are passed over.
     nonisolated static func detail(from result: CommandResult) -> String {
-        for output in [result.stderr, result.stdout] {
+        let all = result.stderr + "\n" + result.stdout
+        if let match = Self.messagePattern.matches(in: all, range: NSRange(all.startIndex..., in: all)).last,
+           let range = Range(match.range(at: 1), in: all) {
+            let message = all[range].replacingOccurrences(of: "\\\"", with: "\"")
+            if !message.isEmpty { return String(message.prefix(200)) }
+        }
+        for output in [result.stdout, result.stderr] {
             let lines = output.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
-            if let last = lines.last(where: { !$0.isEmpty }) { return String(last.prefix(200)) }
+            if let last = lines.last(where: { !$0.isEmpty && !$0.hasPrefix("[") && !$0.hasPrefix("{") }) {
+                return String(last.prefix(200))
+            }
         }
         return ""
     }

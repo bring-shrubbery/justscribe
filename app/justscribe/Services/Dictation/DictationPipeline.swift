@@ -36,6 +36,9 @@ nonisolated struct DictationContext: Sendable {
 nonisolated struct DictationResult: Equatable, Sendable {
     var text: String
     var actions: [DictationAction]
+    /// Clean-up was asked for and threw; `text` is as dictated. The user is told, since a
+    /// model retired or a sign-in expired otherwise goes unnoticed dictation after dictation.
+    var cleanUpFailed = false
 }
 
 /// Raw transcript → voice commands → vocabulary → clean-up with the mode's instructions.
@@ -55,6 +58,7 @@ final class DictationPipeline {
         let commanded = VoiceCommandProcessor.apply(
             raw, commandsOn: context.voiceCommands, punctuationOn: context.spokenPunctuation,
             sessionCommandsOn: context.pressToToggle)
+        var cleanUpFailed = false
         var text = VocabularyMatcher.apply(commanded.text, entries: context.vocabulary, isDictionaryWord: isDictionaryWord)
 
         if context.cleanUpEnabled, context.mode.cleanUp, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -68,9 +72,10 @@ final class DictationPipeline {
                 }
             } catch {
                 print("Clean-up failed, keeping the text as dictated: \(error)")
+                cleanUpFailed = true
             }
         }
-        return DictationResult(text: text, actions: commanded.actions)
+        return DictationResult(text: text, actions: commanded.actions, cleanUpFailed: cleanUpFailed)
     }
 
     /// The session command the streamed text ends with — checked live while recording.

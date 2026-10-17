@@ -32,6 +32,14 @@ final class GrammarCorrectionService {
 
     private(set) var isModelLoaded = false
     private(set) var isProcessing = false
+    /// Why the last clean-up failed, and on which model; cleared by the next one that works.
+    /// Settings shows it on that model's row, where the island's "Clean-up failed" leads.
+    private(set) var lastFailure: (modelID: String, message: String)?
+
+    /// A failure no longer applies once the user has changed what it was about.
+    func clearLastFailure() {
+        lastFailure = nil
+    }
     private(set) var isLoadingModel = false
     private(set) var loadProgress: Double = 0
     private(set) var loadedModelID: String?
@@ -165,7 +173,14 @@ final class GrammarCorrectionService {
         guard let backend = activeBackend else { throw GrammarBackendError.notReady }
         isProcessing = true
         defer { isProcessing = false }
-        let corrected = try await backend.correct(text, instructions: instructions, language: language)
+        let corrected: String
+        do {
+            corrected = try await backend.correct(text, instructions: instructions, language: language)
+        } catch {
+            lastFailure = (modelID: backend.modelID, message: error.localizedDescription)
+            throw error
+        }
+        lastFailure = nil
         print("Clean-up: '\(text)' -> '\(corrected)'")
         return corrected
     }

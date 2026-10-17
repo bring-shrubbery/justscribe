@@ -52,8 +52,11 @@ private struct OverlayExpandedView: View {
             Spacer(minLength: 0)
 
             // Close / cancel button
-            // In a press-mode recording the X stops it, rather than hiding a recording that keeps running.
-            Button(action: { if let onTap = manager.onTap { onTap() } else { manager.hide() } }) {
+            // In a press-mode recording the X stops it, rather than hiding a recording that keeps
+            // running. Otherwise it only hides: a click elsewhere on the island does the opening.
+            Button(action: {
+                if manager.state == .listening, let onTap = manager.onTap { onTap() } else { manager.hide() }
+            }) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 16))
                     .foregroundStyle(secondaryTextColor)
@@ -92,6 +95,12 @@ private struct OverlayExpandedView: View {
                 .resizable()
                 .scaledToFit()
                 .foregroundStyle(.green)
+                .padding(4)
+        case .cleanUpFailed:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(.yellow)
                 .padding(4)
         case .error:
             Image(systemName: "exclamationmark.circle.fill")
@@ -167,6 +176,8 @@ final class OverlayManager {
         /// The transcript is with the clean-up model, after transcription has finished.
         case cleaningUp
         case completed(copiedToClipboard: Bool)
+        /// The text went in as dictated because the clean-up model failed.
+        case cleanUpFailed
         /// A long dictation's transcript has been written to Transcripts.
         case saved
         /// The shortcut was pressed before the speech model had loaded; it is loading now.
@@ -197,6 +208,7 @@ final class OverlayManager {
         case .listening: return "Listening..."
         case .processing, .cleaningUp: return "Processing..."
         case .completed: return "Done"
+        case .cleanUpFailed: return "Clean-up failed"
         case .saved: return "Saved"
         case .loadingModel: return "Loading the model…"
         case .ready: return "Ready"
@@ -211,6 +223,7 @@ final class OverlayManager {
         case .processing: return "Transcribing audio"
         case .cleaningUp: return "Cleaning up text"
         case .completed(let copiedToClipboard): return copiedToClipboard ? "Copied to clipboard" : nil
+        case .cleanUpFailed: return onTap == nil ? "Inserted as dictated" : "Inserted as dictated · Click for Settings"
         case .saved: return onTap == nil ? "In Transcripts, from the menu" : "Click to open it in Transcripts"
         case .loadingModel: return "Dictation starts as soon as it's ready"
         case .ready: return "Press the shortcut to dictate"
@@ -428,6 +441,25 @@ final class OverlayManager {
         autoHideTask?.cancel()
         autoHideTask = Task {
             try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            hide()
+        }
+    }
+
+    /// Shown longer than an error, with a way to the setting that fixes it.
+    func showCleanUpFailed(open: (() -> Void)? = nil) {
+        state = .cleanUpFailed
+        stopListeningUpdates()
+        if let open {
+            onTap = { [weak self] in
+                self?.hide()
+                open()
+            }
+        }
+        present()
+        autoHideTask?.cancel()
+        autoHideTask = Task {
+            try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
             hide()
         }

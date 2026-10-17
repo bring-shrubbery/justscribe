@@ -302,6 +302,9 @@ private struct HostedGrammarRow: View {
     @State private var hasKey = false
 
     private var backend: HostedGrammarBackend { service.hostedBackend(for: provider) }
+    private var lastFailure: String? {
+        service.lastFailure.flatMap { $0.modelID == provider.modelID ? "Last clean-up failed: \($0.message)" : nil }
+    }
     private var isLoaded: Bool { service.isModelLoaded && service.loadedModelID == provider.modelID }
     private var isLoading: Bool { service.isLoadingModel && settings.selectedGrammarModelID == provider.modelID }
     private var isSelected: Bool { settings.selectedGrammarModelID == provider.modelID }
@@ -339,7 +342,10 @@ private struct HostedGrammarRow: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 260)
                         .onSubmit { backend.setModel(modelDraft) }
-                        .onChange(of: modelDraft) { backend.setModel(modelDraft) }
+                        .onChange(of: modelDraft) {
+                            backend.setModel(modelDraft)
+                            service.clearLastFailure()
+                        }
                 }
 
                 HStack(spacing: 8) {
@@ -365,8 +371,12 @@ private struct HostedGrammarRow: View {
                         ProgressView().scaleEffect(0.6)
                         Text("Loading…").font(.caption).foregroundStyle(.secondary)
                     }
-                } else if let notice {
-                    Text(notice).font(.caption).foregroundStyle(.orange)
+                }
+                if let notice = notice ?? lastFailure {
+                    Text(notice)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -445,6 +455,10 @@ private struct CLIGrammarRow: View {
     @State private var isTrying = false
 
     private var backend: CLIGrammarBackend { service.cliBackend(for: agent) }
+    /// Why the last dictation's clean-up through this agent failed, which the island sent the user here for.
+    private var lastFailure: String? {
+        service.lastFailure.flatMap { $0.modelID == agent.modelID ? "Last clean-up failed: \($0.message)" : nil }
+    }
     private var isLoaded: Bool { service.isModelLoaded && service.loadedModelID == agent.modelID }
     private var isLoading: Bool { service.isLoadingModel && settings.selectedGrammarModelID == agent.modelID }
 
@@ -481,6 +495,7 @@ private struct CLIGrammarRow: View {
                         .fixedSize()
                         .onChange(of: modelChoice) {
                             backend.setModel(modelChoice == Self.customTag ? customDraft : modelChoice)
+                            service.clearLastFailure()
                         }
                         if isLoaded {
                             Button(isTrying ? "Trying…" : "Try It") { tryIt() }
@@ -497,7 +512,10 @@ private struct CLIGrammarRow: View {
                         TextField(agent.defaultModel, text: $customDraft)
                             .textFieldStyle(.roundedBorder)
                             .frame(maxWidth: 200)
-                            .onChange(of: customDraft) { backend.setModel(customDraft) }
+                            .onChange(of: customDraft) {
+                                backend.setModel(customDraft)
+                                service.clearLastFailure()
+                            }
                         Text("Any model name `\(agent.commandName) --model` accepts.")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
@@ -513,7 +531,7 @@ private struct CLIGrammarRow: View {
                             Text("Loading…").font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    if let notice {
+                    if let notice = notice ?? lastFailure {
                         Text(notice)
                             .font(.caption)
                             .foregroundStyle(notice.hasPrefix("→") ? Color.secondary : Color.orange)

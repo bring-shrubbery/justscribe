@@ -70,10 +70,14 @@ struct DictationPipelineTests {
     @Test func aFailedOrEmptyCleanUpKeepsTheText() async {
         let failing = FakeCleanUp(); failing.error = Boom()
         let p1 = DictationPipeline(cleanUp: failing.run, isDictionaryWord: { _ in true })
-        #expect(await p1.process("keep me", context: context()).text == "keep me")
+        let failed = await p1.process("keep me", context: context())
+        #expect(failed.text == "keep me" && failed.cleanUpFailed)
         let empty = FakeCleanUp(); empty.result = "   "
         let p2 = DictationPipeline(cleanUp: empty.run, isDictionaryWord: { _ in true })
-        #expect(await p2.process("keep me", context: context()).text == "keep me")
+        let blank = await p2.process("keep me", context: context())
+        #expect(blank.text == "keep me" && !blank.cleanUpFailed)
+        // Not asked for, so not failed, even with a backend that would throw.
+        #expect(await p1.process("keep me", context: context(cleanUp: false)).cleanUpFailed == false)
     }
 
     @Test func actionsPassThroughAndNothingIsCleanedWhenEmpty() async {

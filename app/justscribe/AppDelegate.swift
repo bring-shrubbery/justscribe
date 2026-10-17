@@ -633,6 +633,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Commands, vocabulary and clean-up, with the mode the app in front chose at key down.
         var actions: [DictationAction] = []
+        var cleanUpFailed = false
         if let context = sessionContext, !finalTranscription.isEmpty {
             let needsModel = context.cleanUpEnabled && context.mode.cleanUp && GrammarCorrectionService.shared.isModelLoaded
             if needsModel { OverlayManager.shared.showCleaningUp() }
@@ -640,6 +641,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             effective.cleanUpEnabled = needsModel
             let result = await pipeline.process(finalTranscription, context: effective)
             actions = result.actions
+            cleanUpFailed = result.cleanUpFailed
             if result.text != finalTranscription {
                 // Type mode: `typedTextLength` is what is on screen, which may differ from the final text.
                 if insertionMode.insertsWhileSpeaking {
@@ -701,6 +703,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if stoppedBySafety {
                 outcome = "Stopped after 10 minutes"
                 OverlayManager.shared.showError(message: "Stopped after 10 minutes")
+            } else if cleanUpFailed {
+                outcome = "Clean-up failed — inserted as dictated"
+                OverlayManager.shared.showCleanUpFailed { [weak self] in self?.openSettings() }
             } else {
                 OverlayManager.shared.showCompleted(copiedToClipboard: didCopyToClipboard)
             }

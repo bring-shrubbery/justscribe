@@ -48,7 +48,10 @@ window scene. **The real app logic lives in `AppDelegate.swift`**, which orchest
    the indicator just hides; one under 0.3 s with sound shows "Recording too short"; the rest
    goes on → re-transcribe the full audio buffer for accuracy (30s timeout, falls
    back to the streamed text) → optional grammar correction, which *replaces* the already-typed text
-   via `ClipboardService.replaceTypedText` → optional clipboard copy → reset to `idle`.
+   via `ClipboardService.replaceTypedText` → optional clipboard copy → reset to `idle`. A clean-up
+   that throws leaves the text as dictated and ends on "Clean-up failed" (`DictationResult.cleanUpFailed`;
+   a click opens Settings, where the row in use shows `GrammarCorrectionService.lastFailure`), so a
+   retired model or an expired sign-in does not go unnoticed.
 
 Text reaches the target app in one of two modes (`Models/TextInsertion.swift`,
 `AppSettings.textInsertionModeKey`, read once at key down): **paste** (the default) does nothing

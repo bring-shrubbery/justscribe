@@ -192,6 +192,23 @@ final class CLIGrammarBackendTests {
         #expect(runs.last?.arguments.suffix(2) == ["--model", "haiku"])
     }
 
+    @Test func aRetiredModelsFailureReadsAsWords() {
+        // As the tools printed it for a model name that does not exist (2026-10-17).
+        let claude = CommandResult(
+            status: 1,
+            stdout: "There's an issue with the selected model (claude-retired-1). It may not exist or you may not have access to it.\n",
+            stderr: "\"claude-retired-1\" isn't described by this version's model catalog\n[claude-code:unrecognized_model] {\"model\":\"claude-retired-1\"}\n",
+            timedOut: false)
+        #expect(CLIGrammarBackend.detail(from: claude).hasPrefix("There's an issue with the selected model (claude-retired-1)."))
+        let codex = CommandResult(
+            status: 1, stdout: "",
+            stderr: #"ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The 'gpt-retired-1' model is not supported when using Codex with a ChatGPT account."}}"# + "\n",
+            timedOut: false)
+        #expect(CLIGrammarBackend.detail(from: codex) == "The 'gpt-retired-1' model is not supported when using Codex with a ChatGPT account.")
+        let quoted = CommandResult(status: 1, stdout: "", stderr: #"{"message":"Say \"hi\" first"}"#, timedOut: false)
+        #expect(CLIGrammarBackend.detail(from: quoted) == "Say \"hi\" first")
+    }
+
     @Test func everyAgentOffersItsDefaultAmongItsModels() {
         for agent in CLIAgent.allCases {
             let models = agent.availableModels(home: tmp)
