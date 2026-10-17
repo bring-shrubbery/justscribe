@@ -83,7 +83,7 @@ private struct OverlayExpandedView: View {
                 .scaledToFit()
                 .foregroundStyle(.red)
                 .padding(4)
-        case .processing, .loadingModel:
+        case .processing, .cleaningUp, .loadingModel:
             IslandSpinnerView()
                 .foregroundStyle(textColor)
                 .padding(7)
@@ -164,6 +164,8 @@ final class OverlayManager {
         case idle
         case listening
         case processing
+        /// The transcript is with the clean-up model, after transcription has finished.
+        case cleaningUp
         case completed(copiedToClipboard: Bool)
         /// A long dictation's transcript has been written to Transcripts.
         case saved
@@ -193,7 +195,7 @@ final class OverlayManager {
         switch state {
         case .idle: return "Ready"
         case .listening: return "Listening..."
-        case .processing: return "Processing..."
+        case .processing, .cleaningUp: return "Processing..."
         case .completed: return "Done"
         case .saved: return "Saved"
         case .loadingModel: return "Loading the model…"
@@ -207,6 +209,7 @@ final class OverlayManager {
         case .idle: return "Press shortcut to start"
         case .listening: return listeningHint ?? "Speak now"
         case .processing: return "Transcribing audio"
+        case .cleaningUp: return "Cleaning up text"
         case .completed(let copiedToClipboard): return copiedToClipboard ? "Copied to clipboard" : nil
         case .saved: return onTap == nil ? "In Transcripts, from the menu" : "Click to open it in Transcripts"
         case .loadingModel: return "Dictation starts as soon as it's ready"
@@ -363,6 +366,12 @@ final class OverlayManager {
 
     func showProcessing() {
         state = .processing
+        stopListeningUpdates()
+        present()
+    }
+
+    func showCleaningUp() {
+        state = .cleaningUp
         stopListeningUpdates()
         present()
     }

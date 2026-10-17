@@ -635,7 +635,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var actions: [DictationAction] = []
         if let context = sessionContext, !finalTranscription.isEmpty {
             let needsModel = context.cleanUpEnabled && context.mode.cleanUp && GrammarCorrectionService.shared.isModelLoaded
-            if needsModel { OverlayManager.shared.showProcessing() }
+            if needsModel { OverlayManager.shared.showCleaningUp() }
             var effective = context
             effective.cleanUpEnabled = needsModel
             let result = await pipeline.process(finalTranscription, context: effective)
