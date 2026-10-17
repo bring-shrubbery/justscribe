@@ -116,8 +116,10 @@ struct ShortcutConfig: Codable, Equatable {
 
     // MARK: - Default
 
+    /// Control + Shift held on their own. A config already saved, including the old
+    /// Control + Shift + Space default, is kept; this applies to new installs and Reset.
     static let defaultConfig = ShortcutConfig(
-        keyCode: Int(kVK_Space),
+        keyCode: nil,
         modifiers: NSEvent.ModifierFlags([.control, .shift])
             .intersection(.deviceIndependentFlagsMask).rawValue
     )

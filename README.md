@@ -46,7 +46,7 @@ Native macOS app for fast voice-to-text dictation anywhere on your system. [Down
    - Accessibility (needed to put text into other apps)
    - System audio recording, only if you include system audio in a Live Transcription
 6. Put your cursor in any text field.
-7. Hold the default shortcut: `Control + Shift + Space`.
+7. Hold the default shortcut: `Control + Shift`.
 8. Speak while holding.
 9. Release to finish; the text is pasted where your cursor is.
 

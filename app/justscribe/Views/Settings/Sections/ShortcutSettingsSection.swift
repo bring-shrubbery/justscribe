@@ -101,11 +101,11 @@ struct ShortcutSettingsSection: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                Text("Default: \u{2303}\u{21E7}Space (Control + Shift + Space)")
+                Text("Default: \u{2303}\u{21E7} (Control + Shift)")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
 
-                Text("Tip: Modifier-only shortcuts like Control + Shift work too.")
+                Text("Tip: Combinations with a key, like Control + Shift + Space, work too.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
