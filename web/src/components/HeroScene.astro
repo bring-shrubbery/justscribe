@@ -1,0 +1,264 @@
+---
+// The home page's hero: JustScribe's recording indicator on a MacBook's notch, drawn from the
+// app's own numbers rather than a screenshot. The island's poses, corner radii, slot places and
+// content are those of DynamicLanding's `IslandGeometry` and `IslandShape` with the app's
+// configuration (`OverlayManager`): a 185 × 32 pt notch, notch corners 15 / 20, slot padding 8,
+// the five-bar `IslandWaveformView` fed through the `WaveformLevels` smoothing, and the
+// `OverlayExpandedView` card for "Processing..." and "Done". One loop plays what a dictation
+// looks like: listening, processing, the text pasted, done. With reduced motion it stays on the
+// listening frame.
+import { barScale, islandPath, poses, stillBars } from '../lib/island';
+
+interface Props {
+  label: string;
+}
+
+const { label } = Astro.props;
+// Drawn on the listening frame, which is what shows without JavaScript or with reduced motion.
+const still = islandPath(poses.compact);
+
+const bars = [0, 1, 2, 3, 4];
+// The menu bar icon: nine bars, tallest in the middle.
+const menuIcon = [4, 7, 10, 13, 15, 13, 10, 7, 4];
+---
+<div class="hero-scene">
+  <svg viewBox="0 0 680 330" role="img" aria-label={label} data-hero-scene>
+    <defs>
+      <linearGradient id="hs-wall" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#1c2b4d" />
+        <stop offset="0.55" stop-color="#123c52" />
+        <stop offset="1" stop-color="#2a2047" />
+      </linearGradient>
+      <radialGradient id="hs-glow-a" cx="0.18" cy="0.85" r="0.6">
+        <stop offset="0" stop-color="#3d9bff" stop-opacity="0.35" />
+        <stop offset="1" stop-color="#3d9bff" stop-opacity="0" />
+      </radialGradient>
+      <radialGradient id="hs-glow-b" cx="0.9" cy="0.2" r="0.55">
+        <stop offset="0" stop-color="#b56cff" stop-opacity="0.28" />
+        <stop offset="1" stop-color="#b56cff" stop-opacity="0" />
+      </radialGradient>
+      <filter id="hs-shadow" x="-20%" y="-20%" width="140%" height="150%">
+        <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.45" />
+      </filter>
+      <clipPath id="hs-island-clip"><path data-island-clip d={still} /></clipPath>
+    </defs>
+
+    <!-- Desktop -->
+    <rect width="680" height="330" fill="url(#hs-wall)" />
+    <rect width="680" height="330" fill="url(#hs-glow-a)" />
+    <rect width="680" height="330" fill="url(#hs-glow-b)" />
+
+    <!-- A window the text lands in -->
+    <g filter="url(#hs-shadow)">
+      <rect x="110" y="80" width="460" height="220" rx="12" fill="#1f2026" stroke="#ffffff" stroke-opacity="0.12" />
+    </g>
+    <circle cx="130" cy="100" r="6" fill="#ff5f57" />
+    <circle cx="150" cy="100" r="6" fill="#febc2e" />
+    <circle cx="170" cy="100" r="6" fill="#28c840" />
+    <text x="340" y="104.5" text-anchor="middle" class="hs-title">Meeting notes</text>
+    <line x1="110" y1="120.5" x2="570" y2="120.5" stroke="#ffffff" stroke-opacity="0.08" />
+    <foreignObject x="110" y="121" width="460" height="178">
+      <div class="hs-doc">
+        <p class="hs-heading">Thursday</p>
+        <p><span class="hs-typed" data-typed>Move the design review to 3 pm, and ask the team to bring the new onboarding mock-ups so we can decide before the release.</span><span class="hs-caret"></span></p>
+      </div>
+    </foreignObject>
+
+    <!-- Menu bar -->
+    <rect width="680" height="32" fill="#0b0d12" fill-opacity="0.5" />
+    <text x="18" y="20.5" class="hs-menu hs-app">Notes</text>
+    <text x="74" y="20.5" class="hs-menu">File</text>
+    <text x="110" y="20.5" class="hs-menu">Edit</text>
+    <g fill="#fff" aria-hidden="true">
+      {menuIcon.map((h, i) => <rect x={514 + i * 2.4} y={16 - h / 2} width="1.4" height={h} rx="0.7" />)}
+    </g>
+    <g fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+      <path d="M546 14.2a11 11 0 0 1 15 0" />
+      <path d="M549 17.4a6.6 6.6 0 0 1 9 0" />
+    </g>
+    <circle cx="553.5" cy="20.6" r="1.4" fill="#fff" />
+    <rect x="574" y="10.5" width="22" height="11" rx="3" fill="none" stroke="#fff" stroke-opacity="0.55" />
+    <rect x="576" y="12.5" width="15" height="7" rx="1.5" fill="#fff" />
+    <rect x="597.5" y="14" width="1.6" height="4" rx="0.8" fill="#fff" fill-opacity="0.55" />
+    <text x="664" y="20.5" text-anchor="end" class="hs-menu">Thu 9:41</text>
+
+    <!-- The island, which is the notch itself when hidden -->
+    <path data-island d={still} fill="#000" />
+    <g clip-path="url(#hs-island-clip)">
+      <g data-compact>
+        <g fill="#fff">
+          {bars.map((i) => <rect data-bar x={221.5 + i * 4} y="9" width="2" height="14" rx="1" style={`transform: scaleY(${barScale(stillBars[i])})`} />)}
+        </g>
+        <text data-timer x="453.5" y="20.2" text-anchor="middle" class="hs-timer">0:04</text>
+      </g>
+      <g data-expanded opacity="0">
+        <g data-spinner>
+          <circle cx="245" cy="62" r="8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"
+            stroke-dasharray="40.2 50.3" pathLength="50.3" />
+        </g>
+        <g data-check opacity="0">
+          <circle cx="245" cy="62" r="11" fill="#30d158" />
+          <path d="M240 62.3l3.4 3.4 6.6-7" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+        <text data-card-title x="270" y="59" class="hs-card-title">Processing...</text>
+        <text data-card-detail x="270" y="73" class="hs-card-detail">Transcribing audio</text>
+        <circle cx="442" cy="62" r="8" fill="#fff" fill-opacity="0.5" />
+        <path d="M439 59l6 6m0-6l-6 6" stroke="#000" stroke-width="1.8" stroke-linecap="round" />
+      </g>
+    </g>
+  </svg>
+</div>
+
+<style>
+  .hero-scene {
+    margin-top: 32px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    line-height: 0;
+    background: #123c52;
+  }
+  .hero-scene svg { display: block; width: 100%; height: auto; }
+  .hero-scene text {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    fill: #fff;
+  }
+  .hs-menu { font-size: 13px; font-weight: 500; }
+  .hs-app { font-weight: 700; }
+  .hs-title { font-size: 13px; font-weight: 600; fill-opacity: 0.55; }
+  .hs-timer { font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .hs-card-title { font-size: 13px; font-weight: 600; }
+  .hs-card-detail { font-size: 10px; fill-opacity: 0.5; }
+  .hs-doc {
+    padding: 16px 26px;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    color: rgba(255, 255, 255, 0.88);
+  }
+  .hs-doc p { margin: 0; }
+  .hs-heading { font-size: 18px; font-weight: 600; margin-bottom: 6px !important; color: #fff; }
+  .hs-typed { animation: hs-in 0.4s ease; }
+  .hs-typed[hidden] { display: none; }
+  .hs-caret {
+    display: inline-block; width: 2px; height: 1.15em; margin-left: 1px;
+    vertical-align: -0.2em; background: #3d9bff;
+    animation: hs-blink 1.06s steps(1) infinite;
+  }
+  [data-bar] { transform-box: fill-box; transform-origin: center; transition: transform 50ms linear; }
+  [data-spinner] { transform-box: fill-box; transform-origin: center; animation: hs-spin 1s linear infinite; }
+  @keyframes hs-blink { 50% { opacity: 0; } }
+  @keyframes hs-in { from { opacity: 0; } }
+  @keyframes hs-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .hs-caret, .hs-typed, [data-spinner] { animation: none; }
+    [data-bar] { transition: none; }
+  }
+</style>
+
+<script>
+  import { barScale, islandPath, poses, type Pose } from '../lib/island';
+
+  /** WaveformLevels: an adaptive floor and peak, bars that rise at once and fall slowly. */
+  class Waveform {
+    recent = [0, 0, 0];
+    smoothed = 0; floor = 1; peak = 0;
+    push(level: number) {
+      this.floor = Math.min(level, this.floor + 0.003);
+      this.peak = Math.max(level, this.peak - 0.004);
+      const span = Math.max(this.peak - this.floor, 0.12);
+      const scaled = Math.max(0, Math.min(1, (level - this.floor) / span));
+      this.smoothed = scaled > this.smoothed ? scaled : this.smoothed * 0.7 + scaled * 0.3;
+      this.recent.shift();
+      this.recent.push(this.smoothed);
+    }
+    get bars() { return [0, 1, 2, 3, 4].map((i) => this.recent[2 - Math.abs(i - 2)]); }
+  }
+
+  /** A made-up voice: syllables inside words, short gaps between them, a quiet room under it. */
+  function voiceLevel(t: number): number {
+    const word = (t * 1.7) % 1;
+    const gate = word < 0.7 ? 1 : 0;
+    const syllable = Math.max(0, Math.sin(t * 2 * Math.PI * 4.1 + Math.sin(t * 2.3) * 2));
+    return 0.22 + gate * (0.1 + 0.3 * syllable) + Math.random() * 0.04;
+  }
+
+  // The loop, in milliseconds: when each overlay state starts.
+  const loop = 11000;
+  const listenAt = 700, processAt = 4900, doneAt = 5800, hideAt = 7800, clearAt = 10400;
+  const transition = 350;
+
+  function setUp(svg: SVGSVGElement) {
+    const island = svg.querySelector<SVGPathElement>('[data-island]')!;
+    const clip = svg.querySelector<SVGPathElement>('[data-island-clip]')!;
+    const compact = svg.querySelector<SVGGElement>('[data-compact]')!;
+    const expanded = svg.querySelector<SVGGElement>('[data-expanded]')!;
+    const barEls = [...svg.querySelectorAll<SVGRectElement>('[data-bar]')];
+    const timer = svg.querySelector<SVGTextElement>('[data-timer]')!;
+    const spinner = svg.querySelector<SVGGElement>('[data-spinner]')!;
+    const check = svg.querySelector<SVGGElement>('[data-check]')!;
+    const title = svg.querySelector<SVGTextElement>('[data-card-title]')!;
+    const detail = svg.querySelector<SVGTextElement>('[data-card-detail]')!;
+    const typed = svg.querySelector<HTMLElement>('[data-typed]')!;
+    const waveform = new Waveform();
+
+    const draw = (pose: Pose) => {
+      const d = islandPath(pose);
+      island.setAttribute('d', d);
+      clip.setAttribute('d', d);
+      compact.setAttribute('opacity', pose.compact.toFixed(3));
+      expanded.setAttribute('opacity', pose.expanded.toFixed(3));
+    };
+    const showBars = (levels: number[]) =>
+      barEls.forEach((bar, i) => { bar.style.transform = `scaleY(${barScale(levels[i])})`; });
+    const card = (done: boolean) => {
+      spinner.setAttribute('opacity', done ? '0' : '1');
+      check.setAttribute('opacity', done ? '1' : '0');
+      title.textContent = done ? 'Done' : 'Processing...';
+      title.setAttribute('y', done ? '66.5' : '59');
+      detail.setAttribute('opacity', done ? '0' : '1');
+    };
+
+    // Reduced motion keeps the listening frame the markup already shows.
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    typed.hidden = true;
+    let from: Pose = poses.hidden, to: Pose = poses.hidden, changedAt = 0, current = 'hidden';
+    let start = performance.now(), lastPush = 0;
+    const ease = (x: number) => 1 - Math.pow(1 - x, 3);
+    const mix = (a: Pose, b: Pose, k: number): Pose => ({
+      w: a.w + (b.w - a.w) * k, h: a.h + (b.h - a.h) * k,
+      top: a.top + (b.top - a.top) * k, bottom: a.bottom + (b.bottom - a.bottom) * k,
+      compact: a.compact + (b.compact - a.compact) * k, expanded: a.expanded + (b.expanded - a.expanded) * k,
+    });
+
+    const frame = () => {
+      const now = performance.now();
+      let t = now - start;
+      if (t >= loop) { start += Math.floor(t / loop) * loop; t = now - start; lastPush = 0; }
+      const name = t < listenAt ? 'hidden' : t < processAt ? 'compact' : t < hideAt ? 'expanded' : 'hidden';
+      if (name !== current) {
+        const k = Math.min(1, (now - changedAt) / transition);
+        from = mix(from, to, ease(k));
+        to = poses[name as keyof typeof poses];
+        changedAt = now;
+        current = name;
+      }
+      draw(mix(from, to, ease(Math.min(1, (now - changedAt) / transition))));
+
+      if (name === 'compact') {
+        // 20 levels a second, as the app samples the microphone.
+        for (; lastPush <= t; lastPush += 50) if (lastPush >= listenAt) waveform.push(voiceLevel(lastPush / 1000));
+        showBars(waveform.bars);
+        timer.textContent = `0:0${Math.floor((t - listenAt) / 1000)}`;
+      } else if (t < listenAt) {
+        timer.textContent = '0:00';
+        showBars([0, 0, 0, 0, 0]);
+      }
+      card(t >= doneAt);
+      typed.hidden = !(t >= doneAt && t < clearAt);
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+
+  document.querySelectorAll<SVGSVGElement>('[data-hero-scene]').forEach(setUp);
+</script>

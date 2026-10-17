@@ -4,6 +4,7 @@ import Download from '../components/Download.astro';
 import Footer from '../components/Footer.astro';
 import { Image } from 'astro:assets';
 import icon from '../assets/icon.png';
+import HeroScene from '../components/HeroScene.astro';
 import screenshot from '../assets/screenshot.png';
 import settingsShot from '../assets/settings.png';
 import modelsShot from '../assets/models.png';
@@ -127,15 +128,7 @@ const structuredData = {
         subscription, and your voice never leaves your Mac.
       </p>
       <Download release={release} />
-      <Image
-        class="screenshot"
-        src={screenshot}
-        widths={[680, 1360]}
-        sizes="(max-width: 712px) 100vw, 680px"
-        alt="JustScribe's recording indicator dropping from the MacBook notch: a red microphone and the words Listening, speak now"
-        loading="eager"
-        fetchpriority="high"
-      />
+      <HeroScene label="JustScribe recording on a MacBook: the indicator spreads out from the notch with a live waveform and a timer, then shows Processing and Done as the dictated text appears in a Notes window" />
     </section>
 
     <section id="what">

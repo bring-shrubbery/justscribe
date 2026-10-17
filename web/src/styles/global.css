@@ -132,12 +132,6 @@ td.num { font-family: var(--font-mono); font-size: 14px; }
 .hero h1 .subtitle { display: block; font-size: 22px; font-weight: 500; letter-spacing: 0; color: var(--text-muted); margin-top: 8px; }
 .hero .lead { font-size: 19px; line-height: 1.5; color: var(--text-muted); margin: 14px 0 24px; max-width: 34em; }
 .hero .lead strong { color: var(--text); }
-.hero .screenshot {
-  display: block; width: 100%; height: auto;
-  border: 1px solid var(--line); border-radius: var(--radius);
-  margin-top: 32px;
-}
-
 /* FAQ */
 .faq { margin: 0; }
 .faq div { padding: 14px 0; border-top: 1px solid var(--line-soft); }
