@@ -32,101 +32,104 @@ final class SettingsRequests {
     var showModelDownload = false
 }
 
+/// The panes of the Settings window, in sidebar order. Each groups the sections that belong to
+/// one task, so a setting is two clicks away instead of somewhere down a long scroll.
+enum SettingsPane: String, CaseIterable, Identifiable {
+    case general, dictation, microphone, speechModel, cleanUp, modes, vocabulary, historyAndTranscripts, about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "General"
+        case .dictation: return "Dictation"
+        case .microphone: return "Microphone"
+        case .speechModel: return "Speech Model"
+        case .cleanUp: return "Clean-up"
+        case .modes: return "Modes"
+        case .vocabulary: return "Vocabulary"
+        case .historyAndTranscripts: return "History & Transcripts"
+        case .about: return "About"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general: return "gearshape.fill"
+        case .dictation: return "keyboard.fill"
+        case .microphone: return "mic.fill"
+        case .speechModel: return "waveform"
+        case .cleanUp: return "text.badge.checkmark"
+        case .modes: return "square.grid.2x2.fill"
+        case .vocabulary: return "character.book.closed.fill"
+        case .historyAndTranscripts: return "clock.fill"
+        case .about: return "info.circle.fill"
+        }
+    }
+
+    /// The tile colour behind the sidebar icon, in the manner of System Settings.
+    var tint: Color {
+        switch self {
+        case .general: return .gray
+        case .dictation: return .blue
+        case .microphone: return .red
+        case .speechModel: return .purple
+        case .cleanUp: return .indigo
+        case .modes: return .orange
+        case .vocabulary: return .green
+        case .historyAndTranscripts: return .brown
+        case .about: return .blue
+        }
+    }
+
+    /// Where the gaps in the sidebar fall: before the first pane of each group.
+    var startsGroup: Bool {
+        switch self {
+        case .general, .cleanUp, .historyAndTranscripts: return true
+        default: return false
+        }
+    }
+}
+
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var settings: AppSettings?
     @State private var showingModelDownloadModal = false
     @State private var showingOnboarding = false
+    @AppStorage("settingsSelectedPane") private var selectedPaneID = SettingsPane.general.rawValue
 
     private var downloadService: ModelDownloadService { ModelDownloadService.shared }
 
+    private var selectedPane: Binding<SettingsPane?> {
+        Binding(
+            get: { SettingsPane(rawValue: selectedPaneID) ?? .general },
+            set: { if let pane = $0 { selectedPaneID = pane.rawValue } }
+        )
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // Header
-                headerView
-
-                if let settings = settings {
-                    VStack(spacing: 24) {
-                        PermissionsSettingsSection()
-
-                        Divider()
-
-                        ModelSettingsSection(
-                            settings: settings,
-                            showingModelDownloadModal: $showingModelDownloadModal
-                        )
-
-                        Divider()
-
-                        MicrophoneSettingsSection(settings: settings)
-
-                        Divider()
-
-                        ShortcutSettingsSection(settings: settings)
-
-                        Divider()
-
-                        IndicatorSettingsSection(settings: settings)
-
-                        Divider()
-
-                        CleanUpSettingsSection(settings: settings)
-
-                        Divider()
-
-                        VocabularySettingsSection()
-
-                        Divider()
-
-                        AppearanceSettingsSection(settings: settings)
-
-                        Divider()
-
-                        BehaviorSettingsSection(settings: settings)
-
-                        Divider()
-
-                        HistorySettingsSection(settings: settings)
-
-                        Divider()
-
-                        TranscriptsSettingsSection()
-
-                        Divider()
-
-                        UpdateSettingsSection()
-
-                        Divider()
-
-                        SupportSettingsSection()
-
-                        Divider()
-
-                        LinksSettingsSection()
-
-                        Divider()
-
-                        DiagnosticsSettingsSection()
-
-                        #if DEBUG
-                        Divider()
-
-                        SettingsSectionContainer(title: "Developer") {
-                            Button("Reset Onboarding") {
-                                showingOnboarding = true
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        #endif
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 32)
+        NavigationSplitView {
+            List(selection: selectedPane) {
+                ForEach(SettingsPane.allCases) { pane in
+                    SidebarLabel(pane: pane)
+                        .tag(pane)
+                        .padding(.top, pane.startsGroup && pane != .general ? 10 : 0)
                 }
             }
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 200, max: 240)
+        } detail: {
+            if let settings {
+                let pane = selectedPane.wrappedValue ?? .general
+                Form {
+                    paneContent(pane, settings: settings)
+                }
+                .formStyle(.grouped)
+                .navigationTitle(pane.title)
+                .id(pane)
+            }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .navigationSplitViewStyle(.balanced)
         .onAppear {
             settings = AppSettings.getOrCreate(in: modelContext)
             checkForOnboarding()
@@ -146,10 +149,55 @@ struct SettingsView: View {
         }
     }
 
+    @ViewBuilder
+    private func paneContent(_ pane: SettingsPane, settings: AppSettings) -> some View {
+        switch pane {
+        case .general:
+            PermissionsSettingsSection()
+            StartupSettingsSection(settings: settings)
+            AppearanceSettingsSection(settings: settings)
+            UpdateSettingsSection()
+        case .dictation:
+            ShortcutSettingsSection(settings: settings)
+            DictationBehaviorSettingsSection(settings: settings)
+            IndicatorSettingsSection(settings: settings)
+        case .microphone:
+            MicrophoneSettingsSection(settings: settings)
+        case .speechModel:
+            ModelSettingsSection(settings: settings, showingModelDownloadModal: $showingModelDownloadModal)
+            RAMEstimateSection(settings: settings)
+        case .cleanUp:
+            CleanUpSettingsSection(settings: settings)
+            if settings.grammarCorrectionEnabled {
+                RAMEstimateSection(settings: settings)
+            }
+        case .modes:
+            ModesSettingsSection()
+        case .vocabulary:
+            VocabularySettingsSection()
+        case .historyAndTranscripts:
+            HistorySettingsSection(settings: settings)
+            TranscriptsSettingsSection()
+        case .about:
+            SupportSettingsSection()
+            LinksSettingsSection()
+            DiagnosticsSettingsSection()
+            #if DEBUG
+            SettingsSectionContainer(title: "Developer") {
+                Button("Reset Onboarding") {
+                    showingOnboarding = true
+                }
+                .buttonStyle(.pill)
+            }
+            #endif
+        }
+    }
+
     private func takeRequests() {
         let requests = SettingsRequests.shared
         guard requests.showModelDownload else { return }
         requests.showModelDownload = false
+        selectedPaneID = SettingsPane.speechModel.rawValue
         showingModelDownloadModal = true
     }
 
@@ -162,34 +210,28 @@ struct SettingsView: View {
             }
         }
     }
+}
 
-    private var headerView: some View {
-        VStack(spacing: 8) {
-            if let appIcon = NSApp.applicationIconImage {
-                Image(nsImage: appIcon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 96, height: 96)
-            }
+/// A sidebar entry: a coloured tile with the pane's symbol, then its name.
+private struct SidebarLabel: View {
+    let pane: SettingsPane
 
-            Text("JustScribe")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Voice transcription at your fingertips")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            if let settings = settings {
-                RAMEstimateLabel(settings: settings)
-                    .padding(.top, 4)
-            }
+    var body: some View {
+        Label {
+            Text(pane.title)
+        } icon: {
+            Image(systemName: pane.systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(pane.tint.gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
-        .padding(.vertical, 32)
     }
 }
 
-private struct RAMEstimateLabel: View {
+/// How much memory the chosen speech and clean-up models take together; shown under each of
+/// the two panes that decide it.
+private struct RAMEstimateSection: View {
     @Bindable var settings: AppSettings
 
     private var totalMB: Int {
@@ -201,17 +243,32 @@ private struct RAMEstimateLabel: View {
     }
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "memorychip")
-            Text("Estimated RAM usage: \(RAMEstimate.format(totalMB: totalMB))")
+        Section {
+            HStack(spacing: 12) {
+                Image(systemName: "memorychip")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Estimated RAM usage")
+                        .font(.body)
+                    Text("Speech model and clean-up model together, while loaded")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(RAMEstimate.format(totalMB: totalMB))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
     }
 }
 
 // MARK: - Section Container
 
+/// One group of a pane: a `Section` of the grouped form, titled, with an optional control at
+/// the right of the title. Each direct child of `content` is a row of the group's card.
 struct SettingsSectionContainer<Content: View, Accessory: View>: View {
     let title: String
     @ViewBuilder let accessory: () -> Accessory
@@ -226,19 +283,15 @@ struct SettingsSectionContainer<Content: View, Accessory: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        Section {
+            content()
+        } header: {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
                 Spacer()
                 accessory()
             }
-
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -282,8 +335,40 @@ struct SettingsRow<Content: View>: View {
     }
 }
 
+/// A row with a symbol, a title over a caption, and a switch at the right.
+struct ToggleSettingsRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.pill)
+        }
+    }
+}
+
 #Preview {
     SettingsView()
         .modelContainer(for: AppSettings.self, inMemory: true)
-        .frame(width: 480, height: 800)
+        .frame(width: 760, height: 560)
 }

@@ -24,52 +24,15 @@ import SwiftUI
 
 struct LinksSettingsSection: View {
     var body: some View {
-        SettingsSectionContainer(title: "About") {
-            VStack(spacing: 0) {
-                LinkRow(
-                    title: "Website",
-                    systemImage: "globe",
-                    url: Constants.URLs.website
-                )
+        SettingsSectionContainer(title: "Links") {
+            LinkRow(title: "Website", systemImage: "globe", url: Constants.URLs.website)
+            LinkRow(title: "Privacy Policy", systemImage: "hand.raised", url: Constants.URLs.privacyPolicy)
+            LinkRow(title: "Terms of Service", systemImage: "doc.text", url: Constants.URLs.termsOfService)
+            LinkRow(title: "Credits", systemImage: "heart", url: Constants.URLs.credits)
+            LinkRow(title: "Support", systemImage: "questionmark.circle", url: Constants.URLs.support)
+        }
 
-                Divider()
-                    .padding(.leading, 44)
-
-                LinkRow(
-                    title: "Privacy Policy",
-                    systemImage: "hand.raised",
-                    url: Constants.URLs.privacyPolicy
-                )
-
-                Divider()
-                    .padding(.leading, 44)
-
-                LinkRow(
-                    title: "Terms of Service",
-                    systemImage: "doc.text",
-                    url: Constants.URLs.termsOfService
-                )
-
-                Divider()
-                    .padding(.leading, 44)
-
-                LinkRow(
-                    title: "Credits",
-                    systemImage: "heart",
-                    url: Constants.URLs.credits
-                )
-
-                Divider()
-                    .padding(.leading, 44)
-
-                LinkRow(
-                    title: "Support",
-                    systemImage: "questionmark.circle",
-                    url: Constants.URLs.support
-                )
-            }
-
-            // Version info
+        Section {
             HStack {
                 Spacer()
                 Text("Version \(appVersion)")
@@ -77,8 +40,8 @@ struct LinksSettingsSection: View {
                     .foregroundStyle(.tertiary)
                 Spacer()
             }
-            .padding(.top, 8)
         }
+        .listRowBackground(Color.clear)
     }
 
     private var appVersion: String {
@@ -115,7 +78,7 @@ struct LinkRow: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

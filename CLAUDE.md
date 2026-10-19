@@ -253,6 +253,19 @@ Whisper gets the vocabulary as `promptTokens` (≤ 200); file transcripts get `V
 too, but no commands or clean-up. Vocabulary and modes live in `vocabulary.json` / `modes.json` in
 the container through `JSONFile`; Default mode has a fixed UUID.
 
+### Settings window
+
+`SettingsView` is a `NavigationSplitView`: a sidebar of `SettingsPane`s (General, Dictation,
+Microphone, Speech Model, Clean-up, Modes, Vocabulary, History & Transcripts, About; the last
+one chosen is remembered) and, per pane, one `Form` in the grouped style hosting the section
+views under `Views/Settings/Sections/`. `SettingsSectionContainer` is a `Section` of that form,
+so every direct child of a section is a row of its card; put rows side by side, not in a
+`VStack` with `Divider`s. The Clean-up pane shows the on/off switch, a "Clean up with" list with
+one row per way to clean up and its readiness at the right ("In use", "Ready", "Needs an API
+key", "Not installed", "Failed"), and the set-up card of the row picked (or of the one in use);
+picking a row that is ready switches to it at once, one that is not just shows what it needs.
+`SettingsRequests.showModelDownload` selects the Speech Model pane before opening the sheet.
+
 ### Settings persistence — dual-write, deliberately
 
 `AppSettings` is a SwiftData `@Model` used by the Settings UI, but every field mirrors itself into

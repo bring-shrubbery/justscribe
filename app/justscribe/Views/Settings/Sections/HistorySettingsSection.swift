@@ -28,15 +28,12 @@ struct HistorySettingsSection: View {
 
     var body: some View {
         SettingsSectionContainer(title: "History") {
-            VStack(spacing: 12) {
                 ToggleSettingsRow(
                     title: "Keep Transcriptions",
                     subtitle: "Save the text of each dictation so you can find and reuse it later",
                     systemImage: "clock.arrow.circlepath",
                     isOn: $settings.historyKeepsTranscriptions
                 )
-
-                Divider()
 
                 ToggleSettingsRow(
                     title: "Keep Audio Recordings",
@@ -61,8 +58,6 @@ struct HistorySettingsSection: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                Divider()
-
                 HStack {
                     Text(summary)
                         .font(.caption)
@@ -75,7 +70,6 @@ struct HistorySettingsSection: View {
                         .buttonStyle(.pill)
                         .disabled(store.records.isEmpty)
                 }
-            }
         }
         .alert("Delete all history?", isPresented: $isConfirmingDeleteAll) {
             Button("Delete All", role: .destructive) { store.deleteAll() }

@@ -41,13 +41,13 @@ struct justscribeApp: App {
         }
     }()
 
-    private let windowWidth: CGFloat = 480
+    private let windowWidth: CGFloat = 760
 
     var body: some Scene {
         // One window: a WindowGroup would offer "New Window" and open copies.
         Window("JustScribe", id: "settings") {
             SettingsView()
-                .frame(minWidth: windowWidth, maxWidth: windowWidth, minHeight: 600)
+                .frame(minWidth: windowWidth, minHeight: 560)
                 .navigationTitle("")
                 .onAppear {
                     // Ensure the app is active and can receive keyboard input

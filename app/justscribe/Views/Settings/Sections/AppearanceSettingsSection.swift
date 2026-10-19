@@ -27,8 +27,6 @@ struct AppearanceSettingsSection: View {
 
     var body: some View {
         SettingsSectionContainer(title: "Appearance") {
-            VStack(spacing: 16) {
-                // Appearance Mode
                 SettingsRow(title: "Theme", subtitle: "Choose your preferred color scheme") {
                     AppearanceModePicker(selection: Binding(
                         get: { settings.appearanceMode },
@@ -48,7 +46,6 @@ struct AppearanceSettingsSection: View {
                 //     }
                 //     .labelsHidden()
                 // }
-            }
         }
     }
 

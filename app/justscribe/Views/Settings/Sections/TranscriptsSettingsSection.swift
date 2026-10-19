@@ -28,7 +28,6 @@ struct TranscriptsSettingsSection: View {
 
     var body: some View {
         SettingsSectionContainer(title: "Transcripts") {
-            VStack(spacing: 12) {
                 ToggleSettingsRow(
                     title: "Keep Audio Recordings",
                     subtitle: "Save the audio of each Long Dictation and Live Transcription next to its transcript, to play back in Transcripts. About 20 MB an hour",
@@ -44,7 +43,6 @@ struct TranscriptsSettingsSection: View {
                     Button("Show Transcripts…") { AppDelegate.shared?.showTranscripts() }
                         .buttonStyle(.pill)
                 }
-            }
         }
     }
 }

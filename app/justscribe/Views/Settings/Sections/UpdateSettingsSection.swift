@@ -25,7 +25,6 @@ struct UpdateSettingsSection: View {
 
     var body: some View {
         SettingsSectionContainer(title: "Updates") {
-            VStack(spacing: 12) {
                 ToggleSettingsRow(
                     title: "Automatically install updates",
                     subtitle: "New versions download in the background and install when JustScribe quits",
@@ -35,8 +34,6 @@ struct UpdateSettingsSection: View {
                         set: { service.automaticallyInstallsUpdates = $0 }
                     )
                 )
-
-                Divider()
 
                 HStack(spacing: 12) {
                     Image(systemName: "arrow.triangle.2.circlepath")
@@ -60,7 +57,6 @@ struct UpdateSettingsSection: View {
                     .buttonStyle(.pill)
                     .disabled(!service.canCheckForUpdates)
                 }
-            }
         }
     }
 
