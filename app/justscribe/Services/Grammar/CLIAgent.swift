@@ -145,7 +145,9 @@ nonisolated enum CLIAgent: String, CaseIterable, Codable, Sendable, Identifiable
     }
 
     /// Where the tool is usually installed, most likely first. Every folder here is one the
-    /// entitlements let the app read; an install elsewhere is not seen.
+    /// entitlements let the app read, and so must be wherever a link here points: Claude's
+    /// native installer links `~/.local/bin/claude` into `~/.local/share/claude/versions/`.
+    /// An install elsewhere is not seen.
     func candidatePaths(home: String, contentsOf list: (String) -> [String]) -> [String] {
         let name = commandName
         var paths: [String] = []
