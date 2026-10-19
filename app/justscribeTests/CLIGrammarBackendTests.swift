@@ -109,6 +109,7 @@ final class CLIGrammarBackendTests {
         ])
         #expect(call.environment["CLAUDE_CONFIG_DIR"] == "/Users/someone/.claude")
         #expect(call.environment["TMPDIR"] == "/tmp/container")
+        #expect(call.environment["CLAUDE_CODE_TMPDIR"] == "/tmp/container", "its own scratch folder ignores TMPDIR")
         #expect(call.environment["PATH"]?.hasPrefix("/Users/someone/.local/bin:") == true)
         #expect(call.environment["HOME"] == nil, "the container stays the home; only the config folder is named")
         #expect(call.outputFile == nil)

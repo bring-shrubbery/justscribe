@@ -222,8 +222,10 @@ nonisolated struct CLIInvocation: Equatable, Sendable {
             // The configuration folder is named outright: `HOME` is the container, and the
             // sign-in lives in the real one. No tools leaves a plain answer, and nothing is
             // written for the session. Not `--bare`: bare mode skips the stored sign-in too,
-            // and answers "Not logged in".
+            // and answers "Not logged in". Its scratch folder ignores `TMPDIR` and defaults to
+            // `/tmp/claude-<uid>`, which the sandbox refuses (EPERM), so it is named too.
             environment["CLAUDE_CONFIG_DIR"] = "\(home)/.claude"
+            environment["CLAUDE_CODE_TMPDIR"] = tmp
             var arguments = [
                 "-p", text, "--system-prompt", system, "--output-format", "text",
                 "--no-session-persistence", "--tools", "",
