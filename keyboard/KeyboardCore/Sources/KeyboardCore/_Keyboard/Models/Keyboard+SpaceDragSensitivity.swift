@@ -1,0 +1,28 @@
+import Foundation
+
+public extension Keyboard {
+    
+    /// This enum defines supported space drag sensitivities.
+    ///
+    /// The type defines to how many points a space key must
+    /// be dragged for the input cursor to be moved one step.
+    /// Higher sensitivity means fewer points.
+    enum SpaceDragSensitivity: KeyboardModel {
+        
+        case low, medium, high, custom(points: Int)
+    }
+}
+
+public extension Keyboard.SpaceDragSensitivity {
+    
+    var id: Int { points }
+    
+    var points: Int {
+        switch self {
+        case .low: 10
+        case .medium: 5
+        case .high: 2
+        case .custom(let points): points
+        }
+    }
+}

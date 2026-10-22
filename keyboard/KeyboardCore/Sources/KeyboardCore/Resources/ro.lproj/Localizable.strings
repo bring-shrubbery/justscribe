@@ -1,0 +1,35 @@
+"locale" = "ro";
+
+"capsLock" = "caps lock";
+"continue" = "continue";
+"done" = "OK";
+"emergencyCall" = "Emergency Call";
+"go" = "Acces";
+"join" = "join";
+"next" = "next";
+"ok" = "OK";
+"return" = "↵";
+"route" = "route";
+"search" = "Căutare";
+"searchEmoji" = "Caută Emoji";
+"send" = "send";
+"space" = "Spațiu";
+
+"switcherAlphabetic" = "ABC";
+"switcherNumeric" = "123";
+"switcherSymbolic" = "#+=";
+
+"EmojiCategory.smileysAndPeople" = "Smileys & People";
+"EmojiCategory.animalsAndNature" = "Animals & Nature";
+"EmojiCategory.foodAndDrink" = "Food & Drink";
+"EmojiCategory.activity" = "Activity";
+"EmojiCategory.travelAndPlaces" = "Travel & Places";
+"EmojiCategory.objects" = "Objects";
+"EmojiCategory.symbols" = "Symbols";
+"EmojiCategory.flags" = "Flags";
+
+"EmojiCategory.favorites" = "Favorites";
+"EmojiCategory.frequent" = "Frequently Used";
+"EmojiCategory.recent" = "Most Recent";
+
+// For emoji localization, copy & translate the English list.

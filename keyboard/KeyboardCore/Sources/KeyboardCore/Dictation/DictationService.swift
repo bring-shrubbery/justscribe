@@ -1,0 +1,42 @@
+import Foundation
+
+/// This protocol can be implemented by any classes that can
+/// perform dictation from a keyboard extension or in an app.
+///
+/// Since keyboard extensions can't access the microphone, a
+/// dictation service must open the main app to let it start
+/// dictation, write the dictation results to a shared state,
+/// then navigate back to the keyboard and handle the result.
+public protocol DictationService: AnyObject {
+
+    /// The current dictation authorization status.
+    var authorizationStatus: Dictation.AuthorizationStatus { get }
+
+    /// A list of supported locales.
+    var supportedLocales: [Locale] { get }
+
+
+    /// Request dictation authorization.
+    func requestDictationAuthorization() async throws -> Dictation.AuthorizationStatus
+
+    /// Start a dictation operation from the keyboard.
+    func startDictationFromKeyboard() async throws
+
+    /// Start a dictation operation in the main app.
+    func startDictationInApp() async throws
+
+    /// Abort an active dictation operation in the main app.
+    func abortDictationInApp() async throws
+
+    /// Finish an active dictation operation in the main app.
+    func finishDictationInApp() async throws
+
+    /// Try to return to the keyboard from the main app.
+    func returnToKeyboardFromApp() throws
+
+    /// Handle any dictation result in the keyboard.
+    func handleDictationResultInKeyboard() async throws
+
+    /// Undo the last performed dictation operation, if any.
+    func undoLastDictation()
+}

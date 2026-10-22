@@ -1,0 +1,54 @@
+import SwiftUI
+
+@available(*, deprecated, message: "Use KeyboardAction extensions instead.")
+public extension Color {
+
+    /// The standard keyboard button background color.
+    static func standardKeyboardButtonBackground(
+        for context: KeyboardContext,
+        action: KeyboardAction,
+        isPressed: Bool = false
+    ) -> Color {
+        action.standardButtonBackgroundColor(
+            for: context,
+            isPressed: isPressed
+        )
+    }
+
+    /// The standard keyboard button background opacity.
+    static func standardKeyboardButtonBackgroundOpacity(
+        for context: KeyboardContext,
+        action: KeyboardAction,
+        isPressed: Bool = false
+    ) -> Double {
+        action.standardButtonBackgroundColorOpacity(
+            for: context,
+            isPressed: isPressed
+        )
+    }
+
+    /// The standard keyboard button background color in its
+    /// raw form, without any opacity applied.
+    static func standardKeyboardButtonBackgroundValue(
+        for context: KeyboardContext,
+        action: KeyboardAction,
+        isPressed: Bool
+    ) -> Color {
+        action.standardButtonBackgroundColorValue(
+            for: context,
+            isPressed: isPressed
+        )
+    }
+
+    /// The standard keyboard button style foreground color.
+    static func standardKeyboardButtonForeground(
+        for context: KeyboardContext,
+        action: KeyboardAction,
+        isPressed: Bool = false
+    ) -> Color {
+        action.standardButtonForegroundColor(
+            for: context,
+            isPressed: isPressed
+        )
+    }
+}

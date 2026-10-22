@@ -1,0 +1,102 @@
+# The JustScribe keyboard for iPhone and iPad: a host app that records and
+# transcribes on the device, and a keyboard extension that types and asks the
+# app for dictation. Regenerate the Xcode project with `xcodegen` in this folder.
+# Sources are synchronized folders, so new files are picked up without a regenerate.
+
+name: JustScribeKeyboard
+
+options:
+  bundleIdPrefix: com.quassum
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: 6WCYZER5LX
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+packages:
+  KeyboardCore:
+    path: KeyboardCore
+
+targets:
+  JustScribe:
+    type: application
+    platform: iOS
+    sources:
+      - path: JustScribe
+        type: syncedFolder
+      - path: Shared
+        type: syncedFolder
+    dependencies:
+      - target: Keyboard
+        embed: true
+        codeSign: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.ios
+        PRODUCT_NAME: JustScribe
+        INFOPLIST_FILE: JustScribe/Info.plist
+        CODE_SIGN_ENTITLEMENTS: JustScribe/JustScribe.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  Keyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Keyboard
+        type: syncedFolder
+      - path: Shared
+        type: syncedFolder
+    dependencies:
+      - package: KeyboardCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.ios.keyboard
+        PRODUCT_NAME: Keyboard
+        INFOPLIST_FILE: Keyboard/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Keyboard/Keyboard.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  JustScribeKeyboardTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+        type: syncedFolder
+    dependencies:
+      - target: JustScribe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/JustScribe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/JustScribe
+        BUNDLE_LOADER: $(TEST_HOST)
+
+schemes:
+  JustScribe:
+    build:
+      targets:
+        JustScribe: all
+        Keyboard: all
+    test:
+      targets:
+        - JustScribeKeyboardTests
+  Keyboard:
+    build:
+      targets:
+        Keyboard: all
+        JustScribe: all
+    run:
+      executable: JustScribe

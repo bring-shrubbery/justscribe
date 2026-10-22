@@ -1,0 +1,639 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4FD24F78A03D493C08C15EE1 /* KeyboardCore in Frameworks */ = {isa = PBXBuildFile; productRef = 57A1F176C0FAC381569B7F5A /* KeyboardCore */; };
+		E0B0ABDD30F673311E0DF24B /* Keyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 28F0916007FA38752CDE3A87 /* Keyboard.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E8C612329B84F51F3A1DF145 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8339BC67D6992EAE4BF494F7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 957F77995D8BBC2EB0E2FEA0;
+			remoteInfo = JustScribe;
+		};
+		EB9B53530204814555B0D70B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8339BC67D6992EAE4BF494F7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AD7016FC7F56B33614123536;
+			remoteInfo = Keyboard;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E15340084E2C59256E7C0DFC /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E0B0ABDD30F673311E0DF24B /* Keyboard.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		28F0916007FA38752CDE3A87 /* Keyboard.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = Keyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5FD6D55DE4C3A3F2A820C923 /* JustScribeKeyboardTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = JustScribeKeyboardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0E4187A84328A2EBADE39DC /* JustScribe.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = JustScribe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF6E07DE3433C0AEE4565C8A /* KeyboardCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = KeyboardCore; path = KeyboardCore; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		057BFD115B4536967762DA0D /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AD7016FC7F56B33614123536 /* Keyboard */;
+		};
+		E9E15DEEE93C7AB22E86443D /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 957F77995D8BBC2EB0E2FEA0 /* JustScribe */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		411E6B8041BD3F79494D7823 /* JustScribe */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E9E15DEEE93C7AB22E86443D /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = JustScribe;
+			sourceTree = "<group>";
+		};
+		5BEE67D6A67FADD42B5515F8 /* Keyboard */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				057BFD115B4536967762DA0D /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		94E17568D27D551EC1408959 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		AC3BAD284B4884BCF8BA1D99 /* Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E970337DC96AA2CD99C6A879 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4FD24F78A03D493C08C15EE1 /* KeyboardCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		72FF45B181E5E447E4099F84 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C0E4187A84328A2EBADE39DC /* JustScribe.app */,
+				5FD6D55DE4C3A3F2A820C923 /* JustScribeKeyboardTests.xctest */,
+				28F0916007FA38752CDE3A87 /* Keyboard.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E75BDA8E16538E7F718E3968 = {
+			isa = PBXGroup;
+			children = (
+				411E6B8041BD3F79494D7823 /* JustScribe */,
+				5BEE67D6A67FADD42B5515F8 /* Keyboard */,
+				E86AF707F7A27A88F2F1C64D /* Packages */,
+				94E17568D27D551EC1408959 /* Shared */,
+				AC3BAD284B4884BCF8BA1D99 /* Tests */,
+				72FF45B181E5E447E4099F84 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E86AF707F7A27A88F2F1C64D /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				EF6E07DE3433C0AEE4565C8A /* KeyboardCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		957F77995D8BBC2EB0E2FEA0 /* JustScribe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDD6BF54C87D4D0E48566CED /* Build configuration list for PBXNativeTarget "JustScribe" */;
+			buildPhases = (
+				3C48FF4F3B06F9224FBEF63C /* Sources */,
+				BA8188B358054C0D7D2B71C8 /* Resources */,
+				E15340084E2C59256E7C0DFC /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0006A339B1C9AB7596CA4907 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				411E6B8041BD3F79494D7823 /* JustScribe */,
+				94E17568D27D551EC1408959 /* Shared */,
+			);
+			name = JustScribe;
+			packageProductDependencies = (
+			);
+			productName = JustScribe;
+			productReference = C0E4187A84328A2EBADE39DC /* JustScribe.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AD7016FC7F56B33614123536 /* Keyboard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A456DF1D82AF7BBF96E33D39 /* Build configuration list for PBXNativeTarget "Keyboard" */;
+			buildPhases = (
+				CD21DB535E4F941EBFA8084A /* Sources */,
+				04B5A2D76B9B5A95D3B025B5 /* Resources */,
+				E970337DC96AA2CD99C6A879 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5BEE67D6A67FADD42B5515F8 /* Keyboard */,
+				94E17568D27D551EC1408959 /* Shared */,
+			);
+			name = Keyboard;
+			packageProductDependencies = (
+				57A1F176C0FAC381569B7F5A /* KeyboardCore */,
+			);
+			productName = Keyboard;
+			productReference = 28F0916007FA38752CDE3A87 /* Keyboard.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		D682FC3C7F13AF8CB835FF94 /* JustScribeKeyboardTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 89DCF7DAC92381CBBFDC05B5 /* Build configuration list for PBXNativeTarget "JustScribeKeyboardTests" */;
+			buildPhases = (
+				C4737A27684C2783798DB43F /* Sources */,
+				1FA8A0948588888A6F3B1192 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2557B8BFCA480C05E9958A38 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				AC3BAD284B4884BCF8BA1D99 /* Tests */,
+			);
+			name = JustScribeKeyboardTests;
+			packageProductDependencies = (
+			);
+			productName = JustScribeKeyboardTests;
+			productReference = 5FD6D55DE4C3A3F2A820C923 /* JustScribeKeyboardTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8339BC67D6992EAE4BF494F7 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					957F77995D8BBC2EB0E2FEA0 = {
+						DevelopmentTeam = 6WCYZER5LX;
+						ProvisioningStyle = Automatic;
+					};
+					AD7016FC7F56B33614123536 = {
+						DevelopmentTeam = 6WCYZER5LX;
+						ProvisioningStyle = Automatic;
+					};
+					D682FC3C7F13AF8CB835FF94 = {
+						DevelopmentTeam = 6WCYZER5LX;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 3ED0D60ADBF6843CFC72AF2A /* Build configuration list for PBXProject "JustScribeKeyboard" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = E75BDA8E16538E7F718E3968;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				EFFF84FF558EB53A126BBF98 /* XCLocalSwiftPackageReference "KeyboardCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 72FF45B181E5E447E4099F84 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				957F77995D8BBC2EB0E2FEA0 /* JustScribe */,
+				AD7016FC7F56B33614123536 /* Keyboard */,
+				D682FC3C7F13AF8CB835FF94 /* JustScribeKeyboardTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		04B5A2D76B9B5A95D3B025B5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1FA8A0948588888A6F3B1192 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA8188B358054C0D7D2B71C8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3C48FF4F3B06F9224FBEF63C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C4737A27684C2783798DB43F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CD21DB535E4F941EBFA8084A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0006A339B1C9AB7596CA4907 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AD7016FC7F56B33614123536 /* Keyboard */;
+			targetProxy = EB9B53530204814555B0D70B /* PBXContainerItemProxy */;
+		};
+		2557B8BFCA480C05E9958A38 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 957F77995D8BBC2EB0E2FEA0 /* JustScribe */;
+			targetProxy = E8C612329B84F51F3A1DF145 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4E35664A19765AAD61B167C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe.ios.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/JustScribe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/JustScribe";
+			};
+			name = Debug;
+		};
+		5B2261B3D0D00B4955FD7795 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 6WCYZER5LX;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		67609B8810D0F295CA885F90 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Keyboard/Keyboard.entitlements;
+				INFOPLIST_FILE = Keyboard/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe.ios.keyboard;
+				PRODUCT_NAME = Keyboard;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7A246172641B3502D6AC3355 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe.ios.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/JustScribe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/JustScribe";
+			};
+			name = Release;
+		};
+		7B18A34CB82C341236B04BB8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = JustScribe/JustScribe.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = JustScribe/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe.ios;
+				PRODUCT_NAME = JustScribe;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8390FE68A79A504DF17F5D93 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Keyboard/Keyboard.entitlements;
+				INFOPLIST_FILE = Keyboard/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe.ios.keyboard;
+				PRODUCT_NAME = Keyboard;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B92ECC4896BCDA4E7B9BC292 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6WCYZER5LX;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D8E38D5F7E80CC29A5D19FA3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = JustScribe/JustScribe.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = JustScribe/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe.ios;
+				PRODUCT_NAME = JustScribe;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3ED0D60ADBF6843CFC72AF2A /* Build configuration list for PBXProject "JustScribeKeyboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B92ECC4896BCDA4E7B9BC292 /* Debug */,
+				5B2261B3D0D00B4955FD7795 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		89DCF7DAC92381CBBFDC05B5 /* Build configuration list for PBXNativeTarget "JustScribeKeyboardTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4E35664A19765AAD61B167C1 /* Debug */,
+				7A246172641B3502D6AC3355 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A456DF1D82AF7BBF96E33D39 /* Build configuration list for PBXNativeTarget "Keyboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				67609B8810D0F295CA885F90 /* Debug */,
+				8390FE68A79A504DF17F5D93 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FDD6BF54C87D4D0E48566CED /* Build configuration list for PBXNativeTarget "JustScribe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7B18A34CB82C341236B04BB8 /* Debug */,
+				D8E38D5F7E80CC29A5D19FA3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		EFFF84FF558EB53A126BBF98 /* XCLocalSwiftPackageReference "KeyboardCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = KeyboardCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		57A1F176C0FAC381569B7F5A /* KeyboardCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KeyboardCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 8339BC67D6992EAE4BF494F7 /* Project object */;
+}
