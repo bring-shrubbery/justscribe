@@ -21,3 +21,8 @@ web/node_modules/
 web/dist/
 web/.astro/
 web/.wrangler/
+
+# iOS keyboard build output (fastlane)
+keyboard/build/
+keyboard/fastlane/report.xml
+keyboard/Gemfile.lock

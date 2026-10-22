@@ -16,7 +16,7 @@ settings:
   base:
     DEVELOPMENT_TEAM: 6WCYZER5LX
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
@@ -43,10 +43,12 @@ targets:
         codeSign: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe
         PRODUCT_NAME: JustScribe
         INFOPLIST_FILE: JustScribe/Info.plist
         CODE_SIGN_ENTITLEMENTS: JustScribe/JustScribe.entitlements
+        # Empty except in CI, which signs manually: see fastlane/Fastfile.
+        PROVISIONING_PROFILE_SPECIFIER: $(APP_PROFILE_SPECIFIER)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 
@@ -62,10 +64,11 @@ targets:
       - package: KeyboardCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.ios.keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.keyboard
         PRODUCT_NAME: Keyboard
         INFOPLIST_FILE: Keyboard/Info.plist
         CODE_SIGN_ENTITLEMENTS: Keyboard/Keyboard.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: $(KEYBOARD_PROFILE_SPECIFIER)
         APPLICATION_EXTENSION_API_ONLY: YES
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 
@@ -79,7 +82,7 @@ targets:
       - target: JustScribe
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.ios.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.keyboardTests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/JustScribe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/JustScribe
         BUNDLE_LOADER: $(TEST_HOST)

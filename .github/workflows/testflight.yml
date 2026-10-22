@@ -1,0 +1,74 @@
+name: iOS TestFlight
+
+# Builds the iOS app and keyboard in keyboard/ and uploads them to TestFlight
+# (App Store Connect app "JustScribe", iOS platform). Runs on GitHub's macOS
+# runners, never a self-hosted one: this repository is public.
+# keyboard/README.md explains the signing secrets.
+
+on:
+  push:
+    branches: [main, keyboard]
+    paths:
+      - "keyboard/**"
+      - ".github/workflows/testflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Queue rather than race: two runs would compute the same build number.
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: Build and upload to TestFlight
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: keyboard
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Select the newest released Xcode
+        run: |
+          XCODE=$(printf '%s\n' /Applications/Xcode_*.app | grep -viE '/Xcode_[^/]*(beta|candidate|rc)[^/]*$' | sort -V | tail -1)
+          if [ ! -d "$XCODE" ]; then
+            echo "::error::no released Xcode installed; found only:"; printf '%s\n' /Applications/Xcode_*.app
+            exit 1
+          fi
+          echo "using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: keyboard
+
+      - name: Build and upload
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          IOS_DISTRIBUTION_P12: ${{ secrets.IOS_DISTRIBUTION_P12 }}
+          IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+          FASTLANE_HIDE_CHANGELOG: "1"
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "300"
+        run: |
+          for name in ASC_API_KEY_ID ASC_API_ISSUER_ID ASC_API_KEY_P8 IOS_DISTRIBUTION_P12 IOS_DISTRIBUTION_P12_PASSWORD; do
+            if [ -z "${!name}" ]; then echo "::error::the $name secret is not set (keyboard/README.md)"; exit 1; fi
+          done
+          bundle exec fastlane beta
+
+      - name: Keep the build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: keyboard/build/logs
+          if-no-files-found: ignore

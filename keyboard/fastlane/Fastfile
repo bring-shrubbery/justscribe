@@ -1,0 +1,122 @@
+# Builds the iOS app and its keyboard and uploads them to TestFlight.
+#
+# Runs in CI (.github/workflows/testflight.yml) and works the same from a Mac:
+#   cd keyboard && bundle exec fastlane beta
+#
+# Environment:
+#   ASC_API_KEY_ID, ASC_API_ISSUER_ID  App Store Connect API key
+#   ASC_API_KEY_P8 or ASC_API_KEY_PATH  its .p8, as text or as a file
+#   IOS_DISTRIBUTION_P12               Apple Distribution identity, base64 .p12 (or IOS_DISTRIBUTION_P12_PATH)
+#   IOS_DISTRIBUTION_P12_PASSWORD      its password
+#
+# Signing is manual and needs nothing from the login keychain: the identity goes
+# into a throwaway keychain, and App Store profiles for both bundle IDs are
+# fetched (or made) through the API on every run.
+
+default_platform(:ios)
+
+PROJECT = "JustScribeKeyboard.xcodeproj"
+SCHEME = "JustScribe"
+APP_ID = "com.quassum.justscribe"
+KEYBOARD_ID = "com.quassum.justscribe.keyboard"
+# The Apple Distribution certificate "JustScribe iOS CI", whose key is in IOS_DISTRIBUTION_P12.
+CERTIFICATE_ID = "7RW7K7J34G"
+KEYCHAIN = "justscribe-ios-ci"
+
+platform :ios do
+  desc "Build Release and upload to TestFlight"
+  lane :beta do
+    require "base64"
+    require "securerandom"
+    require "tmpdir"
+
+    work = Dir.mktmpdir("justscribe-ios-ci")
+    key_path = ENV["ASC_API_KEY_PATH"] || File.join(work, "AuthKey.p8").tap do |path|
+      File.write(path, ENV.fetch("ASC_API_KEY_P8"))
+    end
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_API_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_API_ISSUER_ID"),
+      key_filepath: key_path
+    )
+
+    p12_path = ENV["IOS_DISTRIBUTION_P12_PATH"] || File.join(work, "distribution.p12").tap do |path|
+      File.binwrite(path, Base64.decode64(ENV.fetch("IOS_DISTRIBUTION_P12")))
+    end
+    keychain_password = SecureRandom.hex(24)
+    delete_keychain(name: KEYCHAIN) if File.exist?(File.expand_path("~/Library/Keychains/#{KEYCHAIN}-db"))
+    create_keychain(
+      name: KEYCHAIN,
+      password: keychain_password,
+      default_keychain: false,
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false,
+      add_to_search_list: true
+    )
+
+    begin
+      import_certificate(
+        certificate_path: p12_path,
+        certificate_password: ENV.fetch("IOS_DISTRIBUTION_P12_PASSWORD"),
+        keychain_name: KEYCHAIN,
+        keychain_password: keychain_password
+      )
+
+      profiles = [APP_ID, KEYBOARD_ID].to_h do |identifier|
+        get_provisioning_profile(
+          api_key: api_key,
+          app_identifier: identifier,
+          cert_id: CERTIFICATE_ID,
+          readonly: false,
+          output_path: work,
+          filename: "#{identifier}.mobileprovision"
+        )
+        [identifier, lane_context[SharedValues::SIGH_NAME]]
+      end
+
+      build_number = latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: APP_ID,
+        platform: "ios",
+        initial_build_number: 0
+      ) + 1
+
+      build_app(
+        project: PROJECT,
+        scheme: SCHEME,
+        configuration: "Release",
+        destination: "generic/platform=iOS",
+        export_method: "app-store",
+        export_options: {
+          signingStyle: "manual",
+          provisioningProfiles: profiles
+        },
+        xcargs: [
+          "CODE_SIGN_STYLE=Manual",
+          # Package targets (KeyboardCore's resource bundle) do not inherit the project's team.
+          "DEVELOPMENT_TEAM=6WCYZER5LX",
+          "CODE_SIGN_IDENTITY='Apple Distribution'",
+          "OTHER_CODE_SIGN_FLAGS='--keychain #{File.expand_path("~/Library/Keychains/#{KEYCHAIN}-db")}'",
+          "APP_PROFILE_SPECIFIER='#{profiles[APP_ID]}'",
+          "KEYBOARD_PROFILE_SPECIFIER='#{profiles[KEYBOARD_ID]}'",
+          "CURRENT_PROJECT_VERSION=#{build_number}"
+        ].join(" "),
+        output_directory: "build",
+        output_name: "JustScribe.ipa",
+        buildlog_path: "build/logs"
+      )
+
+      upload_to_testflight(
+        api_key: api_key,
+        app_identifier: APP_ID,
+        app_platform: "ios",
+        skip_waiting_for_build_processing: true,
+        distribute_external: false
+      )
+    ensure
+      delete_keychain(name: KEYCHAIN)
+      FileUtils.rm_rf(work)
+    end
+  end
+end

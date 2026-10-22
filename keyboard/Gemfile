@@ -1,0 +1,12 @@
+source "https://rubygems.org"
+
+gem "fastlane", "~> 2.227"
+
+# fastlane eagerly loads every default action at startup, including the Google
+# Play actions whose google-apis-core -> representable/json chain does a bare
+# `require "multi_json"`. multi_json is only a *soft* dependency of representable
+# (required at runtime, not declared in any gemspec), so a fresh resolve no
+# longer pulls it in transitively, and modern bundler refuses to load a gem that
+# isn't part of the bundle ("multi_json is not part of the bundle"). Declare it
+# explicitly so `fastlane release` can boot on CI.
+gem "multi_json"

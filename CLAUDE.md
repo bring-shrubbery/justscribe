@@ -39,7 +39,10 @@ the two talk through `Shared/DictationBridge.swift`: Darwin notifications for co
 defaults (`group.com.quassum.justscribe`, hence Full Access) for state and results.
 `keyboard/KeyboardCore/` is KeyboardKit 9.9.1 (the last MIT release) with its Pro placeholders
 and branding removed; its `LICENSE` must stay. Changes under `keyboard/` do not release the Mac
-app. `keyboard/README.md` has the flow and the feasibility notes.
+app; on `main` or `keyboard` they upload a TestFlight build instead (`.github/workflows/testflight.yml`,
+`keyboard/fastlane/Fastfile`, GitHub-hosted runners only: the repository is public). The iOS app
+is the iOS platform of the existing JustScribe App Store Connect record (bundle ID
+`com.quassum.justscribe`, keyboard `com.quassum.justscribe.keyboard`). `keyboard/README.md` has the flow and the feasibility notes.
 
 `justscribeApp.swift` is a thin `@main` shell: it owns the SwiftData container and the Settings
 window scene. **The real app logic lives in `AppDelegate.swift`**, which orchestrates every

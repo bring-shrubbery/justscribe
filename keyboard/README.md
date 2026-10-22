@@ -15,6 +15,30 @@ xcodebuild -project JustScribeKeyboard.xcodeproj -scheme JustScribe \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 ```
 
+## TestFlight
+
+Every push to `main` or `keyboard` that touches `keyboard/` (and any manual run of the
+**iOS TestFlight** workflow) builds Release and uploads it to TestFlight:
+`.github/workflows/testflight.yml` on GitHub's macOS runners, then `fastlane beta`
+(`fastlane/Fastfile`). It never runs on a self-hosted runner, because this repository is public.
+
+- **App Store Connect**: the iOS platform of the existing **JustScribe** app (6758214206),
+  so the Mac and iOS apps are one listing. Bundle IDs `com.quassum.justscribe` (app) and
+  `com.quassum.justscribe.keyboard`, both in App Group `group.com.quassum.justscribe`.
+- **Build number**: the latest iOS TestFlight build + 1. **Version**: `MARKETING_VERSION`
+  in `project.yml`.
+- **Signing**: manual, from the Apple Distribution certificate "JustScribe iOS CI"
+  (`7RW7K7J34G`, expires 2027-10-22). Its identity goes into a throwaway keychain, and App
+  Store profiles for both bundle IDs are fetched or created through the API on each run.
+- **Secrets**: `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID` and `ASC_API_KEY_P8` (shared with the Mac
+  release), plus `IOS_DISTRIBUTION_P12` (base64 `.p12`) and `IOS_DISTRIBUTION_P12_PASSWORD`.
+  When the certificate expires, create a new one (`asc certificates create --certificate-type
+  DISTRIBUTION --generate-csr …`), update `CERTIFICATE_ID` in the Fastfile, and replace those
+  two secrets.
+
+From a Mac: `cd keyboard && bundle exec fastlane beta`, with `ASC_API_KEY_PATH` and
+`IOS_DISTRIBUTION_P12_PATH` pointing to the files instead of the base64 secrets.
+
 ## Layout
 
 | Folder          | What                                                                                  |

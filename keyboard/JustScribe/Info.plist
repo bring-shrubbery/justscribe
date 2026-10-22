@@ -24,13 +24,15 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.quassum.justscribe.ios</string>
+			<string>com.quassum.justscribe</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>justscribe</string>
 			</array>
 		</dict>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
