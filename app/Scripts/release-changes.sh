@@ -28,7 +28,7 @@ changed_paths() {
 
 is_documentation() {
     case "$1" in
-        docs/*|web/*|icon-composer/*|screenshots/*|*.md|LICENSE|.gitignore) return 0 ;;
+        docs/*|web/*|keyboard/*|icon-composer/*|screenshots/*|*.md|LICENSE|.gitignore) return 0 ;;
         .github/workflows/*) return 1 ;;
         .github/*) return 0 ;;
     esac

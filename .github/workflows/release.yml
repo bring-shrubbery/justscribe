@@ -4,7 +4,7 @@ name: Release
 # a signed, notarized JustScribe-vX.Y.Z-macos-arm64.dmg (and zip) on a GitHub
 # release, tagged vX.Y.Z. The version is the higher of MARKETING_VERSION in the
 # Xcode project and the last release tag's patch + 1; raise MARKETING_VERSION in
-# Xcode to ship a minor or major. Changes to docs/, web/, icon-composer/,
+# Xcode to ship a minor or major. Changes to docs/, web/, keyboard/, icon-composer/,
 # screenshots/, *.md, LICENSE, .gitignore and .github/ (except the workflows) do
 # not release.
 # docs/release.md explains the secrets and the flow.

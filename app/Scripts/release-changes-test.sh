@@ -29,6 +29,8 @@ check "nothing"          "" ""
 check "website"          "web/src/pages/index.astro web/package.json" ""
 check "website and app"  "web/src/pages/index.astro app/justscribe/AppDelegate.swift" "app/justscribe/AppDelegate.swift"
 check "design assets"    "icon-composer/justscribe.icon/icon.json screenshots/raw/a.png" ""
+check "keyboard"         "keyboard/Keyboard/KeyboardViewController.swift keyboard/project.yml" ""
+check "keyboard and app" "keyboard/project.yml app/justscribe/AppDelegate.swift" "app/justscribe/AppDelegate.swift"
 
 # With no previous tag every tracked path counts; the real repo has code, so output is non-empty.
 if [ -n "$("$SCRIPT" "")" ]; then

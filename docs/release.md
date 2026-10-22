@@ -22,7 +22,7 @@ The workflow computes the version: the higher of `MARKETING_VERSION` in
   count would restart, Sparkle would see every new build as older, and installed
   copies would silently stop updating. If it must happen, first raise the offset
   (the `BUILD=` line and the *Summary* step) above the last released build number.
-- Pushes that change only `docs/`, `web/`, `icon-composer/`, `screenshots/`,
+- Pushes that change only `docs/`, `web/`, `keyboard/`, `icon-composer/`, `screenshots/`,
   `*.md`, `LICENSE`, `.gitignore` or `.github/` (except the workflows) release
   nothing. The run says so in its log.
 
