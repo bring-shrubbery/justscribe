@@ -22,7 +22,7 @@ class GestureButtonState: ObservableObject {
     }
     
     private(set) var isDragGestureStarted = false
-    private(set) var lastDragGestureValue: DragGesture.Value?
+    private(set) var lastDragGestureValue: GestureButtonDragValue?
     private(set) var lastMaxDragDistance = -1.0
     
     var isPressedBinding: Binding<Bool>
@@ -32,7 +32,7 @@ class GestureButtonState: ObservableObject {
     var repeatDate = Date()
     
     func startDragGesture(
-        with value: DragGesture.Value
+        with value: GestureButtonDragValue
     ) {
         isDragGestureStarted = true
         lastMaxDragDistance = -1
@@ -44,7 +44,7 @@ class GestureButtonState: ObservableObject {
     }
     
     func updateDragGesture(
-        with value: DragGesture.Value
+        with value: GestureButtonDragValue
     ) {
         lastDragGestureValue = value
         let distance = distance(

@@ -19,6 +19,9 @@ let package = Package(
         .target(
             name: "KeyboardCore",
             resources: [.process("Resources")],
+            // Asset symbols (Color(.name)) resolve against the main bundle in optimized
+            // builds of a statically linked package, which drew every key invisible.
+            // Colors and images name Bundle.keyboardCore explicitly instead.
             swiftSettings: [.swiftLanguageMode(.v5)]
         )
     ]

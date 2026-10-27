@@ -30,17 +30,29 @@ struct JustScribeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HomeView(session: session)
-                .fullScreenCover(isPresented: $showsListening) {
-                    ListeningView(session: session) { showsListening = false }
-                }
-                .onOpenURL { url in
-                    guard url.scheme == DeepLink.scheme else { return }
-                    if url.host() == DeepLink.dictate.host() {
-                        showsListening = true
-                        Task { await session.begin(recordNow: true) }
-                    }
-                }
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "keyboardLab") {
+                KeyboardLabView()
+            } else {
+                home
+            }
+            #else
+            home
+            #endif
         }
+    }
+
+    private var home: some View {
+        HomeView(session: session)
+            .fullScreenCover(isPresented: $showsListening) {
+                ListeningView(session: session) { showsListening = false }
+            }
+            .onOpenURL { url in
+                guard url.scheme == DeepLink.scheme else { return }
+                if url.host() == DeepLink.dictate.host() {
+                    showsListening = true
+                    Task { await session.begin(recordNow: true) }
+                }
+            }
     }
 }

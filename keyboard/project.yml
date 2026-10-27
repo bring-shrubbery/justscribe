@@ -87,6 +87,21 @@ targets:
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/JustScribe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/JustScribe
         BUNDLE_LOADER: $(TEST_HOST)
 
+  JustScribeKeyboardUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+        type: syncedFolder
+    dependencies:
+      - target: JustScribe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.quassum.justscribe.keyboardUITests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: JustScribe
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+
 schemes:
   JustScribe:
     build:
@@ -96,6 +111,7 @@ schemes:
     test:
       targets:
         - JustScribeKeyboardTests
+        - JustScribeKeyboardUITests
   Keyboard:
     build:
       targets:

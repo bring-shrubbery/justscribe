@@ -12,6 +12,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		01667DD2198BA22CE88A9333 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8339BC67D6992EAE4BF494F7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 957F77995D8BBC2EB0E2FEA0;
+			remoteInfo = JustScribe;
+		};
 		E8C612329B84F51F3A1DF145 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 8339BC67D6992EAE4BF494F7 /* Project object */;
@@ -46,6 +53,7 @@
 		28F0916007FA38752CDE3A87 /* Keyboard.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = Keyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5FD6D55DE4C3A3F2A820C923 /* JustScribeKeyboardTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = JustScribeKeyboardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C0E4187A84328A2EBADE39DC /* JustScribe.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = JustScribe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C4CE29285D6762E2294F1F6C /* JustScribeKeyboardUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = JustScribeKeyboardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF6E07DE3433C0AEE4565C8A /* KeyboardCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = KeyboardCore; path = KeyboardCore; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -109,6 +117,15 @@
 			path = Tests;
 			sourceTree = "<group>";
 		};
+		B3FC2C220B23515076FE623C /* UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -128,6 +145,7 @@
 			children = (
 				C0E4187A84328A2EBADE39DC /* JustScribe.app */,
 				5FD6D55DE4C3A3F2A820C923 /* JustScribeKeyboardTests.xctest */,
+				C4CE29285D6762E2294F1F6C /* JustScribeKeyboardUITests.xctest */,
 				28F0916007FA38752CDE3A87 /* Keyboard.appex */,
 			);
 			name = Products;
@@ -141,6 +159,7 @@
 				E86AF707F7A27A88F2F1C64D /* Packages */,
 				94E17568D27D551EC1408959 /* Shared */,
 				AC3BAD284B4884BCF8BA1D99 /* Tests */,
+				B3FC2C220B23515076FE623C /* UITests */,
 				72FF45B181E5E447E4099F84 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -156,6 +175,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		676827B1167F840826A5F75D /* JustScribeKeyboardUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8BED372567488FDACF6C4E0C /* Build configuration list for PBXNativeTarget "JustScribeKeyboardUITests" */;
+			buildPhases = (
+				59227835030723D65A63E338 /* Sources */,
+				0C4E0A42738132B8FC466C64 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA0231266D4D2A618826C0BE /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B3FC2C220B23515076FE623C /* UITests */,
+			);
+			name = JustScribeKeyboardUITests;
+			packageProductDependencies = (
+			);
+			productName = JustScribeKeyboardUITests;
+			productReference = C4CE29285D6762E2294F1F6C /* JustScribeKeyboardUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		957F77995D8BBC2EB0E2FEA0 /* JustScribe */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDD6BF54C87D4D0E48566CED /* Build configuration list for PBXNativeTarget "JustScribe" */;
@@ -235,6 +276,11 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					676827B1167F840826A5F75D = {
+						DevelopmentTeam = 6WCYZER5LX;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 957F77995D8BBC2EB0E2FEA0;
+					};
 					957F77995D8BBC2EB0E2FEA0 = {
 						DevelopmentTeam = 6WCYZER5LX;
 						ProvisioningStyle = Automatic;
@@ -269,12 +315,20 @@
 				957F77995D8BBC2EB0E2FEA0 /* JustScribe */,
 				AD7016FC7F56B33614123536 /* Keyboard */,
 				D682FC3C7F13AF8CB835FF94 /* JustScribeKeyboardTests */,
+				676827B1167F840826A5F75D /* JustScribeKeyboardUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		04B5A2D76B9B5A95D3B025B5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0C4E0A42738132B8FC466C64 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -299,6 +353,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		3C48FF4F3B06F9224FBEF63C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59227835030723D65A63E338 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -331,6 +392,11 @@
 			isa = PBXTargetDependency;
 			target = 957F77995D8BBC2EB0E2FEA0 /* JustScribe */;
 			targetProxy = E8C612329B84F51F3A1DF145 /* PBXContainerItemProxy */;
+		};
+		AA0231266D4D2A618826C0BE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 957F77995D8BBC2EB0E2FEA0 /* JustScribe */;
+			targetProxy = 01667DD2198BA22CE88A9333 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -493,6 +559,42 @@
 			};
 			name = Release;
 		};
+		8CB0511DE5B2F72F4570BCF1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe.keyboardUITests;
+				SDKROOT = iphoneos;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = JustScribe;
+			};
+			name = Release;
+		};
+		AB71783D590E033754D69C1D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.quassum.justscribe.keyboardUITests;
+				SDKROOT = iphoneos;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = JustScribe;
+			};
+			name = Debug;
+		};
 		B92ECC4896BCDA4E7B9BC292 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -601,6 +703,15 @@
 			buildConfigurations = (
 				4E35664A19765AAD61B167C1 /* Debug */,
 				7A246172641B3502D6AC3355 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8BED372567488FDACF6C4E0C /* Build configuration list for PBXNativeTarget "JustScribeKeyboardUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB71783D590E033754D69C1D /* Debug */,
+				8CB0511DE5B2F72F4570BCF1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

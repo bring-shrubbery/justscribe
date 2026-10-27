@@ -211,7 +211,7 @@ extension Keyboard {
         private let dragAction: KeyboardDragGestureAction?
         private let endAction: KeyboardGestureAction?
 
-        @SwiftUI.State private var lastDragValue: DragGesture.Value?
+        @SwiftUI.State private var lastDragValue: GestureButtonDragValue?
 
         @Environment(\.gestureButtonConfiguration) private var configuration
         @Environment(\.keyboardCalloutActionsBuilder) private var calloutActionsBuilder
@@ -280,7 +280,7 @@ private extension Keyboard.ButtonGestures {
         doubleTapAction?()
     }
 
-    func handleDrag(in geo: GeometryProxy, value: DragGesture.Value) {
+    func handleDrag(in geo: GeometryProxy, value: GestureButtonDragValue) {
         lastDragValue = value
         updateCalloutActionSelection(for: value)
         dragAction?(value.startLocation, value.location)
@@ -362,7 +362,7 @@ private extension Keyboard.ButtonGestures {
     }
 
     func updateCalloutActionSelection(
-        for value: DragGesture.Value
+        for value: GestureButtonDragValue
     ) {
         guard let context = calloutContext else { return }
         context.updateSecondaryActionsSelection(with: value)

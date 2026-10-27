@@ -15,6 +15,24 @@ xcodebuild -project JustScribeKeyboard.xcodeproj -scheme JustScribe \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 ```
 
+## Testing the keyboard in the simulator
+
+`UITests/KeyboardTypingUITests` types on the keyboard with real touches. It needs a simulator
+with the JustScribe keyboard enabled and selected, which can be set without Settings:
+
+```bash
+xcrun simctl spawn $SIM defaults write -g AppleKeyboards -array \
+  "com.quassum.justscribe.keyboard" "en_US@sw=QWERTY;hw=Automatic" "emoji@sw=Emoji"
+xcrun simctl spawn $SIM defaults write com.apple.keyboard.preferences KeyboardLastUsed \
+  -string "com.quassum.justscribe.keyboard"
+xcrun simctl shutdown $SIM && xcrun simctl boot $SIM
+```
+
+Debug builds launched with `-keyboardLab YES` open a bare text field with the keyboard up, for
+screenshots (`xcrun simctl io $SIM screenshot`). Check the keys in an optimized build too
+(`-configuration Release`): a statically linked package resolves resources differently there,
+and one such difference once drew every key invisible.
+
 ## TestFlight
 
 Every push to `main` or `keyboard` that touches `keyboard/` (and any manual run of the

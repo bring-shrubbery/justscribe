@@ -75,7 +75,7 @@ public struct GestureButton<Label: View>: View {
     private let initConfig: GestureButtonConfiguration?
 
     public typealias Action = () -> Void
-    public typealias DragAction = (DragGesture.Value) -> Void
+    public typealias DragAction = (GestureButtonDragValue) -> Void
     public typealias LabelBuilder = (_ isPressed: Bool) -> Label
     
     private let pressAction: Action?
@@ -106,33 +106,7 @@ public struct GestureButton<Label: View>: View {
     }
     
     public var body: some View {
-        if #available(iOS 18.0, macOS 15.0, watchOS 11.0, *) {
-            content
-        } else if isInScrollView {
-            /// The `simultaneousGesture` below doesn't work
-            /// in iOS 17 and `ScrollViewGestureButton` does
-            /// only work in iOS 17 and earlier.
-            ScrollViewGestureButton(
-                isPressed: $state.isPressed,
-                pressAction: pressAction,
-                releaseInsideAction: releaseInsideAction,
-                releaseOutsideAction: releaseOutsideAction,
-                longPressDelay: config.longPressDelay,
-                longPressAction: longPressAction,
-                doubleTapTimeout: config.doubleTapTimeout,
-                doubleTapAction: doubleTapAction,
-                repeatDelay: config.repeatDelay,
-                repeatAction: repeatAction,
-                repeatTimer: state.repeatTimer,
-                dragStartAction: dragStartAction,
-                dragAction: dragAction,
-                dragEndAction: dragEndAction,
-                endAction: endAction,
-                label: label
-            )
-        } else {
-            content
-        }
+        content
     }
     
     var content: some View {
@@ -145,24 +119,17 @@ public struct GestureButton<Label: View>: View {
 
 private extension GestureButton {
     
-    func gesture(
-        for geo: GeometryProxy
-    ) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { handleDrag($0) }
-            .onEnded { handleDragEnded($0, in: geo) }
-    }
-    
     var gestureView: some View {
         GeometryReader { geo in
-            Color.clear
-                .contentShape(Rectangle())
-                .simultaneousGesture(gesture(for: geo))
+            GestureButtonTouchView(
+                onChanged: { handleDrag($0) },
+                onEnded: { handleDragEnded($0, in: geo) }
+            )
         }
     }
     
     func handleDrag(
-        _ value: DragGesture.Value
+        _ value: GestureButtonDragValue
     ) {
         if scrollState.isScrolling { return }
         if isInScrollView {
@@ -175,7 +142,7 @@ private extension GestureButton {
     }
     
     func handleDragWithState(
-        _ value: DragGesture.Value
+        _ value: GestureButtonDragValue
     ) {
         state.updateDragGesture(with: value)
         if scrollState.isScrolling { return }
@@ -186,7 +153,7 @@ private extension GestureButton {
         tryHandlePress(value)
     }
     
-    func handleDragEnded(_ value: DragGesture.Value, in geo: GeometryProxy) {
+    func handleDragEnded(_ value: GestureButtonDragValue, in geo: GeometryProxy) {
         if isInScrollView {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 handleDragEndedWithState(value, in: geo)
@@ -197,7 +164,7 @@ private extension GestureButton {
     }
     
     func handleDragEndedWithState(
-        _ value: DragGesture.Value,
+        _ value: GestureButtonDragValue,
         in geo: GeometryProxy
     ) {
         defer { state.stopDragGesture() }
@@ -226,7 +193,7 @@ private extension GestureButton {
 
 private extension GestureButton {
 
-    func tryHandlePress(_ value: DragGesture.Value) {
+    func tryHandlePress(_ value: GestureButtonDragValue) {
         if state.isPressed { return }
         state.isPressed = true
         pressAction?()
@@ -237,7 +204,7 @@ private extension GestureButton {
     }
 
     /// Try to handle any new drag gestures as a press event.
-    func tryHandleDrag(_ value: DragGesture.Value) {
+    func tryHandleDrag(_ value: GestureButtonDragValue) {
         guard state.isPressed else { return }
         dragAction?(value)
     }
@@ -246,7 +213,7 @@ private extension GestureButton {
     /// how the gesture is ended. It will always trigger the
     /// drag end and end actions, then either of the release
     /// inside or outside actions.
-    func tryHandleRelease(_ value: DragGesture.Value, in geo: GeometryProxy) {
+    func tryHandleRelease(_ value: GestureButtonDragValue, in geo: GeometryProxy) {
         let shouldTrigger = state.isPressed
         reset()
         guard shouldTrigger else { return }

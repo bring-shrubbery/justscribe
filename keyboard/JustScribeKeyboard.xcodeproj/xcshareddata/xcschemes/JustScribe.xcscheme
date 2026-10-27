@@ -64,6 +64,17 @@
                ReferencedContainer = "container:JustScribeKeyboard.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "676827B1167F840826A5F75D"
+               BuildableName = "JustScribeKeyboardUITests.xctest"
+               BlueprintName = "JustScribeKeyboardUITests"
+               ReferencedContainer = "container:JustScribeKeyboard.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

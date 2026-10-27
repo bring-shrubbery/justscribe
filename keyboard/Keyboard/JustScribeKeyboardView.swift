@@ -31,8 +31,13 @@ struct JustScribeKeyboardView: View {
     let services: Keyboard.Services
     let dictation: DictationClient
 
+    /// Observed so the body, and with it the layout, is rebuilt when the case or
+    /// keyboard type changes: KeyboardView takes its layout once, when it is made.
+    @EnvironmentObject private var keyboardContext: KeyboardContext
+
     var body: some View {
         KeyboardView(
+            layout: services.layoutService.keyboardLayout(for: keyboardContext),
             state: state,
             services: services,
             buttonContent: { $0.view },
