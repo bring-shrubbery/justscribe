@@ -78,7 +78,8 @@ public extension EdgeInsets {
     ) -> EdgeInsets {
         switch context.deviceTypeForKeyboard {
         case .pad: .init(bottom: 4)
-        case .phone: context.isProMaxPhone ? .zero : .init(bottom: -2)
+        // The system keyboard keeps its outer keys about 7 points from the edges.
+        case .phone: .init(top: 0, leading: 3.7, bottom: context.isProMaxPhone ? 0 : -2, trailing: 3.7)
         default: .zero
         }
     }

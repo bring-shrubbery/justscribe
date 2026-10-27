@@ -1,3 +1,25 @@
+//
+//  KeyboardTypingUITests.swift
+//  JustScribeKeyboard
+//
+//  Created by Antoni Silvestrovic on 27/10/2026.
+//
+//  Copyright (C) 2026 Quassum MB
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+//
+
 import XCTest
 
 /// Types on the JustScribe keyboard with real touches, in the app's debug keyboard lab.
@@ -29,13 +51,13 @@ final class KeyboardTypingUITests: XCTestCase {
 
     /// Where the keys of the current layout are, in points on an iPhone 17 Pro (402 × 874).
     /// Measured from a screenshot; update after changing the layout.
-    static var keys: [Character: CGPoint] = [
-        "h": CGPoint(x: 240.8, y: 657.7),
-        "e": CGPoint(x: 100.1, y: 602.2),
-        "l": CGPoint(x: 361.4, y: 657.7),
-        "o": CGPoint(x: 341.3, y: 602.2),
-        "i": CGPoint(x: 301.1, y: 602.2),
-        " ": CGPoint(x: 200.0, y: 770.0),
+    static let keys: [Character: CGPoint] = [
+        "h": CGPoint(x: 240.8, y: 664.3),
+        "e": CGPoint(x: 102.3, y: 609.7),
+        "l": CGPoint(x: 358.8, y: 664.3),
+        "o": CGPoint(x: 339.2, y: 609.7),
+        "i": CGPoint(x: 299.7, y: 609.7),
+        " ": CGPoint(x: 200.2, y: 771.4),
     ]
 
     private func tap(_ key: Character) {

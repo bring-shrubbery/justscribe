@@ -36,7 +36,9 @@ final class KeyboardViewController: KeyboardInputViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setup(for: .justScribe)
-        services.autocompleteService = TextCheckerAutocompleteService(locale: state.keyboardContext.locale)
+        let autocomplete = TextCheckerAutocompleteService(locale: state.keyboardContext.locale)
+        services.autocompleteService = autocomplete
+        autocomplete.load(from: self)
     }
 
     override func viewWillAppear(_ animated: Bool) {

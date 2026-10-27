@@ -1,0 +1,10 @@
+words-en.txt: the 40,000 most frequent plain English words, most frequent first.
+
+Derived from FrequencyWords by Hermit Dave (https://github.com/hermitdave/FrequencyWords),
+content/2018/en/en_50k.txt, which counts words in OpenSubtitles. That content is licensed
+under the Creative Commons Attribution-ShareAlike 4.0 International License
+(https://creativecommons.org/licenses/by-sa/4.0/). Changes: only lowercase words made of
+letters and apostrophes are kept, single letters other than "a" and "i" are dropped, and the
+counts are removed, leaving the order.
+
+This file is distributed under the same license.

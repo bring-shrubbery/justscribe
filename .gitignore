@@ -26,3 +26,4 @@ web/.wrangler/
 keyboard/build/
 keyboard/fastlane/report.xml
 keyboard/Gemfile.lock
+keyboard/vendor/

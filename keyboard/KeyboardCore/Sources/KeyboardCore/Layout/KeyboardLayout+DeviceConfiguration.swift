@@ -132,9 +132,9 @@ public extension KeyboardLayout.DeviceConfiguration {
         }
         var config: Self = isPortrait ? .standardPhone : .standardPhoneLandscape
         guard liquidGlass, isPortrait else { return config }
-        config.rowHeight += 2
-        config.buttonInsets.top -= 0.5
-        config.buttonInsets.bottom -= 0.5
+        // Measured on the iOS 27 system keyboard (iPhone 17 Pro): 42 point keys on a
+        // 54 point row, about 6.6 points between keys.
+        config.buttonInsets = .init(horizontal: 3.3, vertical: 5)
         return config
     }
 

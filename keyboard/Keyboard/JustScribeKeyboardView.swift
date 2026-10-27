@@ -40,7 +40,14 @@ struct JustScribeKeyboardView: View {
             layout: services.layoutService.keyboardLayout(for: keyboardContext),
             state: state,
             services: services,
-            buttonContent: { $0.view },
+            buttonContent: { params in
+                // The system keyboard's space bar is blank.
+                if params.item.action == .space {
+                    Color.clear
+                } else {
+                    params.view
+                }
+            },
             buttonView: { $0.view },
             collapsedView: { $0.view },
             emojiKeyboard: { _ in
@@ -96,13 +103,16 @@ private struct MicrophoneButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "mic.fill")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 40, height: 40)
+                .frame(width: 36, height: 36)
                 .background(Circle().fill(Color.accentColor))
+                .contentShape(.rect)
+                .frame(width: 48, height: 44)
         }
         .buttonStyle(.plain)
-        .padding(.trailing, 6)
+        // Clear of the keyboard's rounded top corner.
+        .padding(.trailing, 8)
         .accessibilityLabel("Dictate")
     }
 }

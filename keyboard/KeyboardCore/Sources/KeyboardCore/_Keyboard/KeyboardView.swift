@@ -323,7 +323,10 @@ private extension KeyboardView {
     var keyboardView: some View {
         GeometryReader { geo in
             let keyboardWidth = keyboardWidth(for: geo.size.width)
-            let inputWidth = layout.inputWidth(for: keyboardWidth)
+            let edgeInsets = keyboardViewStyle.edgeInsets ?? .standardKeyboardEdgeInsets(for: keyboardContext)
+            // Keys share the width inside the edge insets, so the insets show as margins.
+            let rowWidth = keyboardWidth - edgeInsets.leading - edgeInsets.trailing
+            let inputWidth = layout.inputWidth(for: rowWidth)
             VStack {
                 VStack(spacing: 0) {
                     ForEach(Array(layout.itemRows.enumerated()), id: \.offset) { row in
@@ -331,7 +334,7 @@ private extension KeyboardView {
                             ForEach(Array(row.element.enumerated()), id: \.offset) { item in
                                 buttonView(
                                     for: item.element,
-                                    totalWidth: keyboardWidth,
+                                    totalWidth: rowWidth,
                                     inputWidth: inputWidth,
                                     isGestureAutoCancellable: row.offset == 0
                                 )
@@ -339,7 +342,7 @@ private extension KeyboardView {
                         }
                     }
                 }
-                .padding(keyboardViewStyle.edgeInsets ?? .standardKeyboardEdgeInsets(for: keyboardContext))
+                .padding(edgeInsets)
                 .environment(\.layoutDirection, .leftToRight)   // Enforce a layout direction
                 .frame(width: keyboardWidth)
             }
