@@ -23,12 +23,25 @@
 import SwiftUI
 
 /// Shown when the keyboard opened the app to dictate. Recording has already
-/// started; the user goes back to the app they were typing in, where the
-/// keyboard shows the recording and its Done button.
+/// started, and the app sends the user back to the app they were typing in,
+/// where the keyboard shows the recording and its Done button. When it cannot
+/// tell which app that was, the user swipes back.
 struct ListeningView: View {
 
+    enum ReturnState: Equatable {
+        /// Finding the app to return to.
+        case waiting
+        /// Sent back to this app.
+        case returning(HostApp)
+        /// The user goes back themselves.
+        case manual
+    }
+
     let session: DictationSession
+    let returnState: ReturnState
     let dismiss: () -> Void
+
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 28) {
@@ -57,13 +70,22 @@ struct ListeningView: View {
             Spacer()
 
             VStack(spacing: 12) {
+                if case .returning(let app) = returnState, session.phase == .recording {
+                    Button {
+                        openURL(app.url)
+                    } label: {
+                        Text("Back to \(app.name)").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
                 if session.phase == .recording {
                     Button {
                         Task { await session.stopRecording() }
                     } label: {
                         Text("Stop Here").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .controlSize(.large)
                 }
                 Button("Close", action: dismiss)
@@ -85,11 +107,16 @@ struct ListeningView: View {
     private var message: String {
         switch session.phase {
         case .recording:
-            "Go back to the app you were typing in: tap ◀ at the top left. Keep talking, then tap Done on the keyboard."
+            switch returnState {
+            case .waiting, .returning:
+                "Taking you back. Keep talking, then tap Done on the keyboard."
+            case .manual:
+                "Swipe right along the bottom edge to go back to the app you were typing in. Keep talking, then tap Done on the keyboard."
+            }
         case .transcribing:
             "The text will appear in the app you were typing in."
         case .idle:
-            "Tap the microphone on the JustScribe keyboard to dictate. It stays ready for \(session.idleTimeoutMinutes) minutes."
+            "Tap the microphone on the JustScribe keyboard to dictate. The microphone stays ready until you end the session."
         }
     }
 }

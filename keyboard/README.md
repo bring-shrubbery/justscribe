@@ -57,6 +57,14 @@ Every push to `main` or `keyboard` that touches `keyboard/` (and any manual run 
 From a Mac: `cd keyboard && bundle exec fastlane beta`, with `ASC_API_KEY_PATH` and
 `IOS_DISTRIBUTION_P12_PATH` pointing to the files instead of the base64 secrets.
 
+## Typing
+
+`Keyboard/TextCheckerAutocompleteService` feeds `SuggestionRanker` (in `Shared/`, unit tested):
+the system spell checker for corrections, and `Keyboard/Resources/words-en.txt` (40,000 words
+by frequency, CC BY-SA 4.0, see its NOTICE) for completions and for ranking, since the spell
+checker gives a keyboard extension no completions. A correction is applied on space only when
+the word is one typo away; text replacements from Settings and contractions ("dont") win.
+
 ## Layout
 
 | Folder          | What                                                                                  |
@@ -78,18 +86,21 @@ way Wispr Flow does:
 
 1. The user taps the microphone on the keyboard. With no live session, the keyboard opens
    `justscribe://dictate` (through the responder chain: `UrlOpener` in KeyboardCore).
-2. The app opens, starts its audio session and microphone, and starts recording at once. It shows
-   "Go back to the app you were typing in": the user taps ◀ in the status bar. There is no public
-   API to switch back for them.
+2. The app opens, starts its audio session and microphone, and starts recording at once. Then
+   it sends the user back: `HostAppObserver` learns which app the keyboard was in from UIKit's
+   `_UIRemoteKeyboards.currentState.sourceBundleIdentifier` (not API; keyboards have not been
+   told their host since iOS 26.4) and `HostAppCatalog` reopens it by URL scheme. For an app
+   that is not in the catalog, or if UIKit stops providing the value, the screen asks the user
+   to swipe right along the bottom edge.
 3. The app keeps running in the background, recording, because of the `audio` background mode.
    The orange dot shows. The keyboard (re-created when the user came back) reads the session's
    phase from the App Group and shows the recording bar: cancel, level, timer, done.
 4. Done sends a Darwin notification; the app finishes the transcription, writes the text to the
    App Group and posts back; the keyboard inserts it once (`DictationBridge.pendingResult`), with
    a space before it when needed (`TextSpacing`).
-5. The session stays live for a few minutes (`Stays ready for`, default 5) with the microphone
-   open, so later dictations start straight from the keyboard with no app switch. After that the
-   app closes the microphone and the next tap opens the app again.
+5. The session stays live until the user ends it in the app, with the microphone open, so later
+   dictations start straight from the keyboard with no app switch. A phone call pauses it and it
+   resumes afterwards; if iOS refuses, the next tap opens the app again.
 
 The keyboard needs **Full Access** for the App Group; without it the microphone explains what to
 turn on. Nothing leaves the phone either way.
@@ -103,9 +114,9 @@ the user speaks, so the text is nearly ready when they stop.
 **It is feasible.** Every part of the flow uses mechanisms other dictation keyboards ship with
 on the App Store today. The trade-offs come from iOS, not from this code:
 
-- **One app switch per session.** The first dictation after a while always goes through the app
-  and back. This is the main friction, and it is unavoidable: Wispr Flow has it too. A longer
-  "stays ready" time reduces it, at the cost of the microphone indicator staying on.
+- **One app switch per session.** The first dictation after a restart goes through the app and
+  back, automatically for apps in the catalog. It is unavoidable: Wispr Flow has it too. The
+  session then stays on until ended, with the microphone indicator showing.
 - **Opening the app from the keyboard is not public API.** The responder-chain call works on
   iOS 26/27 and keyboards that do it pass review, but Apple could break it in any release.
 - **App Review.** Background audio used to keep a microphone open, and Full Access, both draw

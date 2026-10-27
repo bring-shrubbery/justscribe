@@ -27,6 +27,11 @@ struct JustScribeApp: App {
 
     @State private var session = DictationSession.shared
     @State private var showsListening = false
+    @State private var returnState = ListeningView.ReturnState.waiting
+
+    init() {
+        HostAppObserver.shared.start()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -45,14 +50,37 @@ struct JustScribeApp: App {
     private var home: some View {
         HomeView(session: session)
             .fullScreenCover(isPresented: $showsListening) {
-                ListeningView(session: session) { showsListening = false }
+                ListeningView(session: session, returnState: returnState) { showsListening = false }
             }
             .onOpenURL { url in
                 guard url.scheme == DeepLink.scheme else { return }
                 if url.host() == DeepLink.dictate.host() {
-                    showsListening = true
-                    Task { await session.begin(recordNow: true) }
+                    dictateFromKeyboard()
                 }
             }
+    }
+
+    /// The keyboard opened the app to dictate: start recording, then send the user
+    /// back to the app they were typing in, which keeps recording in the background.
+    private func dictateFromKeyboard() {
+        // The host can be recorded a moment before the link arrives.
+        let opened = Date.now.addingTimeInterval(-5)
+        showsListening = true
+        returnState = .waiting
+        Task {
+            await session.begin(recordNow: true)
+            guard session.phase == .recording else {
+                returnState = .manual
+                return
+            }
+            guard let bundleID = await HostAppObserver.shared.host(since: opened, timeout: 2.5),
+                  let app = HostAppCatalog.app(forBundleID: bundleID)
+            else {
+                returnState = .manual
+                return
+            }
+            returnState = .returning(app)
+            await UIApplication.shared.open(app.url)
+        }
     }
 }

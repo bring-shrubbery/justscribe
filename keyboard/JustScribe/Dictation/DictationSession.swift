@@ -26,8 +26,8 @@ import UIKit
 
 /// The app's side of keyboard dictation. A session keeps the microphone open in
 /// the background (the orange dot shows) so the keyboard can start and stop
-/// recordings without bringing the app forward, and ends itself after
-/// `idleTimeout` without a recording.
+/// recordings without bringing the app forward. It runs until the user ends it;
+/// an interruption such as a phone call pauses it, and it resumes afterwards.
 @MainActor @Observable
 final class DictationSession {
 
@@ -47,22 +47,6 @@ final class DictationSession {
     private(set) var lastTranscript: String?
     private(set) var errorMessage: String?
 
-    static let idleTimeoutKey = "session.idleTimeoutMinutes"
-
-    /// Minutes the session stays live without a recording.
-    var idleTimeoutMinutes: Int {
-        get {
-            access(keyPath: \.idleTimeoutMinutes)
-            let stored = UserDefaults.standard.integer(forKey: Self.idleTimeoutKey)
-            return stored > 0 ? stored : 5
-        }
-        set {
-            withMutation(keyPath: \.idleTimeoutMinutes) {
-                UserDefaults.standard.set(newValue, forKey: Self.idleTimeoutKey)
-            }
-        }
-    }
-
     @ObservationIgnored private let bridge = DictationBridge()
     @ObservationIgnored private lazy var microphone = MicrophoneEngine { [bridge] level in
         bridge?.publish(level: level)
@@ -71,7 +55,6 @@ final class DictationSession {
     @ObservationIgnored private var configuration: SpeechRecognition.Configuration?
     @ObservationIgnored private var run: TranscriptionRun?
     @ObservationIgnored private var heartbeat: Timer?
-    @ObservationIgnored private var lastActivity = Date.now
     @ObservationIgnored private var observers: [DarwinNotificationObserver] = []
     @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
 
@@ -85,8 +68,14 @@ final class DictationSession {
             forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
         ) { notification in
             let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
-            guard raw == AVAudioSession.InterruptionType.began.rawValue else { return }
-            MainActor.assumeIsolated { DictationSession.shared.end() }
+            let began = raw == AVAudioSession.InterruptionType.began.rawValue
+            MainActor.assumeIsolated {
+                if began {
+                    DictationSession.shared.pauseForInterruption()
+                } else {
+                    DictationSession.shared.resumeAfterInterruption()
+                }
+            }
         }
         // A session never survives the app: anything left over is from a run that was killed.
         bridge?.publishHeartbeat(nil)
@@ -112,7 +101,6 @@ final class DictationSession {
     /// as soon as it is open: the keyboard opened the app to dictate.
     func begin(recordNow: Bool) async {
         errorMessage = nil
-        lastActivity = .now
         if !isLive {
             guard await AVAudioApplication.requestRecordPermission() else {
                 fail("JustScribe needs the microphone. Allow it in Settings.")
@@ -124,10 +112,7 @@ final class DictationSession {
                 return
             }
             do {
-                let audio = AVAudioSession.sharedInstance()
-                try audio.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .defaultToSpeaker])
-                try audio.setActive(true)
-                try microphone.start()
+                try openMicrophone()
             } catch {
                 fail("The microphone did not start: \(error.localizedDescription)")
                 return
@@ -153,11 +138,35 @@ final class DictationSession {
         bridge?.publishHeartbeat(nil)
     }
 
+    private func openMicrophone() throws {
+        let audio = AVAudioSession.sharedInstance()
+        try audio.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .defaultToSpeaker])
+        try audio.setActive(true)
+        try microphone.start()
+    }
+
+    // MARK: - Interruptions
+
+    /// A call or another app took the microphone: drop any recording, keep the session.
+    func pauseForInterruption() {
+        guard isLive else { return }
+        if run != nil { Task { await cancelRecording() } }
+    }
+
+    /// The interruption ended: reopen the microphone, or end the session if iOS refuses.
+    func resumeAfterInterruption() {
+        guard isLive else { return }
+        do {
+            try openMicrophone()
+        } catch {
+            end()
+        }
+    }
+
     // MARK: - Recording
 
     func startRecording() {
         guard isLive, let configuration, phase == .idle else { return }
-        lastActivity = .now
         do {
             let run = try TranscriptionRun(configuration: configuration, inputFormat: microphone.inputFormat)
             self.run = run
@@ -172,7 +181,6 @@ final class DictationSession {
         guard phase == .recording, let run else { return }
         microphone.route(to: nil)
         self.run = nil
-        lastActivity = .now
         setPhase(.transcribing)
         do {
             let text = try await run.finish()
@@ -182,7 +190,6 @@ final class DictationSession {
             fail("Transcription failed: \(error.localizedDescription)")
         }
         setPhase(.idle)
-        lastActivity = .now
     }
 
     func cancelRecording() async {
@@ -209,14 +216,8 @@ final class DictationSession {
     private func startHeartbeat() {
         heartbeat?.invalidate()
         bridge?.publishHeartbeat()
-        heartbeat = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            MainActor.assumeIsolated { DictationSession.shared.tick() }
+        heartbeat = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [bridge] _ in
+            bridge?.publishHeartbeat()
         }
-    }
-
-    private func tick() {
-        bridge?.publishHeartbeat()
-        let idle = Date.now.timeIntervalSince(lastActivity)
-        if phase == .idle, idle > TimeInterval(idleTimeoutMinutes * 60) { end() }
     }
 }

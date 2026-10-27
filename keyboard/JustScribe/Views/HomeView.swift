@@ -63,17 +63,13 @@ struct HomeView: View {
                     } else {
                         Button("Start Session") { Task { await session.begin(recordNow: false) } }
                     }
-                    Stepper("Stays ready for \(session.idleTimeoutMinutes) min",
-                            value: Binding(get: { session.idleTimeoutMinutes },
-                                           set: { session.idleTimeoutMinutes = $0 }),
-                            in: 1...60)
                     if let error = session.errorMessage {
                         Text(error).foregroundStyle(.red)
                     }
                 } header: {
                     Text("Dictation Session")
                 } footer: {
-                    Text("While a session is live the microphone stays open in the background, so the keyboard can record without opening this app. The orange dot shows it.")
+                    Text("While a session is live the microphone stays open in the background, so the keyboard records without opening this app. It stays on until you end it here; the orange dot shows it.")
                 }
 
                 Section {
