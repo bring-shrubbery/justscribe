@@ -141,12 +141,7 @@ final class MLXGrammarBackend: GrammarBackend {
             generateParameters: GenerateParameters(maxTokens: 2048, temperature: 0.1)
         )
 
-        let prompt: String
-        if let language, !language.isEmpty, language != "en" {
-            prompt = "Language: \(language). Text: \(text)"
-        } else {
-            prompt = text
-        }
+        let prompt = GrammarPrompt.transcript(text, language: language)
 
         let corrected = try await withGrammarTimeout(Self.requestTimeout) {
             try await session.respond(to: prompt)

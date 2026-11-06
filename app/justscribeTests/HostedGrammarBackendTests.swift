@@ -71,7 +71,7 @@ final class HostedGrammarBackendTests {
         let body = json(request)
         #expect(body["model"] as? String == "llama-3.3-70b-versatile")
         let messages = body["messages"] as? [[String: String]]
-        #expect(messages == [["role": "system", "content": "Fix it."], ["role": "user", "content": "hello world"]])
+        #expect(messages == [["role": "system", "content": "Fix it."], ["role": "user", "content": GrammarPrompt.transcript("hello world")]])
         #expect(body["temperature"] == nil, "some models reject a temperature; none is sent")
     }
 
@@ -86,7 +86,7 @@ final class HostedGrammarBackendTests {
         #expect(body["model"] as? String == "claude-opus-5")
         #expect(body["system"] as? String == "Fix it.")
         #expect(body["max_tokens"] as? Int == HostedRequest.maxOutputTokens)
-        #expect(body["messages"] as? [[String: String]] == [["role": "user", "content": "hello"]])
+        #expect(body["messages"] as? [[String: String]] == [["role": "user", "content": GrammarPrompt.transcript("hello")]])
     }
 
     @Test func theSystemPromptFramesTheInstructionsAndNamesANonEnglishLanguage() {

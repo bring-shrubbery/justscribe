@@ -80,6 +80,20 @@ struct DictationPipelineTests {
         #expect(await p1.process("keep me", context: context(cleanUp: false)).cleanUpFailed == false)
     }
 
+    @Test func intentionalFillerRemovalDoesNotRestoreTheOriginalOrInsertTheMarker() async {
+        let fake = FakeCleanUp()
+        fake.result = "  \(GrammarPrompt.emptyTranscript)\n"
+        let pipeline = DictationPipeline(cleanUp: fake.run, isDictionaryWord: { _ in true })
+        let result = await pipeline.process("Um, uh...", context: context())
+        #expect(result.text.isEmpty)
+        #expect(!result.cleanUpFailed)
+        #expect(await pipeline.process("Um", context: context(cleanUp: false)).text == "Um")
+        #expect(await pipeline.process("Um", context: context(modeCleanUp: false)).text == "Um")
+        let withCommand = await pipeline.process("Um. New line. Send", context: context())
+        #expect(withCommand.text == "\n")
+        #expect(withCommand.actions == [.stopRecording, .pressReturn])
+    }
+
     @Test func actionsPassThroughAndNothingIsCleanedWhenEmpty() async {
         let fake = FakeCleanUp()
         let pipeline = DictationPipeline(cleanUp: fake.run, isDictionaryWord: { _ in true })

@@ -229,7 +229,7 @@ nonisolated struct CLIInvocation: Equatable, Sendable {
             environment["CLAUDE_CONFIG_DIR"] = "\(home)/.claude"
             environment["CLAUDE_CODE_TMPDIR"] = tmp
             var arguments = [
-                "-p", text, "--system-prompt", system, "--output-format", "text",
+                "-p", GrammarPrompt.transcript(text), "--system-prompt", system, "--output-format", "text",
                 "--no-session-persistence", "--tools", "",
             ]
             if !modelName.isEmpty { arguments += ["--model", modelName] }
@@ -245,7 +245,7 @@ nonisolated struct CLIInvocation: Equatable, Sendable {
                 "--cd", tmp, "--output-last-message", output,
             ]
             if !modelName.isEmpty { arguments += ["--model", modelName] }
-            arguments.append(system + "\n\n" + text)
+            arguments.append(system + "\n\n" + GrammarPrompt.transcript(text))
             return CLIInvocation(executable: executable, arguments: arguments, environment: environment, outputFile: output)
         }
     }

@@ -66,7 +66,10 @@ final class DictationPipeline {
             let trailing = String(text.reversed().prefix(while: { $0 == "\n" }))
             do {
                 var cleaned = try await cleanUp(text, context.mode.effectiveInstructions, context.language)
-                if !cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if cleaned.trimmingCharacters(in: .whitespacesAndNewlines) == GrammarPrompt.emptyTranscript,
+                   text.trimmingCharacters(in: .whitespacesAndNewlines) != GrammarPrompt.emptyTranscript {
+                    text = trailing
+                } else if !cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     if !trailing.isEmpty && !cleaned.hasSuffix("\n") { cleaned += trailing }
                     text = cleaned
                 }

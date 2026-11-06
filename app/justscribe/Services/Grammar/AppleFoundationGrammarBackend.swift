@@ -138,7 +138,8 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
         if timedOut {
             print("Grammar correction exceeded its overall budget; remaining text left uncorrected")
         }
-        return corrected.joined()
+        let joined = corrected.joined()
+        return joined.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? GrammarPrompt.emptyTranscript : joined
     }
 
     // MARK: - Private
@@ -148,12 +149,7 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
     }
 
     private func correctOne(_ text: String, instructions: String, language: String?) async throws -> String {
-        let prompt: String
-        if let language, !language.isEmpty, language != "en" {
-            prompt = "Language: \(language). Text: \(text)"
-        } else {
-            prompt = text
-        }
+        let prompt = GrammarPrompt.transcript(text, language: language)
 
         // A fresh session per request keeps context from accumulating across dictations.
         // The first request after prepare() reuses the prewarmed session when it asks for
@@ -178,9 +174,13 @@ final class AppleFoundationGrammarBackend: GrammarBackend {
     /// Restore the whitespace trimmed off a chunk before generation, so rejoining
     /// the corrected chunks reproduces the original spacing.
     nonisolated static func reapplyPadding(from original: String, to corrected: String) -> String {
+        // A missing response is not an intentional deletion.
+        guard !corrected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return original }
         let leading = original.prefix { $0.isWhitespace }
         let trailing = String(original.reversed().prefix { $0.isWhitespace }.reversed())
-        return String(leading) + corrected + trailing
+        let content = corrected == GrammarPrompt.emptyTranscript && original.trimmingCharacters(in: .whitespacesAndNewlines) != GrammarPrompt.emptyTranscript
+            ? "" : corrected
+        return String(leading) + content + trailing
     }
 }
 

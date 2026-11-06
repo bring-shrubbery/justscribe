@@ -23,6 +23,13 @@ import Testing
 
 struct GrammarTextChunkerTests {
 
+    @Test func fillerOnlyChunksDoNotLeakTheEmptyMarkerIntoLongDictations() {
+        let first = AppleFoundationGrammarBackend.reapplyPadding(from: "Um.\n", to: GrammarPrompt.emptyTranscript)
+        let second = AppleFoundationGrammarBackend.reapplyPadding(from: "keep this", to: "Keep this.")
+        #expect(first + second == "\nKeep this.")
+        #expect(AppleFoundationGrammarBackend.reapplyPadding(from: "Keep this. ", to: "") == "Keep this. ")
+    }
+
     @Test func emptyTextYieldsNoChunks() {
         #expect(GrammarTextChunker.chunks("").isEmpty)
     }

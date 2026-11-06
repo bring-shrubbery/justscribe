@@ -151,7 +151,7 @@ nonisolated enum HostedRequest {
                 "model": model,
                 "messages": [
                     ["role": "system", "content": system],
-                    ["role": "user", "content": text],
+                    ["role": "user", "content": GrammarPrompt.transcript(text)],
                 ],
             ]
         case .anthropicMessages:
@@ -161,7 +161,7 @@ nonisolated enum HostedRequest {
                 "model": model,
                 "max_tokens": maxOutputTokens,
                 "system": system,
-                "messages": [["role": "user", "content": text]],
+                "messages": [["role": "user", "content": GrammarPrompt.transcript(text)]],
             ]
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

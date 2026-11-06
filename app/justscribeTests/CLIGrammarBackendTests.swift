@@ -104,7 +104,7 @@ final class CLIGrammarBackendTests {
             home: "/Users/someone", tmp: "/tmp/container")
         #expect(call.executable == "/Users/someone/.local/bin/claude")
         #expect(call.arguments == [
-            "-p", "hello world", "--system-prompt", "Fix it.", "--output-format", "text",
+            "-p", GrammarPrompt.transcript("hello world"), "--system-prompt", "Fix it.", "--output-format", "text",
             "--no-session-persistence", "--tools", "", "--model", "sonnet",
         ])
         #expect(call.environment["CLAUDE_CONFIG_DIR"] == "/Users/someone/.claude")
@@ -124,14 +124,14 @@ final class CLIGrammarBackendTests {
         #expect(call.arguments == [
             "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--ephemeral",
             "--cd", "/tmp/container", "--output-last-message", "/tmp/container/justscribe-codex-abc.txt",
-            "Fix it.\n\nhello world",
+            "Fix it.\n\n" + GrammarPrompt.transcript("hello world"),
         ])
         #expect(call.environment["CODEX_HOME"] == "/Users/someone/.codex")
         #expect(call.environment["TMPDIR"] == "/tmp/container")
         #expect(call.outputFile == "/tmp/container/justscribe-codex-abc.txt")
         let withModel = CLIInvocation.make(agent: .codex, executable: "/x/codex", model: "gpt-5", system: "s", text: "t", home: "/h", tmp: "/t")
         #expect(withModel.arguments.contains("--model") && withModel.arguments.contains("gpt-5"))
-        #expect(withModel.arguments.last == "s\n\nt")
+        #expect(withModel.arguments.last == "s\n\n" + GrammarPrompt.transcript("t"))
     }
 
     // MARK: - The backend
@@ -143,7 +143,7 @@ final class CLIGrammarBackendTests {
         let out = try await backend.correct("hello world", instructions: "Fix it.", language: nil)
         #expect(out == "Hello, world.")
         #expect(runs.count == 1)
-        #expect(runs[0].arguments.prefix(2) == ["-p", "hello world"])
+        #expect(runs[0].arguments.prefix(2) == ["-p", GrammarPrompt.transcript("hello world")])
         #expect(runs[0].arguments[3] == HostedRequest.system(instructions: "Fix it.", language: nil))
     }
 
